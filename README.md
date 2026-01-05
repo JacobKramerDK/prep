@@ -1,184 +1,217 @@
-# Dynamous Kiro Hackathon Quickstart Template
+# Prep - Meeting Assistant
 
-🚀 **Your starting point for the Dynamous and Kiro Hackathon** - A comprehensive template with pre-configured Kiro CLI setup, development workflows, and submission guidelines.
+🚀 **Desktop meeting preparation assistant that connects to Obsidian vaults and calendars** - Built with Electron, React 19, and TypeScript for the Dynamous Kiro Hackathon.
 
-> **📖 New to Kiro?** Check out [kiro-guide.md](kiro-guide.md) to quickly get accustomed to how Kiro works and understand its unique features for the hackathon.
+## About This Project
 
-## About the Hackathon
+**Prep** transforms how knowledge workers approach meetings by automatically surfacing relevant context from Obsidian vaults and generating AI-powered meeting briefs. No more scrambling before meetings - walk in prepared with full context.
 
-The **Kiro Hackathon** is a coding competition where developers build real-world applications using the Kiro CLI. Show off your AI-powered development skills and compete for **$17,000 in prizes**.
+### Key Features
+- **Obsidian Vault Integration**: Direct connection to existing markdown note systems
+- **Calendar Parsing**: Automatic meeting detection and context association  
+- **AI-Powered Meeting Briefs**: Comprehensive preparation summaries using OpenAI
+- **Audio Transcription**: Post-meeting summary generation using Whisper
+- **Cross-Platform**: Native desktop experience on macOS and Windows
 
-- **📅 Dates**: January 5-23, 2026
-- **💰 Prize Pool**: $17,000 across 10 winners
-- **🎯 Theme**: Open - build anything that solves a real problem
-- **🔗 More Info**: [dynamous.ai/kiro-hackathon](https://dynamous.ai/kiro-hackathon)
+## Prerequisites
 
-## What's Included
-
-This template provides everything you need to get started:
-
-- **📋 Steering Documents**: Pre-configured project templates (product.md, tech.md, structure.md)
-- **⚡ Custom Prompts**: 11 powerful development workflow prompts
-- **📖 Examples**: Sample README and DEVLOG showing best practices
-- **🏆 Hackathon Tools**: Specialized code review prompt for submission evaluation
+- **Node.js**: v18+ (for Electron compatibility)
+- **npm**: Latest version
+- **Operating System**: macOS or Windows
 
 ## Quick Start
 
-### 1. Clone This Template
+### 1. Clone and Install
 ```bash
-git clone https://github.com/coleam00/dynamous-kiro-hackathon
-cd dynamous-kiro-hackathon
+git clone <repository-url>
+cd prep
+npm install
 ```
 
-### 2. Run the Setup Wizard
+### 2. Development Mode
 ```bash
-@quickstart
+# Start both renderer and main processes
+npm run dev
+
+# Or start individually:
+npm run dev:renderer  # Vite dev server on http://localhost:5173
+npm run dev:main      # Electron main process
 ```
 
-This assumes you already have Kiro CLI installed and that you started with the `kiro-cli` command in your terminal.
+### 3. Build for Production
+```bash
+# Build all processes
+npm run build
 
-This interactive wizard will:
-- ✅ Fill out your steering documents with project details
-- ✅ Configure your development workflow
-- ✅ Set up Kiro CLI for your specific project
-- ✅ Explain all available prompts and features
+# Package for distribution
+npm run package
+```
 
-### 3. Start Building
-Your project is now configured! Use these core prompts:
-- **`@prime`** - Load project context
-- **`@plan-feature`** - Plan new features
-- **`@execute`** - Implement plans systematically
-- **`@code-review`** - Review code quality
+## Architecture Overview
 
-**Note:** Your typical workflow will be `@prime` → `@plan-feature` → `@execute` → `@code-review`, but feel free to change it however you want. These commands may require additional details (like what feature to plan or which plan file to execute), but Kiro will ask for these parameters after you invoke the command.
+### Technology Stack
+- **Frontend**: React 19 with TypeScript
+- **Backend**: Node.js with TypeScript (Electron main process)
+- **Desktop Framework**: Electron with security best practices
+- **Build System**: Vite for renderer, TypeScript compiler for main process
+- **Testing**: Playwright for e2e testing
 
-## Development Workflow (Customize this However You Want!)
+### Project Structure
+```
+prep/
+├── src/
+│   ├── main/                 # Electron main process
+│   │   ├── index.ts         # Main entry point
+│   │   └── preload.ts       # Secure IPC preload script
+│   ├── renderer/            # React frontend
+│   │   ├── index.tsx        # React entry point
+│   │   ├── App.tsx          # Main React component
+│   │   └── index.html       # HTML template
+│   └── shared/              # Shared types and utilities
+│       └── types/           # TypeScript type definitions
+├── dist/                    # Compiled output
+├── out/                     # Packaged applications
+└── e2e-tests/              # End-to-end tests
+```
 
-### Initial Setup (One-Time)
-1. **Complete setup**: Run `@quickstart` to configure your project
+### Security Features
+- **Context Isolation**: Enabled for all renderer processes
+- **No Node Integration**: Renderer processes cannot access Node.js APIs directly
+- **Secure IPC**: All communication through validated preload scripts
+- **CSP Headers**: Content Security Policy for additional protection
 
-### Core Development Cycle (Every Feature/Session)
+## Development Workflow
 
-### Phase 1: Setup & Planning
-1. **Load context**: Use `@prime` to understand your codebase
-2. **Plan features**: Use `@plan-feature` for comprehensive planning
+### Available Scripts
+```bash
+npm run dev              # Start development mode (both processes)
+npm run dev:renderer     # Start Vite dev server only
+npm run dev:main         # Build and run main process only
+npm run build            # Build both processes for production
+npm run build:renderer   # Build renderer process only
+npm run build:main       # Build main process only
+npm run package          # Package application for distribution
+npm run test:e2e         # Run Playwright e2e tests
+```
 
-### Phase 2: Build & Iterate
-1. **Implement**: Use `@execute` to build features systematically
-2. **Review**: Use `@code-review` to maintain code quality
-3. **Document**: Update your DEVLOG.md as you work
-4. **Optimize**: Customize your `.kiro/` configuration for your workflow
+### TypeScript Configuration
+The project uses TypeScript project references for optimal build performance:
+- **Root config**: Coordinates main and renderer builds
+- **Main process**: CommonJS modules for Node.js compatibility
+- **Renderer process**: ESNext modules for modern browser features
 
-### Phase 3: Submission Preparation
-1. **Final review**: Run `@code-review-hackathon` for submission evaluation
-2. **Polish documentation**: Ensure README.md and DEVLOG.md are complete
-3. **Verify requirements**: Check all submission criteria are met
+### Hot Reload
+- **Renderer**: Automatic hot reload via Vite
+- **Main process**: Manual restart required after changes
 
-## Submission Requirements
+## Testing
 
-Your submission will be judged on these criteria (100 points total):
+### End-to-End Testing
+```bash
+# Run all e2e tests
+npm run test:e2e
 
-### Application Quality (40 points)
-- **Functionality & Completeness** (15 pts): Does it work as intended?
-- **Real-World Value** (15 pts): Does it solve a genuine problem?
-- **Code Quality** (10 pts): Is the code well-structured and maintainable?
+# Install Playwright browsers (first time only)
+npx playwright install
+```
 
-### Kiro CLI Usage (20 points)
-- **Effective Use of Features** (10 pts): How well did you leverage Kiro CLI?
-- **Custom Commands Quality** (7 pts): Quality of your custom prompts
-- **Workflow Innovation** (3 pts): Creative use of Kiro CLI features
+The test suite validates:
+- Application startup and window creation
+- Basic IPC communication
+- Build output structure
+- Package configuration
 
-### Documentation (20 points)
-- **Completeness** (9 pts): All required documentation present
-- **Clarity** (7 pts): Easy to understand and follow
-- **Process Transparency** (4 pts): Clear development process documentation
+## Building and Distribution
 
-### Innovation (15 points)
-- **Uniqueness** (8 pts): Original approach or solution
-- **Creative Problem-Solving** (7 pts): Novel technical solutions
+### Development Build
+```bash
+npm run build
+```
 
-### Presentation (5 points)
-- **Demo Video** (3 pts): Clear demonstration of your project
-- **README** (2 pts): Professional project overview
+### Package for Distribution
+```bash
+npm run package
+```
 
-## Required Documentation
+Creates platform-specific installers in the `out/` directory:
+- **macOS**: `.dmg` installer (supports both Intel and Apple Silicon)
+- **Windows**: `.exe` NSIS installer
+- **Linux**: `.AppImage` portable application
 
-Ensure these files are complete and high-quality:
+### Cross-Platform Builds
+The electron-builder configuration supports:
+- **macOS**: Universal binaries (x64 + arm64)
+- **Windows**: x64 architecture
+- **Linux**: x64 AppImage format
 
-### README.md
-- Clear project description and value proposition
-- Prerequisites and setup instructions
-- Architecture overview and key components
-- Usage examples and troubleshooting
+## Troubleshooting
 
-*There's a lot of freedom for how you can structure this. Just make sure that it's easy for someone viewing this to know exactly what your project is about and how to run it themselves. This is the main criteria that explains the project clearly and how to test it in a local environment.*
+### Common Issues
 
-### DEVLOG.md
-- Development timeline with key milestones
-- Technical decisions and rationale
-- Challenges faced and solutions implemented
-- Time tracking and Kiro CLI usage statistics
+**Build Failures**
+```bash
+# Clear build cache and reinstall
+rm -rf node_modules dist out
+npm install
+npm run build
+```
 
-*There's a lot of freedom in how you structure this too. It's up to you how you want to document your timeline, milestones, decisions made, challenges you encounter, and all those kinds of things. Feel free to use Kiro to help you maintain your devlog as you're working on the project. Hint: create a Kiro prompt to help you update your log based on what's happening.*
+**Electron Won't Start**
+```bash
+# Ensure main process is built
+npm run build:main
+# Check for TypeScript errors
+npx tsc -p tsconfig.main.json --noEmit
+```
 
-### .kiro/ Directory
-- **Steering documents**: Customized for your project
-- **Custom prompts**: Workflow-specific commands
-- **Configuration**: Optimized for your development process
+**Vite Dev Server Issues**
+```bash
+# Restart Vite dev server
+npm run dev:renderer
+# Check port 5173 is available
+```
 
-*This template provides a good starting point with prompts, and the wizard helps you set up your initial steering documents. However, it's encouraged for you to continue to customize things and refine it as you're working on your project.*
+**IPC Communication Errors**
+- Verify preload script is loaded correctly
+- Check contextBridge API exposure
+- Ensure main process IPC handlers are registered
 
-## Available Prompts
+### Performance Optimization
+- Use `npm run build` for production builds (includes optimizations)
+- Enable source maps for debugging: already configured
+- Monitor memory usage in development tools
 
-This template includes 11 powerful development prompts:
+## Contributing
 
-### Core Development
-- **`@prime`** - Load comprehensive project context
-- **`@plan-feature`** - Create detailed implementation plans
-- **`@execute`** - Execute plans with systematic task management
-- **`@quickstart`** - Interactive project setup wizard
+### Code Standards
+- **TypeScript**: Strict mode enabled, explicit return types
+- **React**: Functional components with hooks, proper prop typing
+- **File Naming**: kebab-case for files, PascalCase for React components
+- **Security**: Follow Electron security best practices
 
-### Quality Assurance
-- **`@code-review`** - Technical code review for quality and bugs
-- **`@code-review-hackathon`** - Hackathon submission evaluation
-- **`@code-review-fix`** - Fix issues found in code reviews
-- **`@system-review`** - Analyze implementation vs plan
+### Development Setup
+1. Fork and clone the repository
+2. Install dependencies: `npm install`
+3. Start development mode: `npm run dev`
+4. Make changes and test thoroughly
+5. Run e2e tests: `npm run test:e2e`
+6. Submit pull request with clear description
 
-### Documentation & Planning
-- **`@create-prd`** - Generate Product Requirements Documents
-- **`@execution-report`** - Generate implementation reports
-- **`@rca`** - Root cause analysis for issues
-- **`@implement-fix`** - Implement fixes based on analysis
+## License
 
-## Examples
-
-Check the `examples/` folder for:
-- **README.md**: Professional project documentation example
-- **DEVLOG.md**: Comprehensive development log example
-
-These examples show the level of detail and professionalism expected for hackathon submissions.
-
-## Tips for Success
-
-### Maximize Your Score
-1. **Use Kiro CLI extensively** - It's 20% of your score
-2. **Document everything** - Process documentation is 20% of your score
-3. **Build something useful** - Real-world value is heavily weighted
-4. **Optimize your workflow** - Custom prompts and steering documents matter
-
-### Development Best Practices
-- **Start with `@quickstart`** to set up your foundation properly
-- **Use `@prime`** at the start of every new conversation to quickly catch the coding assistant up to speed on what has been built in the project already
-- **Update your DEVLOG.md** continuously, not just at the end
-- **Customize your `.kiro/` configuration** as you learn your workflow
-- **Run `@code-review-hackathon`** periodically to compare your project against the judging rubric and before submitting
-
-## Getting Help
-
-- **Kiro CLI Documentation**: [kiro.dev/docs/cli](https://kiro.dev/docs/cli)
-- **Hackathon Community**: Join the Dynamous community for support
-- **Built-in Help**: Use `/help` in Kiro CLI for command assistance
+MIT License - see LICENSE file for details.
 
 ---
 
-**Ready to build something amazing?** Run `@quickstart` and let's get started! 🚀
+## Hackathon Context
+
+This project was built for the **Dynamous Kiro Hackathon** (January 5-23, 2026) using Kiro CLI for AI-assisted development. The scaffolding demonstrates modern Electron application architecture with security best practices, TypeScript project references, and comprehensive testing infrastructure.
+
+### Development Timeline
+- **Phase 1**: Electron application scaffolding ✅
+- **Phase 2**: Obsidian vault integration (planned)
+- **Phase 3**: Calendar parsing functionality (planned)  
+- **Phase 4**: AI meeting brief generation (planned)
+- **Phase 5**: Audio transcription features (planned)
+
+**Ready to build something amazing?** The foundation is set - time to implement the core meeting preparation features! 🚀

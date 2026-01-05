@@ -1,25 +1,74 @@
 # Technical Architecture
 
 ## Technology Stack
-[List your main technologies, frameworks, and tools]
+- **Frontend**: React with TypeScript, Tailwind CSS for styling
+- **Backend**: Node.js with TypeScript for main process logic
+- **Desktop Framework**: Electron for cross-platform desktop application
+- **Data Storage**: electron-store for local settings and preferences persistence
+- **Calendar Integration**: node-ical for parsing ICS calendar files
+- **AI Services**: OpenAI API for meeting brief generation, Whisper API for audio transcription
+- **Build System**: electron-builder for packaging and distribution
+- **Development Tools**: TypeScript, ESLint, Prettier for code quality
 
 ## Architecture Overview
-[High-level system architecture and components]
+**Electron Multi-Process Architecture**:
+- **Main Process**: Handles file system operations (Obsidian vault reading, calendar parsing), API calls to OpenAI/Whisper, and application lifecycle
+- **Renderer Process**: React application providing the user interface with Tailwind CSS styling
+- **IPC Communication**: Secure communication between main and renderer processes for data exchange
+
+**Core Components**:
+- **Vault Manager**: Indexes and searches Obsidian markdown files
+- **Calendar Parser**: Processes ICS files to extract meeting information
+- **Context Engine**: Matches meeting participants/topics with relevant vault content
+- **AI Brief Generator**: Creates meeting preparation documents using OpenAI
+- **Audio Processor**: Handles post-meeting transcription via Whisper API
+- **Settings Manager**: Persists user preferences and vault/calendar configurations
 
 ## Development Environment
-[Required tools, versions, and setup instructions]
+- **Node.js**: v18+ for modern JavaScript features and Electron compatibility
+- **Package Manager**: npm or yarn for dependency management
+- **TypeScript**: v5+ for type safety across main and renderer processes
+- **Electron**: Latest stable version for desktop framework
+- **React**: v18+ with hooks and modern patterns
+- **Development Server**: Hot reload for renderer process, nodemon for main process
+- **IDE Setup**: VS Code with TypeScript, React, and Electron extensions
 
 ## Code Standards
-[Coding conventions, style guides, and best practices]
+- **TypeScript**: Strict mode enabled, explicit return types for functions
+- **React**: Functional components with hooks, proper prop typing
+- **File Naming**: kebab-case for files, PascalCase for React components
+- **Import Organization**: External libraries first, then internal modules
+- **Error Handling**: Proper try-catch blocks, user-friendly error messages
+- **Documentation**: JSDoc comments for complex functions and APIs
 
 ## Testing Strategy
-[Testing approaches, frameworks, and coverage requirements]
+- **Unit Testing**: Jest for utility functions and business logic
+- **Component Testing**: React Testing Library for UI components
+- **Integration Testing**: Test main-renderer IPC communication
+- **E2E Testing**: Playwright for full application workflows (configured via MCP server)
+- **API Testing**: Mock OpenAI/Whisper responses for offline testing
+- **Performance Testing**: Large vault handling and search performance benchmarks
 
 ## Deployment Process
-[How code gets from development to production]
+- **Build Pipeline**: TypeScript compilation, React bundling, Electron packaging
+- **Cross-Platform Builds**: electron-builder for macOS (.dmg) and Windows (.exe) installers
+- **Code Signing**: Platform-specific signing for security and distribution
+- **Auto-Updates**: electron-updater for seamless application updates
+- **Release Management**: GitHub releases with automated build artifacts
+- **Distribution**: Direct download and potential Mac App Store/Microsoft Store
 
 ## Performance Requirements
-[Speed, scalability, and resource constraints]
+- **Vault Indexing**: Handle 1000+ markdown files with initial indexing under 10 seconds
+- **Search Performance**: Sub-3-second context retrieval from large vaults
+- **Memory Usage**: Efficient file caching, avoid loading entire vault into memory
+- **Startup Time**: Application launch under 5 seconds on modern hardware
+- **Offline Performance**: Full vault browsing and calendar viewing without internet
+- **Cross-Platform**: Consistent performance on macOS and Windows systems
 
 ## Security Considerations
-[Security practices, authentication, and data protection]
+- **API Key Management**: Secure storage of OpenAI API keys using electron-store encryption
+- **File System Access**: Sandboxed access to user-selected Obsidian vaults only
+- **Network Security**: HTTPS-only API communications, certificate validation
+- **Data Privacy**: No user data sent to external services except OpenAI for processing
+- **Local Storage**: Encrypted storage of sensitive settings and preferences
+- **Update Security**: Signed updates and secure update channels
