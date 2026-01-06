@@ -1,23 +1,31 @@
 import React, { useState } from 'react'
 import { VaultSelector } from './VaultSelector'
 import { FileList } from './FileList'
+import { MarkdownRenderer } from './MarkdownRenderer'
 import type { VaultIndex, VaultFile } from '../../shared/types/vault'
 
-export const VaultBrowser: React.FC = () => {
+interface VaultBrowserProps {
+  onBackToHome?: () => void
+}
+
+export const VaultBrowser: React.FC<VaultBrowserProps> = ({ onBackToHome }) => {
   const [vaultIndex, setVaultIndex] = useState<VaultIndex | null>(null)
   const [selectedFile, setSelectedFile] = useState<VaultFile | null>(null)
   const [fileContent, setFileContent] = useState<string>('')
   const [loadingContent, setLoadingContent] = useState(false)
+  const [fileError, setFileError] = useState<string | null>(null)
 
   const handleVaultSelected = (index: VaultIndex) => {
     setVaultIndex(index)
     setSelectedFile(null)
     setFileContent('')
+    setFileError(null)
   }
 
   const handleFileSelect = async (file: VaultFile) => {
     setSelectedFile(file)
     setLoadingContent(true)
+    setFileError(null)
     
     try {
       const content = await window.electronAPI.readFile(file.path)
@@ -38,7 +46,8 @@ export const VaultBrowser: React.FC = () => {
         }
       }
       
-      setFileContent(errorMessage)
+      setFileError(errorMessage)
+      setFileContent('')
     } finally {
       setLoadingContent(false)
     }
@@ -48,6 +57,7 @@ export const VaultBrowser: React.FC = () => {
     setVaultIndex(null)
     setSelectedFile(null)
     setFileContent('')
+    setFileError(null)
   }
 
   if (!vaultIndex) {
@@ -73,6 +83,23 @@ export const VaultBrowser: React.FC = () => {
           borderBottom: '1px solid #e2e8f0',
           backgroundColor: 'white'
         }}>
+          {onBackToHome && (
+            <button
+              onClick={onBackToHome}
+              style={{
+                padding: '8px 16px',
+                fontSize: '14px',
+                backgroundColor: '#f1f5f9',
+                color: '#475569',
+                border: '1px solid #cbd5e1',
+                borderRadius: '6px',
+                cursor: 'pointer',
+                marginBottom: '12px'
+              }}
+            >
+              ← Back to Home
+            </button>
+          )}
           <h3 style={{ 
             margin: '0 0 8px',
             fontSize: '1.1rem',
@@ -165,21 +192,20 @@ export const VaultBrowser: React.FC = () => {
                 }}>
                   Loading file content...
                 </div>
-              ) : (
-                <pre style={{ 
-                  whiteSpace: 'pre-wrap',
-                  fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Monaco, Consolas, monospace',
-                  fontSize: '14px',
-                  lineHeight: '1.6',
-                  color: '#374151',
-                  margin: 0,
-                  backgroundColor: 'white',
+              ) : fileError ? (
+                <div style={{ 
+                  backgroundColor: '#fef2f2',
+                  color: '#dc2626',
                   padding: '20px',
                   borderRadius: '6px',
-                  border: '1px solid #e5e7eb'
+                  border: '1px solid #fecaca'
                 }}>
+                  {fileError}
+                </div>
+              ) : (
+                <MarkdownRenderer>
                   {fileContent}
-                </pre>
+                </MarkdownRenderer>
               )}
             </div>
           </>

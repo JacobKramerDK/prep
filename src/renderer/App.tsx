@@ -33,7 +33,7 @@ const App: React.FC = () => {
   }
 
   if (showVault) {
-    return <VaultBrowser />
+    return <VaultBrowser onBackToHome={() => setShowVault(false)} />
   }
 
   if (showCalendar) {

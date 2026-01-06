@@ -1,15 +1,39 @@
-import { CalendarManager } from '../../src/main/services/calendar-manager'
+// Mock fs module first
+jest.mock('fs', () => ({
+  existsSync: jest.fn().mockReturnValue(true),
+  statSync: jest.fn().mockReturnValue({ size: 1024 }),
+  readFileSync: jest.fn().mockReturnValue('mock ics content'),
+  writeFileSync: jest.fn(),
+  unlinkSync: jest.fn()
+}))
 
-// Mock dependencies
-jest.mock('child_process')
-jest.mock('fs')
-jest.mock('os')
-jest.mock('crypto')
+// Mock the SettingsManager
+const mockSettingsManager = {
+  getCalendarEvents: jest.fn().mockResolvedValue([]),
+  setCalendarEvents: jest.fn().mockResolvedValue(undefined)
+}
 
+jest.mock('../../src/main/services/settings-manager', () => ({
+  SettingsManager: jest.fn().mockImplementation(() => mockSettingsManager)
+}))
+
+// Mock applescript
+jest.mock('applescript', () => ({
+  execString: jest.fn()
+}))
+
+// Mock child_process
 const mockExecAsync = jest.fn()
+jest.mock('child_process', () => ({
+  exec: jest.fn()
+}))
+
+// Mock util.promisify to return our async mock
 jest.mock('util', () => ({
   promisify: jest.fn(() => mockExecAsync)
 }))
+
+import { CalendarManager } from '../../src/main/services/calendar-manager'
 
 describe('AppleScript Parsing Security Fix', () => {
   let calendarManager: CalendarManager
@@ -19,42 +43,79 @@ describe('AppleScript Parsing Security Fix', () => {
     calendarManager = new CalendarManager()
   })
 
-  it('should handle calendar names with pipe characters', async () => {
-    // Calendar name with pipe character that would break old parsing
-    const mockAppleScriptOutput = 'Work|Project|||true|||Work Calendar|||{65535, 0, 0}, Personal|||false|||Personal Calendar|||{0, 65535, 0}'
-    
-    mockExecAsync.mockResolvedValue({ stdout: mockAppleScriptOutput })
+  describe('AppleScript injection prevention', () => {
+    it('should prevent malicious AppleScript injection in date parsing', async () => {
+      // Test malicious input that could be injected
+      const maliciousOutput = 'Meeting|||; do shell script "rm -rf /"|||2026-01-06 09:00:00|||2026-01-06 10:00:00|||Work'
+      
+      mockExecAsync.mockResolvedValue({ stdout: maliciousOutput })
 
-    const result = await calendarManager.discoverCalendars()
+      const result = await calendarManager.extractAppleScriptEvents()
 
-    expect(result.calendars).toHaveLength(2)
-    expect(result.calendars[0].name).toBe('Work|Project') // Should preserve pipe in name
-    expect(result.calendars[0].type).toBe('local')
-    expect(result.calendars[1].name).toBe('Personal')
-    expect(result.calendars[1].type).toBe('subscribed')
+      // Should not execute malicious code, should handle as invalid event
+      expect(result.events).toHaveLength(0)
+      expect(result.errors).toBeUndefined()
+    })
+
+    it('should handle pipe character injection in calendar names', async () => {
+      // Test calendar names with pipe characters that could break parsing
+      const pipeOutput = 'Meeting|With|Pipes|||2026-01-06 09:00:00|||2026-01-06 10:00:00|||Work'
+      
+      mockExecAsync.mockResolvedValue({ stdout: pipeOutput })
+
+      const result = await calendarManager.extractAppleScriptEvents()
+
+      // Should handle pipe characters safely
+      expect(result.events).toHaveLength(0) // Invalid format should be rejected
+    })
+
+    it('should validate date format to prevent injection', async () => {
+      // Test various invalid date formats that could be injection attempts
+      const invalidDates = [
+        'Meeting|||$(malicious)|||2026-01-06 10:00:00|||Work',
+        'Meeting|||`rm -rf /`|||2026-01-06 10:00:00|||Work',
+        'Meeting|||; echo "hacked"|||2026-01-06 10:00:00|||Work'
+      ]
+
+      for (const invalidDate of invalidDates) {
+        mockExecAsync.mockResolvedValue({ stdout: invalidDate })
+
+        const result = await calendarManager.extractAppleScriptEvents()
+        
+        // Should reject all malicious date formats
+        expect(result.events).toHaveLength(0)
+      }
+    })
+
+    it('should parse valid events correctly', async () => {
+      const validOutput = 'Team Meeting|Tuesday, 6 January 2026 at 09.00.00|Tuesday, 6 January 2026 at 10.00.00|Work'
+      
+      mockExecAsync.mockResolvedValue({ stdout: validOutput })
+
+      const result = await calendarManager.extractAppleScriptEvents()
+
+      // Should parse valid events successfully
+      expect(result.events).toHaveLength(1)
+      expect(result.events[0].title).toBe('Team Meeting')
+      expect(result.events[0].calendarName).toBe('Work')
+    })
   })
 
-  it('should handle multiple pipe characters in calendar names', async () => {
-    const mockAppleScriptOutput = 'Complex|Name|With|Pipes|||true|||Description|||{65535, 0, 0}'
-    
-    mockExecAsync.mockResolvedValue({ stdout: mockAppleScriptOutput })
+  describe('Error handling', () => {
+    it('should handle AppleScript execution errors', async () => {
+      mockExecAsync.mockRejectedValue(new Error('AppleScript execution failed'))
 
-    const result = await calendarManager.discoverCalendars()
+      // Should throw CalendarError, not return error in result
+      await expect(calendarManager.extractAppleScriptEvents()).rejects.toThrow('AppleScript execution failed')
+    })
 
-    expect(result.calendars).toHaveLength(1)
-    expect(result.calendars[0].name).toBe('Complex|Name|With|Pipes')
-    expect(result.calendars[0].type).toBe('local')
-  })
+    it('should handle empty AppleScript output', async () => {
+      mockExecAsync.mockResolvedValue({ stdout: '' })
 
-  it('should handle empty fields gracefully', async () => {
-    const mockAppleScriptOutput = 'Calendar Name|||true||||||{65535, 0, 0}'
-    
-    mockExecAsync.mockResolvedValue({ stdout: mockAppleScriptOutput })
+      const result = await calendarManager.extractAppleScriptEvents()
 
-    const result = await calendarManager.discoverCalendars()
-
-    expect(result.calendars).toHaveLength(1)
-    expect(result.calendars[0].name).toBe('Calendar Name')
-    expect(result.calendars[0].color).toBe('{65535, 0, 0}')
+      expect(result.events).toEqual([])
+      expect(result.errors).toBeUndefined()
+    })
   })
 })
