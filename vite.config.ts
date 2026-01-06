@@ -5,8 +5,9 @@ import { resolve } from 'path'
 export default defineConfig({
   plugins: [react()],
   base: './',
+  root: 'src/renderer',
   build: {
-    outDir: 'dist/renderer',
+    outDir: '../../dist/renderer',
     emptyOutDir: true,
     rollupOptions: {
       input: {

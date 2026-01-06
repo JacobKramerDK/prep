@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react'
 import { CalendarEvent, CalendarImportResult } from '../../shared/types/calendar'
+import { CalendarSelector } from './CalendarSelector'
+import { CalendarSelectionSettings } from '../../shared/types/calendar-selection'
 
 interface CalendarImportProps {
   onEventsImported?: (events: CalendarEvent[]) => void
@@ -10,6 +12,8 @@ export const CalendarImport: React.FC<CalendarImportProps> = ({ onEventsImported
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [isAppleScriptSupported, setIsAppleScriptSupported] = useState(false)
+  const [showCalendarSelector, setShowCalendarSelector] = useState(false)
+  const [selectedCalendars, setSelectedCalendars] = useState<string[]>([])
 
   // Memoize the callback to prevent unnecessary re-renders
   const handleEventsImported = useCallback((events: CalendarEvent[]) => {
@@ -25,6 +29,9 @@ export const CalendarImport: React.FC<CalendarImportProps> = ({ onEventsImported
         const existingEvents = await window.electronAPI.getCalendarEvents()
         setEvents(existingEvents)
         handleEventsImported(existingEvents)
+        
+        const calendarSettings = await window.electronAPI.getSelectedCalendars()
+        setSelectedCalendars(calendarSettings.selectedCalendarUids)
       } catch (err) {
         console.warn('Failed to initialize calendar:', err)
       }
@@ -34,17 +41,38 @@ export const CalendarImport: React.FC<CalendarImportProps> = ({ onEventsImported
   }, [handleEventsImported])
 
   const handleAppleScriptExtraction = async () => {
+    if (loading) {
+      setError(null) // Clear any previous errors
+      return // Prevent multiple concurrent calls
+    }
+    
     setLoading(true)
     setError(null)
     
     try {
-      const result: CalendarImportResult = await window.electronAPI.extractCalendarEvents()
+      // Pass selected calendars to extraction
+      const result: CalendarImportResult = await window.electronAPI.extractCalendarEvents(
+        selectedCalendars.length > 0 ? selectedCalendars : undefined
+      )
       setEvents(result.events)
       handleEventsImported(result.events)
     } catch (err: any) {
       setError(err?.message || 'Failed to extract calendar events')
     } finally {
       setLoading(false)
+    }
+  }
+
+  const handleCalendarSelectionChange = async (selectedNames: string[]) => {
+    setSelectedCalendars(selectedNames)
+    
+    try {
+      await window.electronAPI.updateSelectedCalendars({
+        selectedCalendarUids: selectedNames
+      })
+    } catch (err) {
+      setError('Failed to save calendar selection. Please try again.')
+      console.warn('Failed to save calendar selection:', err)
     }
   }
 
@@ -130,7 +158,40 @@ export const CalendarImport: React.FC<CalendarImportProps> = ({ onEventsImported
           marginBottom: '16px'
         }}>
           {isAppleScriptSupported && (
-            <button
+            <>
+              <div style={{ 
+                gridColumn: '1 / -1',
+                marginBottom: '16px'
+              }}>
+                <button
+                  onClick={() => setShowCalendarSelector(!showCalendarSelector)}
+                  style={{
+                    padding: '12px 16px',
+                    fontSize: '14px',
+                    backgroundColor: '#f8fafc',
+                    color: '#374151',
+                    border: '1px solid #e2e8f0',
+                    borderRadius: '8px',
+                    cursor: 'pointer',
+                    width: '100%',
+                    textAlign: 'left'
+                  }}
+                >
+                  ⚙️ Select Calendars ({selectedCalendars.length} selected)
+                  <span style={{ float: 'right' }}>
+                    {showCalendarSelector ? '▲' : '▼'}
+                  </span>
+                </button>
+                
+                {showCalendarSelector && (
+                  <CalendarSelector
+                    selectedNames={selectedCalendars}
+                    onSelectionChange={handleCalendarSelectionChange}
+                  />
+                )}
+              </div>
+              
+              <button
               onClick={handleAppleScriptExtraction}
               disabled={loading}
               style={{
@@ -146,6 +207,7 @@ export const CalendarImport: React.FC<CalendarImportProps> = ({ onEventsImported
             >
               {loading ? 'Extracting...' : '🍎 Extract from Apple Calendar'}
             </button>
+            </>
           )}
           
           <button

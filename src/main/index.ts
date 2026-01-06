@@ -2,10 +2,13 @@ import { app, BrowserWindow, ipcMain, dialog } from 'electron'
 import path from 'path'
 import { VaultManager } from './services/vault-manager'
 import { CalendarManager } from './services/calendar-manager'
+import { SettingsManager } from './services/settings-manager'
+import { CalendarSelectionSettings } from '../shared/types/calendar-selection'
 
 const isDevelopment = process.env.NODE_ENV === 'development'
 const vaultManager = new VaultManager()
 const calendarManager = new CalendarManager()
+const settingsManager = new SettingsManager()
 
 const createWindow = (): void => {
   const mainWindow = new BrowserWindow({
@@ -16,7 +19,7 @@ const createWindow = (): void => {
       contextIsolation: true,
       preload: path.join(__dirname, 'preload.js')
     },
-    show: false
+    show: true // Show immediately
   })
 
   // Load the app
@@ -31,11 +34,6 @@ const createWindow = (): void => {
     const rendererPath = path.join(__dirname, '..', '..', '..', 'renderer', 'index.html')
     mainWindow.loadFile(rendererPath)
   }
-
-  // Show window when ready to prevent visual flash
-  mainWindow.once('ready-to-show', () => {
-    mainWindow.show()
-  })
 
   // Handle window closed
   mainWindow.on('closed', () => {
@@ -114,8 +112,8 @@ ipcMain.handle('vault:readFile', async (_, filePath: string) => {
 })
 
 // Calendar IPC handlers
-ipcMain.handle('calendar:extractEvents', async () => {
-  return await calendarManager.extractAppleScriptEvents()
+ipcMain.handle('calendar:extractEvents', async (_, selectedCalendarNames?: string[]) => {
+  return await calendarManager.extractAppleScriptEvents(selectedCalendarNames)
 })
 
 ipcMain.handle('calendar:parseICS', async (_, filePath: string) => {
@@ -156,4 +154,16 @@ ipcMain.handle('calendar:selectICSFile', async () => {
   }
   
   return result.filePaths[0]
+})
+
+ipcMain.handle('calendar:discoverCalendars', async () => {
+  return await calendarManager.discoverCalendars()
+})
+
+ipcMain.handle('calendar:getSelectedCalendars', async () => {
+  return await settingsManager.getCalendarSelection()
+})
+
+ipcMain.handle('calendar:updateSelectedCalendars', async (_, settings: Partial<CalendarSelectionSettings>) => {
+  return await settingsManager.updateCalendarSelection(settings)
 })

@@ -5,6 +5,7 @@ import { exec } from 'child_process'
 import { promisify } from 'util'
 import * as crypto from 'crypto'
 import { CalendarEvent, CalendarImportResult, CalendarError } from '../../shared/types/calendar'
+import { CalendarMetadata, CalendarDiscoveryResult } from '../../shared/types/calendar-selection'
 import { SettingsManager } from './settings-manager'
 
 const execAsync = promisify(exec)
@@ -22,6 +23,10 @@ try {
 export class CalendarManager {
   private settingsManager: SettingsManager
   private readonly isAppleScriptAvailable = process.platform === 'darwin'
+  private appleScriptPromise: Promise<CalendarImportResult> | null = null
+  private isExtracting = false
+  private lastExtraction: Date | null = null
+  private readonly CACHE_DURATION = 2 * 60 * 1000 // 2 minutes for better freshness
 
   constructor() {
     this.settingsManager = new SettingsManager()
@@ -34,59 +39,124 @@ export class CalendarManager {
     // Cleanup resources if needed
   }
 
-  async extractAppleScriptEvents(): Promise<CalendarImportResult> {
+  async extractAppleScriptEvents(selectedCalendarNames?: string[]): Promise<CalendarImportResult> {
     if (!this.isAppleScriptAvailable) {
       throw new CalendarError('AppleScript not available on this platform', 'PLATFORM_UNSUPPORTED')
     }
 
-    await this.checkAppleScriptPermissions()
-
-    // Get available calendars
-    try {
-      const { stdout } = await execAsync('osascript -e \'tell application "Calendar" to return name of every calendar\'')
-      const calendars = stdout.trim().split(', ')
-      
-      if (!calendars || calendars.length === 0 || (calendars.length === 1 && calendars[0] === '')) {
-        return {
-          events: [],
-          totalEvents: 0,
-          importedAt: new Date(),
-          source: 'applescript'
-        }
+    // Return existing promise if already running (atomic check)
+    if (this.isExtracting && this.appleScriptPromise) {
+      if (process.env.NODE_ENV === 'development') {
+        console.log('AppleScript extraction already in progress, returning existing promise')
       }
-    } catch (error: any) {
-      throw new CalendarError(
-        `Failed to access calendars: ${error?.message || 'Unknown error'}`,
-        'PERMISSION_DENIED',
-        error instanceof Error ? error : undefined
-      )
+      return this.appleScriptPromise
     }
 
-    // Now try today's events using a safer approach
+    // Check cache first
+    if (this.lastExtraction && Date.now() - this.lastExtraction.getTime() < this.CACHE_DURATION) {
+      const cachedEvents = await this.getStoredEvents()
+      return {
+        events: cachedEvents,
+        totalEvents: cachedEvents.length,
+        importedAt: this.lastExtraction,
+        source: 'applescript'
+      }
+    }
+
+    // Set atomic flag before creating promise
+    this.isExtracting = true
+    this.appleScriptPromise = this.performAppleScriptExtraction(selectedCalendarNames)
+    
+    try {
+      const result = await this.appleScriptPromise
+      this.lastExtraction = new Date()
+      return result
+    } finally {
+      // Atomic cleanup
+      this.isExtracting = false
+      this.appleScriptPromise = null
+    }
+  }
+
+  private async performAppleScriptExtraction(selectedCalendarNames?: string[]): Promise<CalendarImportResult> {
+    await this.checkAppleScriptPermissions()
+
+    // Use a temporary file approach to avoid quote escaping issues
     const tempDir = os.tmpdir()
     const scriptPath = path.join(tempDir, `calendar-script-${crypto.randomUUID()}.scpt`)
-    const script = `tell application "Calendar"
+    
+    // Optimized AppleScript - only get today's events from selected calendars
+    const script = selectedCalendarNames && selectedCalendarNames.length > 0 ? 
+      // Process only selected calendars
+      `tell application "Calendar"
+  set todayStart to current date
+  set time of todayStart to 0
+  set todayEnd to todayStart + 1 * days
+  
+  set selectedNames to {${selectedCalendarNames.map(name => `"${name.replace(/"/g, '\\"')}"`).join(', ')}}
+  set allEvents to {}
+  
+  repeat with selectedName in selectedNames
+    try
+      set targetCal to calendar selectedName
+      set dayEvents to (events of targetCal whose start date ≥ todayStart and start date < todayEnd)
+      repeat with evt in dayEvents
+        try
+          set eventTitle to summary of evt
+          set eventStart to start date of evt as string
+          set eventEnd to end date of evt as string
+          set end of allEvents to (eventTitle & "|" & eventStart & "|" & eventEnd & "|" & selectedName)
+        end try
+      end repeat
+    on error
+      -- Skip calendar if not found
+    end try
+  end repeat
+  
+  return allEvents
+end tell` :
+      // Process all calendars (fallback)
+      `tell application "Calendar"
   set todayStart to current date
   set time of todayStart to 0
   set todayEnd to todayStart + 1 * days
   
   set allEvents to {}
   repeat with cal in calendars
-    set dayEvents to (events of cal whose start date ≥ todayStart and start date < todayEnd)
-    repeat with evt in dayEvents
-      set end of allEvents to (summary of evt & "|" & (start date of evt as string) & "|" & (end date of evt as string) & "|" & (name of cal))
-    end repeat
+    try
+      set calName to name of cal
+      set dayEvents to (events of cal whose start date ≥ todayStart and start date < todayEnd)
+      repeat with evt in dayEvents
+        try
+          set eventTitle to summary of evt
+          set eventStart to start date of evt as string
+          set eventEnd to end date of evt as string
+          set end of allEvents to (eventTitle & "|" & eventStart & "|" & eventEnd & "|" & calName)
+        end try
+      end repeat
+    end try
   end repeat
   
   return allEvents
 end tell`
 
     try {
-      // Write script to temporary file for safer execution
+      // Write script to temporary file
       fs.writeFileSync(scriptPath, script, 'utf8')
       
-      const { stdout } = await execAsync(`osascript "${scriptPath}"`)
+      console.log('Executing AppleScript for calendar extraction...')
+      const startTime = Date.now()
+      
+      // Execute with longer timeout for large calendars
+      const { stdout } = await execAsync(`osascript "${scriptPath}"`, {
+        timeout: 30000 // 30 second timeout for large calendars
+      })
+      
+      const executionTime = Date.now() - startTime
+      console.log(`AppleScript completed in ${executionTime}ms`)
+      
       const events = this.parseOSAScriptResult(stdout.trim())
+      console.log(`Parsed ${events.length} events from AppleScript`)
       
       // Clean up temporary file
       try {
@@ -109,6 +179,31 @@ end tell`
         fs.unlinkSync(scriptPath)
       } catch (cleanupError) {
         // Ignore cleanup errors
+      }
+      
+      // If the script fails or times out, provide better error handling
+      if (error.code === 'TIMEOUT' || error.killed || error.signal === 'SIGTERM') {
+        throw new CalendarError(
+          'Calendar extraction timed out after 30 seconds. This can happen with very large calendars. Try using ICS file import instead.',
+          'TIMEOUT',
+          error instanceof Error ? error : undefined
+        )
+      }
+      
+      // Check if it's a permission error - use multiple indicators for robustness
+      const errorMessage = error?.message?.toLowerCase() || ''
+      const isPermissionError = error?.code === 'EACCES' || 
+                               errorMessage.includes('not allowed') || 
+                               errorMessage.includes('permission') ||
+                               errorMessage.includes('access denied') ||
+                               errorMessage.includes('not authorized')
+      
+      if (isPermissionError) {
+        throw new CalendarError(
+          'Calendar access permission required. Please grant access in System Preferences > Security & Privacy > Privacy > Calendar',
+          'PERMISSION_DENIED',
+          error instanceof Error ? error : undefined
+        )
       }
       
       throw new CalendarError(
@@ -188,7 +283,9 @@ end tell`
             events.push(event)
           }
         } catch (error) {
-          // Silently skip invalid events
+          if (process.env.NODE_ENV === 'development') {
+            console.debug('Skipped invalid event:', error instanceof Error ? error.message : 'Unknown error', 'Event data:', match)
+          }
         }
       })
     } else {
@@ -216,7 +313,9 @@ end tell`
             events.push(event)
           }
         } catch (error) {
-          // Silently skip invalid events
+          if (process.env.NODE_ENV === 'development') {
+            console.debug('Skipped invalid event in fallback:', error instanceof Error ? error.message : 'Unknown error', 'Event data:', eventString)
+          }
         }
       })
     }
@@ -231,7 +330,14 @@ end tell`
       const { stdout } = await execAsync('osascript -e \'tell application "Calendar" to return "test"\'')
       return true
     } catch (error: any) {
-      if (error?.message?.includes('not allowed') || error?.message?.includes('permission')) {
+      const errorMessage = error?.message?.toLowerCase() || ''
+      const isPermissionError = error?.code === 'EACCES' || 
+                               errorMessage.includes('not allowed') || 
+                               errorMessage.includes('permission') ||
+                               errorMessage.includes('access denied') ||
+                               errorMessage.includes('not authorized')
+      
+      if (isPermissionError) {
         throw new CalendarError(
           'Calendar access permission required. Please grant access in System Preferences > Security & Privacy > Privacy > Calendar',
           'PERMISSION_DENIED',
@@ -356,15 +462,7 @@ end tell`
   }
 
   async getEvents(): Promise<CalendarEvent[]> {
-    if (this.isAppleScriptAvailable) {
-      try {
-        const result = await this.extractAppleScriptEvents()
-        return result.events
-      } catch (error) {
-        console.warn('AppleScript failed, falling back to stored events:', error)
-      }
-    }
-    
+    // Only return stored events, don't auto-extract
     return await this.getStoredEvents()
   }
 
@@ -376,7 +474,129 @@ end tell`
     await this.settingsManager.setCalendarEvents([])
   }
 
+  async invalidateCache(): Promise<void> {
+    this.lastExtraction = null
+  }
+
   isAppleScriptSupported(): boolean {
     return this.isAppleScriptAvailable
+  }
+
+  async discoverCalendars(): Promise<CalendarDiscoveryResult> {
+    if (!this.isAppleScriptAvailable) {
+      throw new CalendarError('AppleScript not supported on this platform', 'PLATFORM_UNSUPPORTED')
+    }
+
+    const script = `tell application "Calendar"
+    set calendarList to {}
+    repeat with cal in calendars
+      try
+        set calName to name of cal
+        set calWritable to writable of cal
+        set calDescription to description of cal
+        set calColor to color of cal
+        set end of calendarList to (calName & "|||" & calWritable & "|||" & calDescription & "|||" & calColor)
+      end try
+    end repeat
+    return calendarList
+  end tell`
+
+    try {
+      const result = await this.executeAppleScriptRaw(script)
+      const calendars: CalendarMetadata[] = []
+      const errors: Array<{calendar?: string, error: string}> = []
+
+      if (result && result.trim()) {
+        // AppleScript returns comma-separated values on a single line
+        // Split by comma and process each calendar entry
+        const calendarEntries = result.trim().split(', ')
+        
+        for (const entry of calendarEntries) {
+          try {
+            const parts = entry.split('|||')
+            if (parts.length >= 4) {
+              calendars.push({
+                uid: parts[0].trim(), // Use name as UID since UID property doesn't exist
+                name: parts[0].trim(),
+                title: parts[0].trim(),
+                type: parts[1] === 'true' ? 'local' : 'subscribed',
+                isVisible: true,
+                color: parts[3].trim()
+              })
+            }
+          } catch (parseError) {
+            errors.push({
+              calendar: entry,
+              error: parseError instanceof Error ? parseError.message : 'Parse error'
+            })
+          }
+        }
+      }
+
+      return {
+        calendars,
+        totalCalendars: calendars.length,
+        discoveredAt: new Date(),
+        errors: errors.length > 0 ? errors : undefined
+      }
+    } catch (error: any) {
+      // Use existing error handling pattern from lines 160-180
+      const errorMessage = error?.message?.toLowerCase() || ''
+      const isPermissionError = error?.code === 'EACCES' || 
+                               errorMessage.includes('not allowed') || 
+                               errorMessage.includes('permission') ||
+                               errorMessage.includes('access denied') ||
+                               errorMessage.includes('not authorized')
+      
+      if (isPermissionError) {
+        throw new CalendarError(
+          'Calendar access permission required. Please grant access in System Preferences > Security & Privacy > Privacy > Calendar',
+          'PERMISSION_DENIED',
+          error instanceof Error ? error : undefined
+        )
+      }
+
+      throw new CalendarError(
+        `Failed to discover calendars: ${error?.message || 'Unknown error'}`,
+        'PARSE_ERROR',
+        error instanceof Error ? error : undefined
+      )
+    }
+  }
+
+  private async executeAppleScriptRaw(script: string): Promise<string> {
+    await this.checkAppleScriptPermissions()
+
+    // Use a temporary file approach to avoid quote escaping issues
+    const tempDir = os.tmpdir()
+    const scriptPath = path.join(tempDir, `calendar-discovery-${crypto.randomUUID()}.scpt`)
+    
+    try {
+      // Write script to temporary file
+      fs.writeFileSync(scriptPath, script, 'utf8')
+      
+      // Execute with timeout
+      const { stdout } = await execAsync(`osascript "${scriptPath}"`, {
+        timeout: 10000 // 10 second timeout for discovery
+      })
+      
+      // Clean up temporary file
+      try {
+        fs.unlinkSync(scriptPath)
+      } catch (cleanupError) {
+        // Ignore cleanup errors
+      }
+      
+      return stdout.trim()
+    } catch (error: any) {
+      // Clean up temporary file on error
+      try {
+        fs.unlinkSync(scriptPath)
+      } catch (cleanupError) {
+        // Ignore cleanup errors
+      }
+      
+      throw error
+    }
   }
 }

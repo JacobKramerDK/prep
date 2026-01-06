@@ -1,5 +1,6 @@
 import type { VaultIndex, SearchResult } from './vault'
 import type { CalendarEvent, CalendarImportResult } from './calendar'
+import type { CalendarDiscoveryResult, CalendarSelectionSettings } from './calendar-selection'
 
 export interface ElectronAPI {
   getVersion: () => Promise<string>
@@ -9,12 +10,15 @@ export interface ElectronAPI {
   searchFiles: (query: string) => Promise<SearchResult[]>
   readFile: (filePath: string) => Promise<string>
   // Calendar operations
-  extractCalendarEvents: () => Promise<CalendarImportResult>
+  extractCalendarEvents: (selectedCalendarNames?: string[]) => Promise<CalendarImportResult>
   parseICSFile: (filePath: string) => Promise<CalendarImportResult>
   getCalendarEvents: () => Promise<CalendarEvent[]>
   clearCalendarEvents: () => Promise<void>
   isAppleScriptSupported: () => Promise<boolean>
   selectICSFile: () => Promise<string>
+  discoverCalendars: () => Promise<CalendarDiscoveryResult>
+  getSelectedCalendars: () => Promise<CalendarSelectionSettings>
+  updateSelectedCalendars: (settings: Partial<CalendarSelectionSettings>) => Promise<void>
 }
 
 declare global {

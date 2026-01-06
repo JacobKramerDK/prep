@@ -5,6 +5,7 @@ import { app } from 'electron'
 import * as os from 'os'
 import * as fs from 'fs'
 import { CalendarEvent } from '../../shared/types/calendar'
+import { CalendarSelectionSettings } from '../../shared/types/calendar-selection'
 
 interface SettingsSchema {
   vaultPath: string | null
@@ -12,6 +13,7 @@ interface SettingsSchema {
   searchHistory: string[]
   calendarEvents: CalendarEvent[]
   lastCalendarSync: string | null
+  calendarSelection: CalendarSelectionSettings
   preferences: {
     autoScan: boolean
     maxSearchResults: number
@@ -33,6 +35,12 @@ export class SettingsManager {
         searchHistory: [],
         calendarEvents: [],
         lastCalendarSync: null,
+        calendarSelection: {
+          selectedCalendarUids: [],
+          lastDiscovery: null,
+          discoveryCache: [],
+          autoSelectNew: true
+        },
         preferences: {
           autoScan: true,
           maxSearchResults: 50
@@ -124,5 +132,14 @@ export class SettingsManager {
   async getLastCalendarSync(): Promise<Date | null> {
     const lastSync = this.store.get('lastCalendarSync')
     return lastSync ? new Date(lastSync) : null
+  }
+
+  async getCalendarSelection(): Promise<CalendarSelectionSettings> {
+    return this.store.get('calendarSelection')
+  }
+
+  async updateCalendarSelection(settings: Partial<CalendarSelectionSettings>): Promise<void> {
+    const current = this.store.get('calendarSelection')
+    this.store.set('calendarSelection', { ...current, ...settings })
   }
 }
