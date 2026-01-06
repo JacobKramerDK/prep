@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react'
 import type { ElectronAPI } from '../shared/types/ipc'
+import { VaultBrowser } from './components/VaultBrowser'
 
 const App: React.FC = () => {
   const [version, setVersion] = useState<string>('Loading...')
+  const [showVault, setShowVault] = useState(false)
 
   useEffect(() => {
     const getVersion = async (): Promise<void> => {
@@ -21,6 +23,10 @@ const App: React.FC = () => {
 
     getVersion()
   }, [])
+
+  if (showVault) {
+    return <VaultBrowser />
+  }
 
   return (
     <div style={{ 
@@ -57,7 +63,8 @@ const App: React.FC = () => {
           backgroundColor: '#f8fafc', 
           padding: '24px', 
           borderRadius: '8px',
-          border: '1px solid #e2e8f0'
+          border: '1px solid #e2e8f0',
+          marginBottom: '24px'
         }}>
           <h2 style={{ 
             fontSize: '1.5rem', 
@@ -81,49 +88,62 @@ const App: React.FC = () => {
               padding: '8px 0',
               color: '#059669'
             }}>
-              ✅ Secure IPC Communication
+              ✅ Obsidian Vault Integration
             </li>
             <li style={{ 
               padding: '8px 0',
               color: '#059669'
             }}>
-              ✅ Context Isolation Enabled
+              ✅ File Search & Browse
             </li>
             <li style={{ 
               padding: '8px 0',
-              color: '#059669'
+              color: '#d97706'
             }}>
-              ✅ Development Environment Ready
+              🚧 Calendar Integration (Coming Soon)
+            </li>
+            <li style={{ 
+              padding: '8px 0',
+              color: '#d97706'
+            }}>
+              🚧 AI Meeting Briefs (Coming Soon)
             </li>
           </ul>
         </div>
 
         <div style={{ 
-          marginTop: '32px',
-          padding: '24px',
-          backgroundColor: '#fefce8',
-          borderRadius: '8px',
-          border: '1px solid #fde047'
+          textAlign: 'center',
+          padding: '24px'
         }}>
-          <h3 style={{ 
-            fontSize: '1.2rem',
-            marginBottom: '12px',
-            color: '#a16207'
-          }}>
-            🔧 Next Steps
-          </h3>
-          <p style={{ color: '#a16207' }}>
-            The Electron application scaffolding is complete. Ready to implement:
-          </p>
-          <ul style={{ 
-            color: '#a16207',
+          <button
+            onClick={() => setShowVault(true)}
+            style={{
+              padding: '16px 32px',
+              fontSize: '18px',
+              backgroundColor: '#2563eb',
+              color: 'white',
+              border: 'none',
+              borderRadius: '8px',
+              cursor: 'pointer',
+              fontWeight: '500',
+              transition: 'background-color 0.2s'
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.backgroundColor = '#1d4ed8'
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.backgroundColor = '#2563eb'
+            }}
+          >
+            Open Vault Browser
+          </button>
+          <p style={{ 
+            fontSize: '14px',
+            color: '#64748b',
             marginTop: '12px'
           }}>
-            <li>Obsidian vault integration</li>
-            <li>Calendar parsing functionality</li>
-            <li>AI-powered meeting brief generation</li>
-            <li>Audio transcription features</li>
-          </ul>
+            Connect to your Obsidian vault to start browsing and searching your notes
+          </p>
         </div>
       </main>
     </div>

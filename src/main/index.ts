@@ -1,7 +1,9 @@
-import { app, BrowserWindow, ipcMain } from 'electron'
+import { app, BrowserWindow, ipcMain, dialog } from 'electron'
 import path from 'path'
+import { VaultManager } from './services/vault-manager'
 
 const isDevelopment = process.env.NODE_ENV === 'development'
+const vaultManager = new VaultManager()
 
 const createWindow = (): void => {
   const mainWindow = new BrowserWindow({
@@ -23,7 +25,9 @@ const createWindow = (): void => {
       mainWindow.webContents.openDevTools()
     }
   } else {
-    mainWindow.loadFile(path.join(__dirname, '../renderer/index.html'))
+    // More robust path resolution for production builds
+    const rendererPath = path.join(__dirname, '..', '..', '..', 'renderer', 'src', 'renderer', 'index.html')
+    mainWindow.loadFile(rendererPath)
   }
 
   // Show window when ready to prevent visual flash
@@ -67,4 +71,42 @@ app.on('web-contents-created', (_, contents) => {
 // Basic IPC handler for testing
 ipcMain.handle('app:getVersion', () => {
   return app.getVersion()
+})
+
+// Vault IPC handlers
+ipcMain.handle('vault:select', async () => {
+  const result = await dialog.showOpenDialog({
+    properties: ['openDirectory'],
+    title: 'Select Obsidian Vault Directory'
+  })
+  
+  if (result.canceled || result.filePaths.length === 0) {
+    throw new Error('No directory selected')
+  }
+  
+  return result.filePaths[0]
+})
+
+ipcMain.handle('vault:scan', async (_, vaultPath: string) => {
+  if (!vaultPath || typeof vaultPath !== 'string') {
+    throw new Error('Invalid vault path')
+  }
+  
+  return await vaultManager.scanVault(vaultPath)
+})
+
+ipcMain.handle('vault:search', async (_, query: string) => {
+  if (!query || typeof query !== 'string') {
+    throw new Error('Invalid search query')
+  }
+  
+  return await vaultManager.searchFiles(query)
+})
+
+ipcMain.handle('vault:readFile', async (_, filePath: string) => {
+  if (!filePath || typeof filePath !== 'string') {
+    throw new Error('Invalid file path')
+  }
+  
+  return await vaultManager.readFile(filePath)
 })
