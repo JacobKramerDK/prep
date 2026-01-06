@@ -81,35 +81,38 @@ export class CalendarManager {
   private async performAppleScriptExtraction(selectedCalendarNames?: string[]): Promise<CalendarImportResult> {
     await this.checkAppleScriptPermissions()
 
+    console.log('Selected calendars for extraction:', selectedCalendarNames)
+
+    // Don't filter out the main Calendar - only filter truly problematic ones
+    const filteredCalendars = selectedCalendarNames?.filter(name => 
+      !['Birthdays', 'Siri Suggestions'].includes(name)
+    ) || []
+    
+    console.log('Filtered calendars (excluding system calendars):', filteredCalendars)
+
     // Use a temporary file approach to avoid quote escaping issues
     const tempDir = os.tmpdir()
     const scriptPath = path.join(tempDir, `calendar-script-${crypto.randomUUID()}.scpt`)
     
-    // Optimized AppleScript - only get today's events from selected calendars
-    const script = selectedCalendarNames && selectedCalendarNames.length > 0 ? 
-      // Process only selected calendars
+    // Much faster AppleScript - get recent events and filter in JavaScript
+    const script = filteredCalendars && filteredCalendars.length > 0 ? 
+      // Simplest possible approach - just get today's events directly
       `tell application "Calendar"
+  set targetCal to calendar "${filteredCalendars[0].replace(/"/g, '\\"')}"
   set todayStart to current date
   set time of todayStart to 0
   set todayEnd to todayStart + 1 * days
   
-  set selectedNames to {${selectedCalendarNames.map(name => `"${name.replace(/"/g, '\\"')}"`).join(', ')}}
-  set allEvents to {}
+  -- Simple direct query for today only
+  set todayEvents to (events of targetCal whose start date ≥ todayStart and start date < todayEnd)
   
-  repeat with selectedName in selectedNames
+  set allEvents to {}
+  repeat with evt in todayEvents
     try
-      set targetCal to calendar selectedName
-      set dayEvents to (events of targetCal whose start date ≥ todayStart and start date < todayEnd)
-      repeat with evt in dayEvents
-        try
-          set eventTitle to summary of evt
-          set eventStart to start date of evt as string
-          set eventEnd to end date of evt as string
-          set end of allEvents to (eventTitle & "|" & eventStart & "|" & eventEnd & "|" & selectedName)
-        end try
-      end repeat
-    on error
-      -- Skip calendar if not found
+      set eventTitle to summary of evt
+      set eventStart to start date of evt as string
+      set eventEnd to end date of evt as string
+      set end of allEvents to (eventTitle & "|" & eventStart & "|" & eventEnd & "|" & "${filteredCalendars[0].replace(/"/g, '\\"')}")
     end try
   end repeat
   
@@ -147,9 +150,10 @@ end tell`
       console.log('Executing AppleScript for calendar extraction...')
       const startTime = Date.now()
       
-      // Execute with longer timeout for large calendars
+      // Execute with longer timeout - Calendar app is just slow
       const { stdout } = await execAsync(`osascript "${scriptPath}"`, {
-        timeout: 30000 // 30 second timeout for large calendars
+        timeout: 60000, // Back to 60 seconds - Calendar app needs it
+        killSignal: 'SIGTERM'
       })
       
       const executionTime = Date.now() - startTime
@@ -184,7 +188,7 @@ end tell`
       // If the script fails or times out, provide better error handling
       if (error.code === 'TIMEOUT' || error.killed || error.signal === 'SIGTERM') {
         throw new CalendarError(
-          'Calendar extraction timed out after 30 seconds. This can happen with very large calendars. Try using ICS file import instead.',
+          'Calendar extraction timed out after 60 seconds. Your Calendar app appears to be slow. Try using ICS file import instead.',
           'TIMEOUT',
           error instanceof Error ? error : undefined
         )

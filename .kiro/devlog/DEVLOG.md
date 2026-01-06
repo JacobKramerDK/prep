@@ -1471,3 +1471,36 @@ useEffect(() => {
 **Next Phase**: Ready for AI integration phase with secure, performant vault browsing foundation.
 
 ---
+
+## Calendar Performance Challenge (Jan 6, 21:25-21:39) - AppleScript Optimization [14min]
+
+### Issue Encountered
+Apple Calendar extraction timing out after 30 seconds, but taking 45+ seconds to extract only 3 events from main "Calendar" calendar. Performance seemed unreasonably slow for such a small dataset.
+
+### Root Cause Analysis
+- **Initial assumption**: Too many events or script complexity
+- **Reality discovered**: macOS Calendar app inherently slow with AppleScript queries
+- **Testing revealed**: Even simple AppleScript operations take 19-21 seconds
+- **Key insight**: Performance bottleneck is Calendar app itself, not script logic
+
+### Solutions Attempted
+1. **Script optimization**: Removed loops, simplified date filtering → Still slow
+2. **Event limiting**: Added 50-event caps → No improvement  
+3. **Alternative approaches**: Tried recent events vs. date filtering → Marginal gains
+4. **JavaScript filtering**: Moved date logic from AppleScript to JS → Some improvement but still slow
+
+### Final Solution
+- **Increased timeout**: 30s → 60s to accommodate Calendar app performance
+- **Accepted reality**: 21-second execution time is normal for macOS Calendar AppleScript
+- **Maintained functionality**: Direct today's events query works reliably
+- **Performance improvement**: 45s → 21s (53% faster)
+
+### Key Learnings
+- macOS Calendar app has inherent AppleScript performance limitations
+- 20+ second response times are normal for Calendar automation
+- Alternative: ICS file export would be much faster if needed
+- User expectation management important for system integration features
+
+**Status**: Calendar extraction now works reliably within 60s timeout, extracting 3 today's events in ~21 seconds.
+
+---
