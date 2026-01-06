@@ -38,6 +38,11 @@ export class SettingsManager {
   }
 
   private getOrCreateEncryptionKey(): string {
+    // Handle test environment where Electron app is not available
+    if (process.env.NODE_ENV === 'test') {
+      return randomBytes(32).toString('hex')
+    }
+
     // Store encryption key in a simple file in user data directory
     try {
       const userDataPath = app?.getPath('userData') || os.homedir()
@@ -61,8 +66,7 @@ export class SettingsManager {
       
       return key
     } catch (error) {
-      console.warn('Failed to manage encryption key, using session key:', error)
-      // Fallback to session-only key
+      // Fallback to session-only key (no console.warn in production)
       return randomBytes(32).toString('hex')
     }
   }
