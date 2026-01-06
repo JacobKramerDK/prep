@@ -14,19 +14,18 @@ declare module 'ical.js' {
     location: string
     startDate: Time
     endDate: Time
+    attendees: Property[]
     isRecurring(): boolean
   }
   
   export class Time {
     toJSDate(): Date
+    isDate: boolean
   }
   
   export class Property {
     getParameter(name: string): string | null
     getFirstValue(): string
+    toString(): string
   }
-}
-
-declare module 'applescript' {
-  export function execString(script: string, callback: (err: any, result: any) => void): void
 }

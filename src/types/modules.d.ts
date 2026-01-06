@@ -1,5 +1,6 @@
 declare module 'applescript' {
   export function execString(script: string): Promise<any>
+  export function execString(script: string, callback: (err: any, result: any) => void): void
   export function execFile(path: string, callback?: (error: Error | null, result?: any) => void): void
 }
 
@@ -24,6 +25,7 @@ declare module 'ical.js' {
   
   export class Time {
     toJSDate(): Date
+    isDate: boolean
   }
   
   export class Property {

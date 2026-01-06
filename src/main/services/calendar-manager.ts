@@ -1,20 +1,21 @@
 import * as fs from 'fs'
 import * as path from 'path'
+import * as os from 'os'
 import { exec } from 'child_process'
 import { promisify } from 'util'
+import * as crypto from 'crypto'
 import { CalendarEvent, CalendarImportResult, CalendarError } from '../../shared/types/calendar'
 import { SettingsManager } from './settings-manager'
 
 const execAsync = promisify(exec)
 
-// Dynamic imports for optional dependencies
+// Import ical.js - required for ICS file parsing
 let ICAL: any
-
 try {
   ICAL = require('ical.js')
 } catch (error) {
   if (process.env.NODE_ENV !== 'test') {
-    throw new Error('ical.js is required for calendar functionality')
+    throw new Error('ical.js dependency is required for ICS file parsing functionality. Please install it with: npm install ical.js')
   }
 }
 
@@ -53,11 +54,17 @@ export class CalendarManager {
           source: 'applescript'
         }
       }
-    } catch (error) {
-      console.error('Failed to get calendars:', error)
+    } catch (error: any) {
+      throw new CalendarError(
+        `Failed to access calendars: ${error?.message || 'Unknown error'}`,
+        'PERMISSION_DENIED',
+        error instanceof Error ? error : undefined
+      )
     }
 
-    // Now try today's events
+    // Now try today's events using a safer approach
+    const tempDir = os.tmpdir()
+    const scriptPath = path.join(tempDir, `calendar-script-${crypto.randomUUID()}.scpt`)
     const script = `tell application "Calendar"
   set todayStart to current date
   set time of todayStart to 0
@@ -75,8 +82,18 @@ export class CalendarManager {
 end tell`
 
     try {
-      const { stdout } = await execAsync(`osascript -e '${script}'`)
+      // Write script to temporary file for safer execution
+      fs.writeFileSync(scriptPath, script, 'utf8')
+      
+      const { stdout } = await execAsync(`osascript "${scriptPath}"`)
       const events = this.parseOSAScriptResult(stdout.trim())
+      
+      // Clean up temporary file
+      try {
+        fs.unlinkSync(scriptPath)
+      } catch (cleanupError) {
+        // Ignore cleanup errors
+      }
       
       await this.settingsManager.setCalendarEvents(events)
       
@@ -87,6 +104,13 @@ end tell`
         source: 'applescript'
       }
     } catch (error: any) {
+      // Clean up temporary file on error
+      try {
+        fs.unlinkSync(scriptPath)
+      } catch (cleanupError) {
+        // Ignore cleanup errors
+      }
+      
       throw new CalendarError(
         `Failed to extract calendar events: ${error?.message || 'Unknown error'}`,
         'PARSE_ERROR',
@@ -110,12 +134,16 @@ end tell`
       const parsed = new Date(cleanDate)
       
       if (isNaN(parsed.getTime())) {
-        return new Date() // Fallback to current time
+        throw new Error(`Invalid date format: ${dateStr}`)
       }
       
       return parsed
     } catch (error) {
-      return new Date() // Fallback to current time
+      throw new CalendarError(
+        `Failed to parse AppleScript date: ${dateStr}`,
+        'PARSE_ERROR',
+        error instanceof Error ? error : undefined
+      )
     }
   }
 
@@ -145,7 +173,7 @@ end tell`
             const [title, startDateStr, endDateStr, calendarName] = parts
             
             const event: CalendarEvent = {
-              id: `applescript-${Date.now()}-${index}`,
+              id: `applescript-${crypto.randomUUID()}`,
               title: title.trim() || 'Untitled Event',
               description: undefined,
               startDate: this.parseAppleScriptDate(startDateStr.trim()),
@@ -173,7 +201,7 @@ end tell`
             const [title, startDateStr, endDateStr, calendarName] = parts
             
             const event: CalendarEvent = {
-              id: `applescript-${Date.now()}-${index}`,
+              id: `applescript-${crypto.randomUUID()}`,
               title: title.trim() || 'Untitled Event',
               description: undefined,
               startDate: this.parseAppleScriptDate(startDateStr.trim()),
@@ -218,51 +246,6 @@ end tell`
     }
   }
 
-  private parseAppleScriptResult(result: any): CalendarEvent[] {
-    console.log('AppleScript result:', result, typeof result)
-    
-    if (!result || !Array.isArray(result)) {
-      console.log('No events or invalid result format')
-      return []
-    }
-
-    const events: CalendarEvent[] = []
-    
-    result.forEach((eventData: any, index: number) => {
-      try {
-        console.log(`Processing event ${index}:`, eventData)
-        
-        if (!Array.isArray(eventData) || eventData.length < 6) {
-          console.warn('Invalid event data format:', eventData)
-          return
-        }
-        
-        const [title, startDate, endDate, location, description, calendarName] = eventData
-        
-        const event: CalendarEvent = {
-          id: `applescript-${Date.now()}-${Math.random().toString(36).substr(2, 9)}-${index}`,
-          title: title || 'Untitled Event',
-          description: description || undefined,
-          startDate: new Date(startDate),
-          endDate: new Date(endDate),
-          location: location || undefined,
-          attendees: [],
-          isAllDay: false,
-          source: 'applescript' as const,
-          calendarName: calendarName || undefined
-        }
-        
-        console.log('Created event:', event.title, 'at', event.startDate)
-        events.push(event)
-      } catch (error) {
-        console.warn('Failed to parse AppleScript event:', error)
-      }
-    })
-
-    console.log(`Parsed ${events.length} events total`)
-    return events
-  }
-
   async parseICSFile(filePath: string): Promise<CalendarImportResult> {
     this.validateICSFile(filePath)
 
@@ -286,7 +269,7 @@ end tell`
           // Only include today's events
           if (startDate >= startOfDay && startDate < endOfDay) {
             events.push({
-              id: `ics-${Date.now()}-${Math.random().toString(36).substr(2, 9)}-${index}`,
+              id: `ics-${crypto.randomUUID()}`,
               title: event.summary || 'Untitled Event',
               description: event.description || undefined,
               startDate,
@@ -340,10 +323,18 @@ end tell`
   }
 
   private validateICSFile(filePath: string): void {
-    // Path traversal protection
+    // Robust path traversal protection
     const resolvedPath = path.resolve(filePath)
-    const cwd = process.cwd()
-    if (!resolvedPath.startsWith(cwd)) {
+    const cwd = path.resolve(process.cwd())
+    const relativePath = path.relative(cwd, resolvedPath)
+    
+    // Check if the relative path contains '..' components or is outside cwd
+    if (relativePath.startsWith('..') || path.isAbsolute(relativePath)) {
+      throw new CalendarError('Path traversal not allowed', 'INVALID_FILE')
+    }
+    
+    // Additional security: ensure no '..' components anywhere in the path
+    if (relativePath.split(path.sep).includes('..')) {
       throw new CalendarError('Path traversal not allowed', 'INVALID_FILE')
     }
     

@@ -10,10 +10,42 @@ const electronAPI: ElectronAPI = {
   scanVault: (vaultPath: string) => ipcRenderer.invoke('vault:scan', vaultPath),
   searchFiles: (query: string) => ipcRenderer.invoke('vault:search', query),
   readFile: (filePath: string) => ipcRenderer.invoke('vault:readFile', filePath),
-  // Add calendar methods
-  extractCalendarEvents: () => ipcRenderer.invoke('calendar:extractEvents'),
-  parseICSFile: (filePath: string) => ipcRenderer.invoke('calendar:parseICS', filePath),
-  getCalendarEvents: () => ipcRenderer.invoke('calendar:getEvents'),
+  // Add calendar methods with date handling
+  extractCalendarEvents: async () => {
+    const result = await ipcRenderer.invoke('calendar:extractEvents')
+    // Ensure dates are properly deserialized
+    if (result && result.events) {
+      result.events = result.events.map((event: any) => ({
+        ...event,
+        startDate: new Date(event.startDate),
+        endDate: new Date(event.endDate)
+      }))
+      result.importedAt = new Date(result.importedAt)
+    }
+    return result
+  },
+  parseICSFile: async (filePath: string) => {
+    const result = await ipcRenderer.invoke('calendar:parseICS', filePath)
+    // Ensure dates are properly deserialized
+    if (result && result.events) {
+      result.events = result.events.map((event: any) => ({
+        ...event,
+        startDate: new Date(event.startDate),
+        endDate: new Date(event.endDate)
+      }))
+      result.importedAt = new Date(result.importedAt)
+    }
+    return result
+  },
+  getCalendarEvents: async () => {
+    const events = await ipcRenderer.invoke('calendar:getEvents')
+    // Ensure dates are properly deserialized
+    return events.map((event: any) => ({
+      ...event,
+      startDate: new Date(event.startDate),
+      endDate: new Date(event.endDate)
+    }))
+  },
   clearCalendarEvents: () => ipcRenderer.invoke('calendar:clearEvents'),
   isAppleScriptSupported: () => ipcRenderer.invoke('calendar:isAppleScriptSupported'),
   selectICSFile: () => ipcRenderer.invoke('calendar:selectICSFile')

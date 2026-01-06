@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import { CalendarEvent, CalendarImportResult } from '../../shared/types/calendar'
 
 interface CalendarImportProps {
@@ -11,6 +11,11 @@ export const CalendarImport: React.FC<CalendarImportProps> = ({ onEventsImported
   const [error, setError] = useState<string | null>(null)
   const [isAppleScriptSupported, setIsAppleScriptSupported] = useState(false)
 
+  // Memoize the callback to prevent unnecessary re-renders
+  const handleEventsImported = useCallback((events: CalendarEvent[]) => {
+    onEventsImported?.(events)
+  }, [onEventsImported])
+
   useEffect(() => {
     const initialize = async () => {
       try {
@@ -19,14 +24,14 @@ export const CalendarImport: React.FC<CalendarImportProps> = ({ onEventsImported
         
         const existingEvents = await window.electronAPI.getCalendarEvents()
         setEvents(existingEvents)
-        onEventsImported?.(existingEvents)
+        handleEventsImported(existingEvents)
       } catch (err) {
         console.warn('Failed to initialize calendar:', err)
       }
     }
     
     initialize()
-  }, []) // onEventsImported intentionally omitted to prevent re-initialization
+  }, [handleEventsImported])
 
   const handleAppleScriptExtraction = async () => {
     setLoading(true)
@@ -35,7 +40,7 @@ export const CalendarImport: React.FC<CalendarImportProps> = ({ onEventsImported
     try {
       const result: CalendarImportResult = await window.electronAPI.extractCalendarEvents()
       setEvents(result.events)
-      onEventsImported?.(result.events)
+      handleEventsImported(result.events)
     } catch (err: any) {
       setError(err?.message || 'Failed to extract calendar events')
     } finally {
@@ -51,7 +56,7 @@ export const CalendarImport: React.FC<CalendarImportProps> = ({ onEventsImported
       const filePath = await window.electronAPI.selectICSFile()
       const result: CalendarImportResult = await window.electronAPI.parseICSFile(filePath)
       setEvents(result.events)
-      onEventsImported?.(result.events)
+      handleEventsImported(result.events)
     } catch (err: any) {
       if (err?.message !== 'No file selected') {
         setError(err?.message || 'Failed to import ICS file')
@@ -65,7 +70,7 @@ export const CalendarImport: React.FC<CalendarImportProps> = ({ onEventsImported
     try {
       await window.electronAPI.clearCalendarEvents()
       setEvents([])
-      onEventsImported?.([])
+      handleEventsImported([])
     } catch (err: any) {
       setError(err?.message || 'Failed to clear events')
     }
