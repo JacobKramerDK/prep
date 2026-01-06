@@ -27,8 +27,8 @@ const createWindow = (): void => {
       mainWindow.webContents.openDevTools()
     }
   } else {
-    // More robust path resolution for production builds
-    const rendererPath = path.join(__dirname, '..', '..', '..', 'renderer', 'src', 'renderer', 'index.html')
+    // Load production build - go up from dist/main/src/main to dist/renderer
+    const rendererPath = path.join(__dirname, '..', '..', '..', 'renderer', 'index.html')
     mainWindow.loadFile(rendererPath)
   }
 
@@ -131,6 +131,10 @@ ipcMain.handle('calendar:getEvents', async () => {
 
 ipcMain.handle('calendar:clearEvents', async () => {
   return await calendarManager.clearEvents()
+})
+
+ipcMain.handle('calendar:invalidateCache', async () => {
+  return await calendarManager.invalidateCache()
 })
 
 ipcMain.handle('calendar:isAppleScriptSupported', async () => {
