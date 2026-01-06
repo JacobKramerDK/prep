@@ -5,8 +5,7 @@ import path from 'path'
 test.describe('Vault Integration', () => {
   let electronApp: ElectronApplication
 
-  test('should launch Electron app and display content', async () => {
-    // Launch Electron app
+  test.beforeEach(async () => {
     electronApp = await electron.launch({
       args: [path.join(__dirname, '../../dist/main/src/main/index.js')],
       env: {
@@ -14,40 +13,32 @@ test.describe('Vault Integration', () => {
         NODE_ENV: 'test'
       }
     })
-    
-    // Get the first window
+  })
+
+  test.afterEach(async () => {
+    if (electronApp) {
+      await electronApp.close()
+    }
+  })
+
+  test('should launch Electron app and display content', async () => {
     const page = await electronApp.firstWindow()
-    
-    // Wait for the app to load
     await page.waitForLoadState('domcontentloaded')
-    await page.waitForTimeout(2000)
     
-    // Test that content is actually displayed
+    // Test that content is displayed
     const title = await page.textContent('h1')
     expect(title).toContain('Prep - Meeting Assistant')
     
-    const button = await page.textContent('button')
-    expect(button).toContain('Open Vault Browser')
-    
-    // Test that the app version is displayed
+    // Test that buttons are present
     const bodyText = await page.textContent('body')
+    expect(bodyText).toContain('Vault Browser')
+    expect(bodyText).toContain('Calendar Import')
     expect(bodyText).toContain('Version:')
-    
-    await electronApp.close()
   })
 
   test('should have working IPC communication', async () => {
-    electronApp = await electron.launch({
-      args: [path.join(__dirname, '../../dist/main/src/main/index.js')],
-      env: {
-        ...process.env,
-        NODE_ENV: 'test'
-      }
-    })
-    
     const page = await electronApp.firstWindow()
     await page.waitForLoadState('domcontentloaded')
-    await page.waitForTimeout(2000)
     
     // Test that electronAPI is exposed and working
     const version = await page.evaluate(async () => {
@@ -70,34 +61,19 @@ test.describe('Vault Integration', () => {
     })
     
     expect(hasVaultAPI).toBe(true)
-    
-    await electronApp.close()
   })
 
   test('should navigate to vault browser', async () => {
-    electronApp = await electron.launch({
-      args: [path.join(__dirname, '../../dist/main/src/main/index.js')],
-      env: {
-        ...process.env,
-        NODE_ENV: 'test'
-      }
-    })
-    
     const page = await electronApp.firstWindow()
     await page.waitForLoadState('domcontentloaded')
-    await page.waitForTimeout(2000)
     
     // Click the vault browser button
-    await page.click('button:has-text("Open Vault Browser")')
-    
-    // Wait for navigation
+    await page.click('button:has-text("Vault Browser")')
     await page.waitForTimeout(1000)
     
     // Check that vault selector is displayed
-    const vaultSelectorText = await page.textContent('body')
-    expect(vaultSelectorText).toContain('Connect Your Obsidian Vault')
-    expect(vaultSelectorText).toContain('Select Obsidian Vault')
-    
-    await electronApp.close()
+    const bodyText = await page.textContent('body')
+    expect(bodyText).toContain('Connect Your Obsidian Vault')
+    expect(bodyText).toContain('Select Obsidian Vault')
   })
 })

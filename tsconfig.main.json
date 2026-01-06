@@ -8,11 +8,13 @@
     "moduleResolution": "node",
     "types": ["node"],
     "allowSyntheticDefaultImports": true,
+    "esModuleInterop": true,
     "composite": true
   },
   "include": [
     "src/main/**/*",
-    "src/shared/**/*"
+    "src/shared/**/*",
+    "src/types/**/*"
   ],
   "exclude": [
     "node_modules",

@@ -8,7 +8,7 @@ Code-review (file or description of issues): $1
 
 Please fix these issues one by one. If the Code-review is a file read the entire file first to understand all of the issue(s) presented there.
 
-Scope: $2
+Scope: Disregard Low issues unless it is a very simple fix. Any other issues should be adressed.
 
 For each fix:
 1. Explain what was wrong

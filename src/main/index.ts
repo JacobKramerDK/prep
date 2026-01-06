@@ -1,9 +1,11 @@
 import { app, BrowserWindow, ipcMain, dialog } from 'electron'
 import path from 'path'
 import { VaultManager } from './services/vault-manager'
+import { CalendarManager } from './services/calendar-manager'
 
 const isDevelopment = process.env.NODE_ENV === 'development'
 const vaultManager = new VaultManager()
+const calendarManager = new CalendarManager()
 
 const createWindow = (): void => {
   const mainWindow = new BrowserWindow({
@@ -109,4 +111,45 @@ ipcMain.handle('vault:readFile', async (_, filePath: string) => {
   }
   
   return await vaultManager.readFile(filePath)
+})
+
+// Calendar IPC handlers
+ipcMain.handle('calendar:extractEvents', async () => {
+  return await calendarManager.extractAppleScriptEvents()
+})
+
+ipcMain.handle('calendar:parseICS', async (_, filePath: string) => {
+  if (!filePath || typeof filePath !== 'string') {
+    throw new Error('Invalid file path')
+  }
+  return await calendarManager.parseICSFile(filePath)
+})
+
+ipcMain.handle('calendar:getEvents', async () => {
+  return await calendarManager.getEvents()
+})
+
+ipcMain.handle('calendar:clearEvents', async () => {
+  return await calendarManager.clearEvents()
+})
+
+ipcMain.handle('calendar:isAppleScriptSupported', async () => {
+  return calendarManager.isAppleScriptSupported()
+})
+
+ipcMain.handle('calendar:selectICSFile', async () => {
+  const result = await dialog.showOpenDialog({
+    properties: ['openFile'],
+    title: 'Select ICS Calendar File',
+    filters: [
+      { name: 'Calendar Files', extensions: ['ics'] },
+      { name: 'All Files', extensions: ['*'] }
+    ]
+  })
+  
+  if (result.canceled || result.filePaths.length === 0) {
+    throw new Error('No file selected')
+  }
+  
+  return result.filePaths[0]
 })

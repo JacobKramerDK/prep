@@ -1,10 +1,14 @@
 import React, { useState, useEffect } from 'react'
 import type { ElectronAPI } from '../shared/types/ipc'
+import type { CalendarEvent } from '../shared/types/calendar'
 import { VaultBrowser } from './components/VaultBrowser'
+import { CalendarImport } from './components/CalendarImport'
 
 const App: React.FC = () => {
   const [version, setVersion] = useState<string>('Loading...')
   const [showVault, setShowVault] = useState(false)
+  const [showCalendar, setShowCalendar] = useState(false)
+  const [calendarEvents, setCalendarEvents] = useState<CalendarEvent[]>([])
 
   useEffect(() => {
     const getVersion = async (): Promise<void> => {
@@ -24,8 +28,36 @@ const App: React.FC = () => {
     getVersion()
   }, [])
 
+  const handleEventsImported = (events: CalendarEvent[]) => {
+    setCalendarEvents(events)
+  }
+
   if (showVault) {
     return <VaultBrowser />
+  }
+
+  if (showCalendar) {
+    return (
+      <div>
+        <div style={{ padding: '16px', borderBottom: '1px solid #e2e8f0' }}>
+          <button
+            onClick={() => setShowCalendar(false)}
+            style={{
+              padding: '8px 16px',
+              fontSize: '14px',
+              backgroundColor: '#f1f5f9',
+              color: '#475569',
+              border: '1px solid #cbd5e1',
+              borderRadius: '6px',
+              cursor: 'pointer'
+            }}
+          >
+            ← Back to Home
+          </button>
+        </div>
+        <CalendarImport onEventsImported={handleEventsImported} />
+      </div>
+    )
   }
 
   return (
@@ -98,9 +130,9 @@ const App: React.FC = () => {
             </li>
             <li style={{ 
               padding: '8px 0',
-              color: '#d97706'
+              color: '#059669'
             }}>
-              🚧 Calendar Integration (Coming Soon)
+              ✅ Calendar Integration (Apple Calendar + ICS Files)
             </li>
             <li style={{ 
               padding: '8px 0',
@@ -109,41 +141,73 @@ const App: React.FC = () => {
               🚧 AI Meeting Briefs (Coming Soon)
             </li>
           </ul>
+          
+          {calendarEvents.length > 0 && (
+            <div style={{ 
+              marginTop: '16px',
+              padding: '12px',
+              backgroundColor: '#ecfdf5',
+              border: '1px solid #a7f3d0',
+              borderRadius: '6px'
+            }}>
+              <p style={{ 
+                color: '#065f46',
+                margin: 0,
+                fontSize: '14px'
+              }}>
+                📅 {calendarEvents.length} calendar event{calendarEvents.length !== 1 ? 's' : ''} loaded for today
+              </p>
+            </div>
+          )}
         </div>
 
         <div style={{ 
-          textAlign: 'center',
-          padding: '24px'
+          display: 'grid',
+          gridTemplateColumns: '1fr 1fr',
+          gap: '16px',
+          marginBottom: '24px'
         }}>
           <button
             onClick={() => setShowVault(true)}
             style={{
-              padding: '16px 32px',
-              fontSize: '18px',
+              padding: '20px',
+              fontSize: '16px',
               backgroundColor: '#2563eb',
               color: 'white',
               border: 'none',
               borderRadius: '8px',
               cursor: 'pointer',
               fontWeight: '500',
-              transition: 'background-color 0.2s'
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.backgroundColor = '#1d4ed8'
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.backgroundColor = '#2563eb'
+              textAlign: 'left'
             }}
           >
-            Open Vault Browser
+            <div style={{ fontSize: '24px', marginBottom: '8px' }}>📚</div>
+            <div style={{ fontWeight: '600', marginBottom: '4px' }}>Vault Browser</div>
+            <div style={{ fontSize: '14px', opacity: 0.9 }}>
+              Browse and search your Obsidian notes
+            </div>
           </button>
-          <p style={{ 
-            fontSize: '14px',
-            color: '#64748b',
-            marginTop: '12px'
-          }}>
-            Connect to your Obsidian vault to start browsing and searching your notes
-          </p>
+          
+          <button
+            onClick={() => setShowCalendar(true)}
+            style={{
+              padding: '20px',
+              fontSize: '16px',
+              backgroundColor: '#059669',
+              color: 'white',
+              border: 'none',
+              borderRadius: '8px',
+              cursor: 'pointer',
+              fontWeight: '500',
+              textAlign: 'left'
+            }}
+          >
+            <div style={{ fontSize: '24px', marginBottom: '8px' }}>📅</div>
+            <div style={{ fontWeight: '600', marginBottom: '4px' }}>Calendar Import</div>
+            <div style={{ fontSize: '14px', opacity: 0.9 }}>
+              Import today's meetings from Apple Calendar or ICS files
+            </div>
+          </button>
         </div>
       </main>
     </div>

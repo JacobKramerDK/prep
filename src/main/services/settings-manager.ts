@@ -4,11 +4,14 @@ import { randomBytes } from 'crypto'
 import { app } from 'electron'
 import * as os from 'os'
 import * as fs from 'fs'
+import { CalendarEvent } from '../../shared/types/calendar'
 
 interface SettingsSchema {
   vaultPath: string | null
   lastVaultScan: string | null
   searchHistory: string[]
+  calendarEvents: CalendarEvent[]
+  lastCalendarSync: string | null
   preferences: {
     autoScan: boolean
     maxSearchResults: number
@@ -28,6 +31,8 @@ export class SettingsManager {
         vaultPath: null,
         lastVaultScan: null,
         searchHistory: [],
+        calendarEvents: [],
+        lastCalendarSync: null,
         preferences: {
           autoScan: true,
           maxSearchResults: 50
@@ -90,7 +95,7 @@ export class SettingsManager {
 
   async addSearchQuery(query: string): Promise<void> {
     const history = this.store.get('searchHistory')
-    const updatedHistory = [query, ...history.filter(q => q !== query)].slice(0, 10)
+    const updatedHistory = [query, ...history.filter((q: string) => q !== query)].slice(0, 10)
     this.store.set('searchHistory', updatedHistory)
   }
 
@@ -105,5 +110,19 @@ export class SettingsManager {
   async updatePreferences(preferences: Partial<SettingsSchema['preferences']>): Promise<void> {
     const current = this.store.get('preferences')
     this.store.set('preferences', { ...current, ...preferences })
+  }
+
+  async getCalendarEvents(): Promise<CalendarEvent[]> {
+    return this.store.get('calendarEvents')
+  }
+
+  async setCalendarEvents(events: CalendarEvent[]): Promise<void> {
+    this.store.set('calendarEvents', events)
+    this.store.set('lastCalendarSync', new Date().toISOString())
+  }
+
+  async getLastCalendarSync(): Promise<Date | null> {
+    const lastSync = this.store.get('lastCalendarSync')
+    return lastSync ? new Date(lastSync) : null
   }
 }
