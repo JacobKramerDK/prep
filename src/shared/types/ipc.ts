@@ -2,6 +2,7 @@ import type { VaultIndex, SearchResult } from './vault'
 import type { CalendarEvent, CalendarImportResult } from './calendar'
 import type { CalendarDiscoveryResult, CalendarSelectionSettings } from './calendar-selection'
 import type { TodaysMeetingsResult } from './meeting'
+import type { BriefGenerationRequest, BriefGenerationResult, BriefGenerationStatus } from './brief'
 
 export interface ElectronAPI {
   getVersion: () => Promise<string>
@@ -24,6 +25,13 @@ export interface ElectronAPI {
   getTodaysMeetings: () => Promise<TodaysMeetingsResult>
   hasTodaysMeetings: () => Promise<boolean>
   invalidateMeetingCache: () => Promise<void>
+  // Brief generation operations
+  generateMeetingBrief: (request: BriefGenerationRequest) => Promise<BriefGenerationResult>
+  getBriefGenerationStatus: (meetingId: string) => Promise<BriefGenerationStatus>
+  // Settings operations
+  getOpenAIApiKey: () => Promise<string | null>
+  setOpenAIApiKey: (apiKey: string | null) => Promise<void>
+  validateOpenAIApiKey: (apiKey: string) => Promise<boolean>
 }
 
 declare global {

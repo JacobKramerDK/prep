@@ -1,6 +1,7 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import type { ElectronAPI } from '../shared/types/ipc'
 import type { CalendarSelectionSettings } from '../shared/types/calendar-selection'
+import type { BriefGenerationRequest } from '../shared/types/brief'
 
 // Expose protected methods that allow the renderer process to use
 // the ipcRenderer without exposing the entire object
@@ -69,7 +70,14 @@ const electronAPI: ElectronAPI = {
     return result
   },
   hasTodaysMeetings: () => ipcRenderer.invoke('meeting:hasTodaysMeetings'),
-  invalidateMeetingCache: () => ipcRenderer.invoke('meeting:invalidateCache')
+  invalidateMeetingCache: () => ipcRenderer.invoke('meeting:invalidateCache'),
+  // Add brief generation methods
+  generateMeetingBrief: (request: BriefGenerationRequest) => ipcRenderer.invoke('brief:generate', request),
+  getBriefGenerationStatus: (meetingId: string) => ipcRenderer.invoke('brief:getStatus', meetingId),
+  // Add settings methods
+  getOpenAIApiKey: () => ipcRenderer.invoke('settings:getOpenAIApiKey'),
+  setOpenAIApiKey: (apiKey: string | null) => ipcRenderer.invoke('settings:setOpenAIApiKey', apiKey),
+  validateOpenAIApiKey: (apiKey: string) => ipcRenderer.invoke('settings:validateOpenAIApiKey', apiKey)
 }
 
 contextBridge.exposeInMainWorld('electronAPI', electronAPI)

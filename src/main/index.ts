@@ -4,13 +4,30 @@ import { VaultManager } from './services/vault-manager'
 import { CalendarManager } from './services/calendar-manager'
 import { SettingsManager } from './services/settings-manager'
 import { MeetingDetector } from './services/meeting-detector'
+import { OpenAIService } from './services/openai-service'
 import { CalendarSelectionSettings } from '../shared/types/calendar-selection'
+import { BriefGenerationRequest, BriefGenerationStatus } from '../shared/types/brief'
 
 const isDevelopment = process.env.NODE_ENV === 'development'
 const vaultManager = new VaultManager()
 const calendarManager = new CalendarManager()
 const meetingDetector = new MeetingDetector(calendarManager)
 const settingsManager = new SettingsManager()
+let openaiService: OpenAIService | null = null
+
+// Initialize OpenAI service with stored API key
+const initializeOpenAIService = async (): Promise<void> => {
+  try {
+    const apiKey = await settingsManager.getOpenAIApiKey()
+    if (apiKey) {
+      openaiService = new OpenAIService(apiKey)
+    }
+  } catch (error) {
+    console.error('Failed to initialize OpenAI service:', error instanceof Error ? error.message : 'Unknown error')
+    // Continue without OpenAI service - user can configure it later in settings
+    openaiService = null
+  }
+}
 
 const createWindow = (): void => {
   const mainWindow = new BrowserWindow({
@@ -182,3 +199,72 @@ ipcMain.handle('meeting:hasTodaysMeetings', async () => {
 ipcMain.handle('meeting:invalidateCache', async () => {
   return meetingDetector.invalidateCache()
 })
+
+// Brief generation IPC handlers
+ipcMain.handle('brief:generate', async (_, request: BriefGenerationRequest) => {
+  try {
+    if (!openaiService || !openaiService.isConfigured()) {
+      return {
+        success: false,
+        error: 'OpenAI API key not configured. Please set your API key in settings.'
+      }
+    }
+
+    // Get the meeting details
+    const todaysMeetings = await meetingDetector.getTodaysMeetings()
+    const meeting = todaysMeetings.meetings.find(m => m.id === request.meetingId)
+    
+    if (!meeting) {
+      return {
+        success: false,
+        error: 'Meeting not found'
+      }
+    }
+
+    const brief = await openaiService.generateMeetingBrief(request, meeting)
+    
+    return {
+      success: true,
+      brief
+    }
+  } catch (error) {
+    console.error('Brief generation error:', error)
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error occurred'
+    }
+  }
+})
+
+ipcMain.handle('brief:getStatus', async (_, meetingId: string) => {
+  // For now, return idle status - could be enhanced with actual status tracking
+  return BriefGenerationStatus.IDLE
+})
+
+// Settings IPC handlers for OpenAI API key
+ipcMain.handle('settings:getOpenAIApiKey', async () => {
+  return await settingsManager.getOpenAIApiKey()
+})
+
+ipcMain.handle('settings:setOpenAIApiKey', async (_, apiKey: string | null) => {
+  await settingsManager.setOpenAIApiKey(apiKey)
+  
+  // Reinitialize OpenAI service with new key
+  if (apiKey) {
+    openaiService = new OpenAIService(apiKey)
+  } else {
+    openaiService = null
+  }
+})
+
+ipcMain.handle('settings:validateOpenAIApiKey', async (_, apiKey: string) => {
+  if (!settingsManager.validateApiKeyFormat(apiKey)) {
+    return false
+  }
+  
+  const testService = new OpenAIService()
+  return await testService.validateApiKey(apiKey)
+})
+
+// Initialize OpenAI service on startup
+initializeOpenAIService() // No need for .catch() since we handle errors internally

@@ -1,13 +1,49 @@
-import React from 'react'
-import type { CalendarEvent } from '../../shared/types/calendar'
+import React, { useState } from 'react'
+import type { Meeting } from '../../shared/types/meeting'
+import { BriefGenerator } from './BriefGenerator'
+import { MeetingBriefDisplay } from './MeetingBriefDisplay'
+import { useBriefGeneration } from '../hooks/useBriefGeneration'
+import { BriefGenerationRequest } from '../../shared/types/brief'
 
 interface Props {
-  meetings: CalendarEvent[]
+  meetings: Meeting[]
   isLoading: boolean
   onRefresh: () => void
 }
 
 export const TodaysMeetings: React.FC<Props> = ({ meetings, isLoading, onRefresh }) => {
+  const [selectedMeetingForBrief, setSelectedMeetingForBrief] = useState<Meeting | null>(null)
+  const [viewingBriefForMeeting, setViewingBriefForMeeting] = useState<string | null>(null)
+  
+  const {
+    isGenerating,
+    error,
+    generateBrief,
+    clearError,
+    getBrief,
+    hasBrief
+  } = useBriefGeneration()
+
+  const handleGenerateBrief = async (request: BriefGenerationRequest) => {
+    const brief = await generateBrief(request)
+    if (brief) {
+      setSelectedMeetingForBrief(null)
+      setViewingBriefForMeeting(request.meetingId)
+    }
+  }
+
+  const handleCloseBriefGenerator = () => {
+    setSelectedMeetingForBrief(null)
+    clearError()
+  }
+
+  const handleViewBrief = (meetingId: string) => {
+    setViewingBriefForMeeting(meetingId)
+  }
+
+  const handleCloseBriefDisplay = () => {
+    setViewingBriefForMeeting(null)
+  }
   if (isLoading) {
     return (
       <div style={{
@@ -195,9 +231,77 @@ export const TodaysMeetings: React.FC<Props> = ({ meetings, isLoading, onRefresh
                 👥 {meeting.attendees.length} attendee{meeting.attendees.length !== 1 ? 's' : ''}
               </div>
             )}
+
+            {/* Brief Generation Actions */}
+            <div style={{
+              marginTop: '12px',
+              paddingTop: '12px',
+              borderTop: '1px solid #e2e8f0',
+              display: 'flex',
+              gap: '8px'
+            }}>
+              {hasBrief(meeting.id) ? (
+                <button
+                  onClick={() => handleViewBrief(meeting.id)}
+                  style={{
+                    padding: '6px 12px',
+                    fontSize: '12px',
+                    backgroundColor: '#10b981',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '4px',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '4px'
+                  }}
+                >
+                  <span>📄</span>
+                  View Brief
+                </button>
+              ) : (
+                <button
+                  onClick={() => setSelectedMeetingForBrief(meeting)}
+                  style={{
+                    padding: '6px 12px',
+                    fontSize: '12px',
+                    backgroundColor: '#3b82f6',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '4px',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '4px'
+                  }}
+                >
+                  <span>🤖</span>
+                  Generate Brief
+                </button>
+              )}
+            </div>
           </div>
         ))}
       </div>
+
+      {/* Brief Generator Modal */}
+      {selectedMeetingForBrief && (
+        <BriefGenerator
+          meeting={selectedMeetingForBrief}
+          onGenerate={handleGenerateBrief}
+          isGenerating={isGenerating}
+          error={error}
+          onClose={handleCloseBriefGenerator}
+        />
+      )}
+
+      {/* Brief Display Modal */}
+      {viewingBriefForMeeting && (
+        <MeetingBriefDisplay
+          brief={getBrief(viewingBriefForMeeting)!}
+          onClose={handleCloseBriefDisplay}
+        />
+      )}
     </div>
   )
 }

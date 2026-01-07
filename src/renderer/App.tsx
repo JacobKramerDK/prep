@@ -5,11 +5,13 @@ import type { Meeting } from '../shared/types/meeting'
 import { VaultBrowser } from './components/VaultBrowser'
 import { CalendarImport } from './components/CalendarImport'
 import { TodaysMeetings } from './components/TodaysMeetings'
+import { Settings } from './components/Settings'
 
 const App: React.FC = () => {
   const [version, setVersion] = useState<string>('Loading...')
   const [showVault, setShowVault] = useState(false)
   const [showCalendar, setShowCalendar] = useState(false)
+  const [showSettings, setShowSettings] = useState(false)
   const [calendarEvents, setCalendarEvents] = useState<CalendarEvent[]>([])
   const [todaysMeetings, setTodaysMeetings] = useState<Meeting[]>([])
   const [meetingsLoading, setMeetingsLoading] = useState(false)
@@ -71,6 +73,10 @@ const App: React.FC = () => {
     setCalendarEvents(events)
   }
 
+  if (showSettings) {
+    return <Settings onBackToHome={() => setShowSettings(false)} />
+  }
+
   if (showVault) {
     return <VaultBrowser onBackToHome={() => setShowVault(false)} />
   }
@@ -107,26 +113,47 @@ const App: React.FC = () => {
       margin: '0 auto'
     }}>
       <header style={{ marginBottom: '40px' }}>
-        <h1 style={{ 
-          fontSize: '2.5rem', 
-          color: '#2563eb',
-          marginBottom: '16px'
-        }}>
-          Prep - Meeting Assistant
-        </h1>
-        <p style={{ 
-          fontSize: '1.2rem', 
-          color: '#64748b',
-          marginBottom: '8px'
-        }}>
-          Desktop meeting preparation assistant for Obsidian users
-        </p>
-        <p style={{ 
-          fontSize: '0.9rem', 
-          color: '#94a3b8'
-        }}>
-          Version: {version}
-        </p>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+          <div>
+            <h1 style={{ 
+              fontSize: '2.5rem', 
+              color: '#2563eb',
+              marginBottom: '16px'
+            }}>
+              Prep - Meeting Assistant
+            </h1>
+            <p style={{ 
+              fontSize: '1.2rem', 
+              color: '#64748b',
+              marginBottom: '8px'
+            }}>
+              Desktop meeting preparation assistant for Obsidian users
+            </p>
+            <p style={{ 
+              fontSize: '0.9rem', 
+              color: '#94a3b8'
+            }}>
+              Version: {version}
+            </p>
+          </div>
+          <button
+            onClick={() => setShowSettings(true)}
+            style={{
+              padding: '8px 16px',
+              fontSize: '14px',
+              backgroundColor: '#f1f5f9',
+              color: '#475569',
+              border: '1px solid #cbd5e1',
+              borderRadius: '6px',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px'
+            }}
+          >
+            ⚙️ Settings
+          </button>
+        </div>
       </header>
 
       <main>
@@ -175,9 +202,9 @@ const App: React.FC = () => {
             </li>
             <li style={{ 
               padding: '8px 0',
-              color: '#d97706'
+              color: '#059669'
             }}>
-              🚧 AI Meeting Briefs (Coming Soon)
+              ✅ AI Meeting Briefs (OpenAI Integration)
             </li>
           </ul>
           

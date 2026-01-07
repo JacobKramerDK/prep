@@ -14,6 +14,7 @@ interface SettingsSchema {
   calendarEvents: CalendarEvent[]
   lastCalendarSync: string | null
   calendarSelection: CalendarSelectionSettings
+  openaiApiKey: string | null
   preferences: {
     autoScan: boolean
     maxSearchResults: number
@@ -39,6 +40,7 @@ export class SettingsManager {
         discoveryCache: [],
         autoSelectNew: true
       },
+      openaiApiKey: null,
       preferences: {
         autoScan: true,
         maxSearchResults: 50
@@ -166,5 +168,21 @@ export class SettingsManager {
   async updateCalendarSelection(settings: Partial<CalendarSelectionSettings>): Promise<void> {
     const current = this.store.get('calendarSelection')
     this.store.set('calendarSelection', { ...current, ...settings })
+  }
+
+  async getOpenAIApiKey(): Promise<string | null> {
+    return this.store.get('openaiApiKey')
+  }
+
+  async setOpenAIApiKey(apiKey: string | null): Promise<void> {
+    this.store.set('openaiApiKey', apiKey)
+  }
+
+  validateApiKeyFormat(apiKey: string): boolean {
+    // OpenAI API keys start with 'sk-' and are typically 51 characters long
+    return typeof apiKey === 'string' && 
+           apiKey.startsWith('sk-') && 
+           apiKey.length >= 20 && 
+           apiKey.length <= 100
   }
 }

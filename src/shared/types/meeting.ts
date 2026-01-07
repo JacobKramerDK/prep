@@ -1,8 +1,10 @@
 import { CalendarEvent, CalendarEventIPC } from './calendar'
+import { MeetingBrief } from './brief'
 
 // Meeting-specific interface extending CalendarEvent
 export interface Meeting extends CalendarEvent {
-  // Future: Add meeting-specific properties for AI brief generation
+  // AI brief generation properties
+  brief?: MeetingBrief
   briefGenerated?: boolean
   briefContent?: string
   contextNotes?: string[]
@@ -10,6 +12,7 @@ export interface Meeting extends CalendarEvent {
 
 // IPC-safe version with string dates for serialization
 export interface MeetingIPC extends CalendarEventIPC {
+  brief?: MeetingBrief
   briefGenerated?: boolean
   briefContent?: string
   contextNotes?: string[]
