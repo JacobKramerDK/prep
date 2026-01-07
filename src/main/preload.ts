@@ -53,7 +53,23 @@ const electronAPI: ElectronAPI = {
   discoverCalendars: () => ipcRenderer.invoke('calendar:discoverCalendars'),
   getSelectedCalendars: () => ipcRenderer.invoke('calendar:getSelectedCalendars'),
   updateSelectedCalendars: (settings: Partial<CalendarSelectionSettings>) => 
-    ipcRenderer.invoke('calendar:updateSelectedCalendars', settings)
+    ipcRenderer.invoke('calendar:updateSelectedCalendars', settings),
+  // Add meeting methods with date handling
+  getTodaysMeetings: async () => {
+    const result = await ipcRenderer.invoke('meeting:getTodaysMeetings')
+    // Ensure dates are properly deserialized
+    if (result && result.meetings) {
+      result.meetings = result.meetings.map((meeting: any) => ({
+        ...meeting,
+        startDate: new Date(meeting.startDate),
+        endDate: new Date(meeting.endDate)
+      }))
+      result.detectedAt = new Date(result.detectedAt)
+    }
+    return result
+  },
+  hasTodaysMeetings: () => ipcRenderer.invoke('meeting:hasTodaysMeetings'),
+  invalidateMeetingCache: () => ipcRenderer.invoke('meeting:invalidateCache')
 }
 
 contextBridge.exposeInMainWorld('electronAPI', electronAPI)

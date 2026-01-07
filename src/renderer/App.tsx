@@ -1,14 +1,19 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import type { ElectronAPI } from '../shared/types/ipc'
 import type { CalendarEvent } from '../shared/types/calendar'
+import type { Meeting } from '../shared/types/meeting'
 import { VaultBrowser } from './components/VaultBrowser'
 import { CalendarImport } from './components/CalendarImport'
+import { TodaysMeetings } from './components/TodaysMeetings'
 
 const App: React.FC = () => {
   const [version, setVersion] = useState<string>('Loading...')
   const [showVault, setShowVault] = useState(false)
   const [showCalendar, setShowCalendar] = useState(false)
   const [calendarEvents, setCalendarEvents] = useState<CalendarEvent[]>([])
+  const [todaysMeetings, setTodaysMeetings] = useState<Meeting[]>([])
+  const [meetingsLoading, setMeetingsLoading] = useState(false)
+  const [hasVault, setHasVault] = useState(false)
 
   useEffect(() => {
     const getVersion = async (): Promise<void> => {
@@ -27,6 +32,40 @@ const App: React.FC = () => {
 
     getVersion()
   }, [])
+
+  const loadTodaysMeetings = useCallback(async () => {
+    if (!hasVault) return
+    setMeetingsLoading(true)
+    try {
+      const result = await window.electronAPI.getTodaysMeetings()
+      setTodaysMeetings(result.meetings)
+    } catch (error) {
+      console.error('Failed to load meetings:', error)
+      setTodaysMeetings([])
+    } finally {
+      setMeetingsLoading(false)
+    }
+  }, [hasVault])
+
+  const handleRefreshMeetings = useCallback(() => {
+    loadTodaysMeetings()
+  }, [loadTodaysMeetings])
+
+  // Check if vault is configured and load meetings
+  useEffect(() => {
+    const checkVaultAndLoadMeetings = async () => {
+      // For now, assume vault is configured if we have calendar events
+      // In a real implementation, this would check vault settings
+      const vaultConfigured = calendarEvents.length > 0
+      setHasVault(vaultConfigured)
+      
+      if (vaultConfigured) {
+        await loadTodaysMeetings()
+      }
+    }
+
+    checkVaultAndLoadMeetings()
+  }, [calendarEvents, loadTodaysMeetings])
 
   const handleEventsImported = (events: CalendarEvent[]) => {
     setCalendarEvents(events)
@@ -160,6 +199,15 @@ const App: React.FC = () => {
             </div>
           )}
         </div>
+
+        {/* Today's Meetings Section - Show when vault is configured */}
+        {hasVault && (
+          <TodaysMeetings 
+            meetings={todaysMeetings}
+            isLoading={meetingsLoading}
+            onRefresh={handleRefreshMeetings}
+          />
+        )}
 
         <div style={{ 
           display: 'grid',

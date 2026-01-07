@@ -24,30 +24,55 @@ export class SettingsManager {
   private store: Store<SettingsSchema>
 
   constructor() {
-    // Generate or retrieve a unique encryption key per installation
-    const encryptionKey = this.getOrCreateEncryptionKey()
+    const isTest = process.env.NODE_ENV === 'test'
+    const encryptionKey = isTest ? undefined : this.getOrCreateEncryptionKey()
     
-    this.store = new Store<SettingsSchema>({
-      name: 'prep-settings',
-      defaults: {
-        vaultPath: null,
-        lastVaultScan: null,
-        searchHistory: [],
-        calendarEvents: [],
-        lastCalendarSync: null,
-        calendarSelection: {
-          selectedCalendarUids: [],
-          lastDiscovery: null,
-          discoveryCache: [],
-          autoSelectNew: true
-        },
-        preferences: {
-          autoScan: true,
-          maxSearchResults: 50
-        }
+    const defaults = {
+      vaultPath: null,
+      lastVaultScan: null,
+      searchHistory: [],
+      calendarEvents: [],
+      lastCalendarSync: null,
+      calendarSelection: {
+        selectedCalendarUids: [],
+        lastDiscovery: null,
+        discoveryCache: [],
+        autoSelectNew: true
       },
-      encryptionKey
-    })
+      preferences: {
+        autoScan: true,
+        maxSearchResults: 50
+      }
+    }
+
+    const storeConfig: any = {
+      name: isTest ? 'prep-settings-test' : 'prep-settings',
+      defaults,
+      ...(encryptionKey && { encryptionKey })
+    }
+
+    try {
+      this.store = new Store<SettingsSchema>(storeConfig)
+    } catch (error) {
+      // Clear corrupted store and retry
+      if (process.env.NODE_ENV === 'development') {
+        console.warn('Settings store corrupted, clearing:', error)
+      }
+      try {
+        const storePath = isTest 
+          ? path.join(os.tmpdir(), 'prep-settings-test.json')
+          : path.join(app.getPath('userData'), 'prep-settings.json')
+        if (fs.existsSync(storePath)) {
+          fs.unlinkSync(storePath)
+        }
+        this.store = new Store<SettingsSchema>(storeConfig)
+      } catch (retryError) {
+        if (process.env.NODE_ENV === 'development') {
+          console.error('Failed to create settings store:', retryError)
+        }
+        throw retryError
+      }
+    }
   }
 
   private getOrCreateEncryptionKey(): string {

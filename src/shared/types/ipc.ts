@@ -1,6 +1,7 @@
 import type { VaultIndex, SearchResult } from './vault'
 import type { CalendarEvent, CalendarImportResult } from './calendar'
 import type { CalendarDiscoveryResult, CalendarSelectionSettings } from './calendar-selection'
+import type { TodaysMeetingsResult } from './meeting'
 
 export interface ElectronAPI {
   getVersion: () => Promise<string>
@@ -19,6 +20,10 @@ export interface ElectronAPI {
   discoverCalendars: () => Promise<CalendarDiscoveryResult>
   getSelectedCalendars: () => Promise<CalendarSelectionSettings>
   updateSelectedCalendars: (settings: Partial<CalendarSelectionSettings>) => Promise<void>
+  // Meeting operations
+  getTodaysMeetings: () => Promise<TodaysMeetingsResult>
+  hasTodaysMeetings: () => Promise<boolean>
+  invalidateMeetingCache: () => Promise<void>
 }
 
 declare global {

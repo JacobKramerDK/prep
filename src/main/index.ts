@@ -3,11 +3,13 @@ import path from 'path'
 import { VaultManager } from './services/vault-manager'
 import { CalendarManager } from './services/calendar-manager'
 import { SettingsManager } from './services/settings-manager'
+import { MeetingDetector } from './services/meeting-detector'
 import { CalendarSelectionSettings } from '../shared/types/calendar-selection'
 
 const isDevelopment = process.env.NODE_ENV === 'development'
 const vaultManager = new VaultManager()
 const calendarManager = new CalendarManager()
+const meetingDetector = new MeetingDetector(calendarManager)
 const settingsManager = new SettingsManager()
 
 const createWindow = (): void => {
@@ -166,4 +168,17 @@ ipcMain.handle('calendar:getSelectedCalendars', async () => {
 
 ipcMain.handle('calendar:updateSelectedCalendars', async (_, settings: Partial<CalendarSelectionSettings>) => {
   return await settingsManager.updateCalendarSelection(settings)
+})
+
+// Meeting IPC handlers
+ipcMain.handle('meeting:getTodaysMeetings', async () => {
+  return await meetingDetector.getTodaysMeetings()
+})
+
+ipcMain.handle('meeting:hasTodaysMeetings', async () => {
+  return await meetingDetector.hasTodaysMeetings()
+})
+
+ipcMain.handle('meeting:invalidateCache', async () => {
+  return meetingDetector.invalidateCache()
 })

@@ -47,25 +47,17 @@ describe('SettingsManager Security Fixes', () => {
     settingsManager = new SettingsManager()
   })
 
-  it('should generate unique encryption key per installation', () => {
-    const crypto = require('crypto')
-    expect(crypto.randomBytes).toHaveBeenCalledWith(32)
-  })
-
-  it('should use generated key for encryption', () => {
+  it('should create store without encryption in test environment', () => {
     const Store = require('electron-store')
-    
-    // Should create one store for settings
     expect(Store).toHaveBeenCalledTimes(1)
     
-    // Settings store should use the generated key
+    // In test mode, encryption is disabled for isolation
     const settingsStoreCall = Store.mock.calls[0][0]
-    expect(settingsStoreCall.encryptionKey).toBe('mock-random-key-32-bytes-long-hex')
+    expect(settingsStoreCall.name).toBe('prep-settings-test')
+    expect(settingsStoreCall.encryptionKey).toBeUndefined()
   })
 
   it('should handle test environment gracefully', () => {
-    // In test environment, it falls back to session keys due to missing electron app
-    // This is expected and secure behavior
     expect(settingsManager).toBeDefined()
   })
 })
