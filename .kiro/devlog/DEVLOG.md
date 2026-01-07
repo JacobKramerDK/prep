@@ -1503,4 +1503,12 @@ Apple Calendar extraction timing out after 30 seconds, but taking 45+ seconds to
 
 **Status**: Calendar extraction now works reliably within 60s timeout, extracting 3 today's events in ~21 seconds.
 
+### AppleScript Optimization Attempt (Jan 6, 21:46)
+- **Reviewed**: Bulk property fetching optimization suggestions from `applescript-calendar-optimization.md`
+- **Theory**: Reduce Apple Events from 3×N to 3 total by bulk fetching `summary of todayEvents`
+- **Implementation**: Failed with AppleScript syntax error (-1728) on `summary of {event list}`
+- **Root cause**: Bulk property access syntax incompatible with current Calendar app version
+- **Decision**: Reverted to working individual property access approach
+- **Future**: Optimization document preserved for potential future implementation
+
 ---

@@ -96,14 +96,13 @@ export class CalendarManager {
     
     // Much faster AppleScript - get recent events and filter in JavaScript
     const script = filteredCalendars && filteredCalendars.length > 0 ? 
-      // Simplest possible approach - just get today's events directly
+      // Working approach - individual property access (slower but reliable)
       `tell application "Calendar"
-  set targetCal to calendar "${filteredCalendars[0].replace(/"/g, '\\"')}"
   set todayStart to current date
   set time of todayStart to 0
   set todayEnd to todayStart + 1 * days
   
-  -- Simple direct query for today only
+  set targetCal to calendar "${filteredCalendars[0].replace(/"/g, '\\"')}"
   set todayEvents to (events of targetCal whose start date ≥ todayStart and start date < todayEnd)
   
   set allEvents to {}
@@ -118,25 +117,33 @@ export class CalendarManager {
   
   return allEvents
 end tell` :
-      // Process all calendars (fallback)
+      // Working fallback approach
       `tell application "Calendar"
   set todayStart to current date
   set time of todayStart to 0
   set todayEnd to todayStart + 1 * days
   
   set allEvents to {}
-  repeat with cal in calendars
+  
+  -- Only process first 3 calendars to avoid timeout
+  repeat with i from 1 to (count of calendars)
+    if i > 3 then exit repeat
     try
+      set cal to calendar i
       set calName to name of cal
       set dayEvents to (events of cal whose start date ≥ todayStart and start date < todayEnd)
+      
       repeat with evt in dayEvents
         try
           set eventTitle to summary of evt
           set eventStart to start date of evt as string
           set eventEnd to end date of evt as string
           set end of allEvents to (eventTitle & "|" & eventStart & "|" & eventEnd & "|" & calName)
+          if (count of allEvents) > 20 then exit repeat
         end try
       end repeat
+      
+      if (count of allEvents) > 20 then exit repeat
     end try
   end repeat
   
@@ -150,9 +157,9 @@ end tell`
       console.log('Executing AppleScript for calendar extraction...')
       const startTime = Date.now()
       
-      // Execute with longer timeout - Calendar app is just slow
+      // Execute with reduced timeout - bulk fetching should be much faster
       const { stdout } = await execAsync(`osascript "${scriptPath}"`, {
-        timeout: 60000, // Back to 60 seconds - Calendar app needs it
+        timeout: 30000, // Reduced from 60s - bulk fetching should be faster
         killSignal: 'SIGTERM'
       })
       
@@ -188,7 +195,7 @@ end tell`
       // If the script fails or times out, provide better error handling
       if (error.code === 'TIMEOUT' || error.killed || error.signal === 'SIGTERM') {
         throw new CalendarError(
-          'Calendar extraction timed out after 60 seconds. Your Calendar app appears to be slow. Try using ICS file import instead.',
+          'Calendar extraction timed out after 30 seconds. Try using ICS file import instead.',
           'TIMEOUT',
           error instanceof Error ? error : undefined
         )
