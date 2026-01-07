@@ -12,7 +12,7 @@ interface Props {
 }
 
 export const TodaysMeetings: React.FC<Props> = ({ meetings, isLoading, onRefresh }) => {
-  const [selectedMeetingForBrief, setSelectedMeetingForBrief] = useState<Meeting | null>(null)
+  const [expandedMeetingId, setExpandedMeetingId] = useState<string | null>(null)
   const [viewingBriefForMeeting, setViewingBriefForMeeting] = useState<string | null>(null)
   
   const {
@@ -27,13 +27,13 @@ export const TodaysMeetings: React.FC<Props> = ({ meetings, isLoading, onRefresh
   const handleGenerateBrief = async (request: BriefGenerationRequest) => {
     const brief = await generateBrief(request)
     if (brief) {
-      setSelectedMeetingForBrief(null)
+      setExpandedMeetingId(null)
       setViewingBriefForMeeting(request.meetingId)
     }
   }
 
-  const handleCloseBriefGenerator = () => {
-    setSelectedMeetingForBrief(null)
+  const handleToggleExpanded = (meetingId: string) => {
+    setExpandedMeetingId(expandedMeetingId === meetingId ? null : meetingId)
     clearError()
   }
 
@@ -244,16 +244,17 @@ export const TodaysMeetings: React.FC<Props> = ({ meetings, isLoading, onRefresh
                 <button
                   onClick={() => handleViewBrief(meeting.id)}
                   style={{
-                    padding: '6px 12px',
-                    fontSize: '12px',
+                    padding: '8px 16px',
+                    fontSize: '14px',
                     backgroundColor: '#10b981',
                     color: 'white',
                     border: 'none',
-                    borderRadius: '4px',
+                    borderRadius: '6px',
                     cursor: 'pointer',
                     display: 'flex',
                     alignItems: 'center',
-                    gap: '4px'
+                    gap: '6px',
+                    fontWeight: '500'
                   }}
                 >
                   <span>📄</span>
@@ -261,39 +262,43 @@ export const TodaysMeetings: React.FC<Props> = ({ meetings, isLoading, onRefresh
                 </button>
               ) : (
                 <button
-                  onClick={() => setSelectedMeetingForBrief(meeting)}
+                  onClick={() => handleToggleExpanded(meeting.id)}
+                  disabled={isGenerating}
                   style={{
-                    padding: '6px 12px',
-                    fontSize: '12px',
-                    backgroundColor: '#3b82f6',
+                    padding: '8px 16px',
+                    fontSize: '14px',
+                    backgroundColor: expandedMeetingId === meeting.id ? '#64748b' : '#3b82f6',
                     color: 'white',
                     border: 'none',
-                    borderRadius: '4px',
-                    cursor: 'pointer',
+                    borderRadius: '6px',
+                    cursor: isGenerating ? 'not-allowed' : 'pointer',
                     display: 'flex',
                     alignItems: 'center',
-                    gap: '4px'
+                    gap: '6px',
+                    fontWeight: '500',
+                    opacity: isGenerating ? 0.6 : 1
                   }}
                 >
-                  <span>🤖</span>
-                  Generate Brief
+                  <span>{isGenerating && expandedMeetingId === meeting.id ? '⏳' : '🤖'}</span>
+                  {expandedMeetingId === meeting.id ? 'Cancel' : 'Generate Brief'}
                 </button>
               )}
             </div>
+
+            {/* Inline Brief Generator */}
+            {expandedMeetingId === meeting.id && (
+              <BriefGenerator
+                meeting={meeting}
+                onGenerate={handleGenerateBrief}
+                isGenerating={isGenerating}
+                error={error}
+                onClose={() => setExpandedMeetingId(null)}
+                inline={true}
+              />
+            )}
           </div>
         ))}
       </div>
-
-      {/* Brief Generator Modal */}
-      {selectedMeetingForBrief && (
-        <BriefGenerator
-          meeting={selectedMeetingForBrief}
-          onGenerate={handleGenerateBrief}
-          isGenerating={isGenerating}
-          error={error}
-          onClose={handleCloseBriefGenerator}
-        />
-      )}
 
       {/* Brief Display Modal */}
       {viewingBriefForMeeting && (

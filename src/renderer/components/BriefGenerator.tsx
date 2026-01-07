@@ -1,13 +1,14 @@
 import React, { useState } from 'react'
-import { BriefGenerationRequest } from '../../shared/types/brief'
 import type { Meeting } from '../../shared/types/meeting'
+import { BriefGenerationRequest } from '../../shared/types/brief'
 
 interface Props {
   meeting: Meeting
   onGenerate: (request: BriefGenerationRequest) => Promise<void>
   isGenerating: boolean
-  error?: string | null
+  error: string | null
   onClose: () => void
+  inline?: boolean
 }
 
 export const BriefGenerator: React.FC<Props> = ({ 
@@ -15,7 +16,8 @@ export const BriefGenerator: React.FC<Props> = ({
   onGenerate, 
   isGenerating, 
   error, 
-  onClose 
+  onClose,
+  inline = false 
 }) => {
   const [formData, setFormData] = useState({
     userContext: '',
@@ -25,29 +27,16 @@ export const BriefGenerator: React.FC<Props> = ({
     additionalNotes: ''
   })
 
-  const [validationError, setValidationError] = useState<string | null>(null)
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     
-    if (!formData.userContext.trim()) {
-      setValidationError('Please provide some context about the meeting')
-      return
-    }
-
-    setValidationError(null)
-
     const request: BriefGenerationRequest = {
       meetingId: meeting.id,
-      userContext: formData.userContext.trim(),
-      meetingPurpose: formData.meetingPurpose.trim() || undefined,
-      keyTopics: formData.keyTopics.trim() 
-        ? formData.keyTopics.split(',').map(topic => topic.trim()).filter(Boolean)
-        : undefined,
-      attendees: formData.attendees.trim()
-        ? formData.attendees.split(',').map(attendee => attendee.trim()).filter(Boolean)
-        : undefined,
-      additionalNotes: formData.additionalNotes.trim() || undefined
+      userContext: formData.userContext || 'Generate a comprehensive meeting brief',
+      meetingPurpose: formData.meetingPurpose,
+      keyTopics: formData.keyTopics ? formData.keyTopics.split(',').map(t => t.trim()).filter(t => t) : undefined,
+      attendees: formData.attendees ? formData.attendees.split(',').map(a => a.trim()).filter(a => a) : undefined,
+      additionalNotes: formData.additionalNotes
     }
 
     await onGenerate(request)
@@ -55,142 +44,317 @@ export const BriefGenerator: React.FC<Props> = ({
 
   const handleInputChange = (field: keyof typeof formData, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }))
-    if (validationError) {
-      setValidationError(null)
-    }
   }
 
-  return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-      <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-        <div className="p-6">
-          <div className="flex justify-between items-start mb-6">
-            <div>
-              <h2 className="text-xl font-semibold text-gray-900">Generate Meeting Brief</h2>
-              <p className="text-sm text-gray-600 mt-1">{meeting.title}</p>
-              <p className="text-xs text-gray-500">
-                {meeting.startDate.toLocaleDateString()} at {meeting.startDate.toLocaleTimeString()}
-              </p>
-            </div>
-            <button
-              onClick={onClose}
-              className="text-gray-400 hover:text-gray-600 transition-colors"
-              disabled={isGenerating}
-            >
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
-          </div>
+  if (inline) {
+    return (
+      <div style={{
+        marginTop: '16px',
+        padding: '16px',
+        backgroundColor: '#f8fafc',
+        borderRadius: '8px',
+        border: '1px solid #e2e8f0'
+      }}>
+        <div style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          marginBottom: '16px'
+        }}>
+          <h4 style={{
+            margin: 0,
+            fontSize: '16px',
+            fontWeight: '600',
+            color: '#334155'
+          }}>
+            🤖 Generate AI Meeting Brief
+          </h4>
+        </div>
 
-          <form onSubmit={handleSubmit} className="space-y-4">
+        {error && (
+          <div style={{
+            padding: '12px',
+            backgroundColor: '#fef2f2',
+            border: '1px solid #fecaca',
+            borderRadius: '6px',
+            marginBottom: '16px'
+          }}>
+            <p style={{
+              margin: 0,
+              fontSize: '14px',
+              color: '#dc2626'
+            }}>
+              {error}
+            </p>
+          </div>
+        )}
+
+        <form onSubmit={handleSubmit}>
+          <div style={{ display: 'grid', gap: '12px' }}>
             <div>
-              <label htmlFor="userContext" className="block text-sm font-medium text-gray-700 mb-2">
-                Meeting Context <span className="text-red-500">*</span>
+              <label style={{
+                display: 'block',
+                fontSize: '14px',
+                fontWeight: '500',
+                color: '#374151',
+                marginBottom: '4px'
+              }}>
+                Meeting Context <span style={{ color: '#9ca3af', fontWeight: 'normal' }}>(Optional)</span>
               </label>
               <textarea
-                id="userContext"
                 value={formData.userContext}
                 onChange={(e) => handleInputChange('userContext', e.target.value)}
-                placeholder="Describe what this meeting is about, your role, and what you hope to accomplish..."
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                rows={4}
+                placeholder="What's this meeting about? Your role? Key objectives?"
+                style={{
+                  width: '100%',
+                  padding: '8px 12px',
+                  border: '1px solid #d1d5db',
+                  borderRadius: '6px',
+                  fontSize: '14px',
+                  fontFamily: 'inherit',
+                  resize: 'vertical',
+                  minHeight: '80px',
+                  boxSizing: 'border-box'
+                }}
                 disabled={isGenerating}
-                required
-              />
-            </div>
-
-            <div>
-              <label htmlFor="meetingPurpose" className="block text-sm font-medium text-gray-700 mb-2">
-                Meeting Purpose
-              </label>
-              <input
-                id="meetingPurpose"
-                type="text"
-                value={formData.meetingPurpose}
-                onChange={(e) => handleInputChange('meetingPurpose', e.target.value)}
-                placeholder="e.g., Project kickoff, Status update, Decision making..."
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                disabled={isGenerating}
-              />
-            </div>
-
-            <div>
-              <label htmlFor="keyTopics" className="block text-sm font-medium text-gray-700 mb-2">
-                Key Topics
-              </label>
-              <input
-                id="keyTopics"
-                type="text"
-                value={formData.keyTopics}
-                onChange={(e) => handleInputChange('keyTopics', e.target.value)}
-                placeholder="Separate topics with commas: Budget review, Timeline, Resource allocation..."
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                disabled={isGenerating}
-              />
-            </div>
-
-            <div>
-              <label htmlFor="attendees" className="block text-sm font-medium text-gray-700 mb-2">
-                Expected Attendees
-              </label>
-              <input
-                id="attendees"
-                type="text"
-                value={formData.attendees}
-                onChange={(e) => handleInputChange('attendees', e.target.value)}
-                placeholder="Separate names with commas: John Smith, Sarah Johnson..."
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                disabled={isGenerating}
-              />
-            </div>
-
-            <div>
-              <label htmlFor="additionalNotes" className="block text-sm font-medium text-gray-700 mb-2">
-                Additional Notes
-              </label>
-              <textarea
-                id="additionalNotes"
-                value={formData.additionalNotes}
-                onChange={(e) => handleInputChange('additionalNotes', e.target.value)}
-                placeholder="Any other relevant information, concerns, or preparation notes..."
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 rows={3}
-                disabled={isGenerating}
               />
             </div>
 
-            {(validationError || error) && (
-              <div className="bg-red-50 border border-red-200 rounded-md p-3">
-                <p className="text-sm text-red-600">{validationError || error}</p>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+              <div>
+                <label style={{
+                  display: 'block',
+                  fontSize: '14px',
+                  fontWeight: '500',
+                  color: '#374151',
+                  marginBottom: '4px'
+                }}>
+                  Purpose <span style={{ color: '#9ca3af', fontWeight: 'normal' }}>(Optional)</span>
+                </label>
+                <input
+                  type="text"
+                  value={formData.meetingPurpose}
+                  onChange={(e) => handleInputChange('meetingPurpose', e.target.value)}
+                  placeholder="e.g., Planning, Review, Decision"
+                  style={{
+                    width: '100%',
+                    padding: '8px 12px',
+                    border: '1px solid #d1d5db',
+                    borderRadius: '6px',
+                    fontSize: '14px',
+                    fontFamily: 'inherit',
+                    boxSizing: 'border-box'
+                  }}
+                  disabled={isGenerating}
+                />
               </div>
-            )}
 
-            <div className="flex justify-end space-x-3 pt-4">
+              <div>
+                <label style={{
+                  display: 'block',
+                  fontSize: '14px',
+                  fontWeight: '500',
+                  color: '#374151',
+                  marginBottom: '4px'
+                }}>
+                  Key Topics <span style={{ color: '#9ca3af', fontWeight: 'normal' }}>(Optional)</span>
+                </label>
+                <input
+                  type="text"
+                  value={formData.keyTopics}
+                  onChange={(e) => handleInputChange('keyTopics', e.target.value)}
+                  placeholder="e.g., Budget, Timeline, Resources"
+                  style={{
+                    width: '100%',
+                    padding: '8px 12px',
+                    border: '1px solid #d1d5db',
+                    borderRadius: '6px',
+                    fontSize: '14px',
+                    fontFamily: 'inherit',
+                    boxSizing: 'border-box'
+                  }}
+                  disabled={isGenerating}
+                />
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end', marginTop: '8px' }}>
               <button
                 type="button"
                 onClick={onClose}
-                className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 border border-gray-300 rounded-md hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 transition-colors"
                 disabled={isGenerating}
+                style={{
+                  padding: '8px 16px',
+                  fontSize: '14px',
+                  backgroundColor: '#f8fafc',
+                  color: '#64748b',
+                  border: '1px solid #e2e8f0',
+                  borderRadius: '6px',
+                  cursor: isGenerating ? 'not-allowed' : 'pointer',
+                  fontWeight: '500',
+                  opacity: isGenerating ? 0.6 : 1
+                }}
               >
                 Cancel
               </button>
               <button
                 type="submit"
-                className="px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                disabled={isGenerating || !formData.userContext.trim()}
+                disabled={isGenerating}
+                style={{
+                  padding: '8px 20px',
+                  fontSize: '14px',
+                  backgroundColor: isGenerating ? '#9ca3af' : '#3b82f6',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '6px',
+                  cursor: isGenerating ? 'not-allowed' : 'pointer',
+                  fontWeight: '500',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px'
+                }}
               >
                 {isGenerating ? (
-                  <span className="flex items-center">
-                    <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                    </svg>
-                    Generating Brief...
-                  </span>
+                  <>
+                    <span style={{ animation: 'spin 1s linear infinite' }}>⏳</span>
+                    Generating...
+                  </>
                 ) : (
-                  'Generate Brief'
+                  <>
+                    <span>✨</span>
+                    Generate Brief
+                  </>
                 )}
+              </button>
+            </div>
+          </div>
+        </form>
+
+        <style>{`
+          @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+          }
+        `}</style>
+      </div>
+    )
+  }
+
+  // Keep original modal version for backward compatibility
+  return (
+    <div style={{ 
+      position: 'fixed',
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      backgroundColor: 'rgba(0, 0, 0, 0.5)',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      padding: '16px',
+      zIndex: 1000
+    }}>
+      <div style={{
+        backgroundColor: 'white',
+        borderRadius: '8px',
+        boxShadow: '0 10px 25px rgba(0, 0, 0, 0.15)',
+        maxWidth: '600px',
+        width: '100%',
+        maxHeight: '90vh',
+        overflow: 'auto'
+      }}>
+        <div style={{ padding: '24px' }}>
+          <div style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'flex-start',
+            marginBottom: '20px'
+          }}>
+            <div>
+              <h2 style={{
+                margin: 0,
+                fontSize: '20px',
+                fontWeight: '600',
+                color: '#1f2937'
+              }}>
+                Generate Meeting Brief
+              </h2>
+              <p style={{
+                margin: '4px 0 0 0',
+                fontSize: '14px',
+                color: '#6b7280'
+              }}>
+                {meeting.title}
+              </p>
+            </div>
+            <button
+              onClick={onClose}
+              disabled={isGenerating}
+              style={{
+                background: 'none',
+                border: 'none',
+                fontSize: '24px',
+                cursor: isGenerating ? 'not-allowed' : 'pointer',
+                color: '#9ca3af',
+                padding: '4px'
+              }}
+            >
+              ×
+            </button>
+          </div>
+
+          {error && (
+            <div style={{
+              padding: '12px',
+              backgroundColor: '#fef2f2',
+              border: '1px solid #fecaca',
+              borderRadius: '6px',
+              marginBottom: '16px'
+            }}>
+              <p style={{
+                margin: 0,
+                fontSize: '14px',
+                color: '#dc2626'
+              }}>
+                {error}
+              </p>
+            </div>
+          )}
+
+          <form onSubmit={handleSubmit}>
+            <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+              <button
+                type="button"
+                onClick={onClose}
+                disabled={isGenerating}
+                style={{
+                  padding: '8px 16px',
+                  fontSize: '14px',
+                  backgroundColor: '#f8fafc',
+                  color: '#64748b',
+                  border: '1px solid #e2e8f0',
+                  borderRadius: '6px',
+                  cursor: isGenerating ? 'not-allowed' : 'pointer'
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={isGenerating}
+                style={{
+                  padding: '8px 20px',
+                  fontSize: '14px',
+                  backgroundColor: isGenerating ? '#9ca3af' : '#3b82f6',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '6px',
+                  cursor: isGenerating ? 'not-allowed' : 'pointer'
+                }}
+              >
+                {isGenerating ? 'Generating...' : 'Generate Brief'}
               </button>
             </div>
           </form>

@@ -6,36 +6,53 @@ interface Props {
 
 export const Settings: React.FC<Props> = ({ onBackToHome }) => {
   const [apiKey, setApiKey] = useState('')
+  const [selectedModel, setSelectedModel] = useState('gpt-4o-mini')
+  const [availableModels, setAvailableModels] = useState<string[]>([
+    'o1-preview', 'o1-mini', 'gpt-4o', 'gpt-4o-mini', 'gpt-4-turbo', 'gpt-4', 'gpt-3.5-turbo'
+  ])
+  const [isLoadingModels, setIsLoadingModels] = useState(false)
   const [isValidating, setIsValidating] = useState(false)
   const [validationResult, setValidationResult] = useState<'valid' | 'invalid' | null>(null)
   const [isSaving, setIsSaving] = useState(false)
   const [saveMessage, setSaveMessage] = useState<string | null>(null)
 
   useEffect(() => {
-    // Load existing API key on component mount
-    const loadApiKey = async () => {
+    // Load existing settings on component mount
+    const loadSettings = async () => {
       try {
-        const existingKey = await window.electronAPI.getOpenAIApiKey()
+        const [existingKey, existingModel] = await Promise.all([
+          window.electronAPI.getOpenAIApiKey(),
+          window.electronAPI.getOpenAIModel()
+        ])
+        
         if (existingKey) {
           setApiKey(existingKey)
-          // Validate existing key instead of assuming it's valid
-          setIsValidating(true)
-          try {
-            const isValid = await window.electronAPI.validateOpenAIApiKey(existingKey)
-            setValidationResult(isValid ? 'valid' : 'invalid')
-          } catch (error) {
-            console.error('Failed to validate existing API key:', error)
-            setValidationResult('invalid')
-          } finally {
-            setIsValidating(false)
+          // Only try to load models if the API key format is valid
+          if (existingKey.startsWith('sk-') && existingKey.length >= 20) {
+            setIsLoadingModels(true)
+            try {
+              const models = await window.electronAPI.getAvailableModels(existingKey)
+              if (models && models.length > 0) {
+                setAvailableModels(models)
+              }
+            } catch (error) {
+              console.error('Failed to load models on settings page:', error)
+              // Keep default models if fetch fails
+            } finally {
+              setIsLoadingModels(false)
+            }
           }
         }
+        
+        if (existingModel) {
+          setSelectedModel(existingModel)
+        }
       } catch (error) {
-        console.error('Failed to load API key:', error)
+        console.error('Failed to load settings:', error)
       }
     }
 
-    loadApiKey()
+    loadSettings()
   }, [])
 
   const handleValidateKey = async () => {
@@ -50,6 +67,20 @@ export const Settings: React.FC<Props> = ({ onBackToHome }) => {
     try {
       const isValid = await window.electronAPI.validateOpenAIApiKey(apiKey.trim())
       setValidationResult(isValid ? 'valid' : 'invalid')
+      
+      // If valid, fetch available models
+      if (isValid) {
+        setIsLoadingModels(true)
+        try {
+          const models = await window.electronAPI.getAvailableModels(apiKey.trim())
+          setAvailableModels(models)
+        } catch (error) {
+          console.error('Failed to fetch models:', error)
+          // Keep default models if fetch fails
+        } finally {
+          setIsLoadingModels(false)
+        }
+      }
     } catch (error) {
       console.error('API key validation failed:', error)
       setValidationResult('invalid')
@@ -63,12 +94,15 @@ export const Settings: React.FC<Props> = ({ onBackToHome }) => {
     setSaveMessage(null)
 
     try {
-      await window.electronAPI.setOpenAIApiKey(apiKey.trim() || null)
-      setSaveMessage('API key saved successfully!')
+      await Promise.all([
+        window.electronAPI.setOpenAIApiKey(apiKey.trim() || null),
+        window.electronAPI.setOpenAIModel(selectedModel)
+      ])
+      setSaveMessage('Settings saved successfully!')
       setTimeout(() => setSaveMessage(null), 3000)
     } catch (error) {
-      console.error('Failed to save API key:', error)
-      setSaveMessage('Failed to save API key')
+      console.error('Failed to save settings:', error)
+      setSaveMessage('Failed to save settings')
       setTimeout(() => setSaveMessage(null), 3000)
     } finally {
       setIsSaving(false)
@@ -235,21 +269,68 @@ export const Settings: React.FC<Props> = ({ onBackToHome }) => {
             </div>
           )}
 
+          <div style={{ marginBottom: '16px' }}>
+            <label 
+              htmlFor="modelSelect" 
+              style={{
+                display: 'block',
+                fontSize: '14px',
+                fontWeight: '500',
+                color: '#374151',
+                marginBottom: '8px'
+              }}
+            >
+              AI Model
+            </label>
+            <select
+              id="modelSelect"
+              value={selectedModel}
+              onChange={(e) => setSelectedModel(e.target.value)}
+              disabled={isLoadingModels}
+              style={{
+                width: '100%',
+                padding: '8px 12px',
+                fontSize: '14px',
+                border: '1px solid #d1d5db',
+                borderRadius: '6px',
+                backgroundColor: isLoadingModels ? '#f9fafb' : 'white',
+                cursor: isLoadingModels ? 'not-allowed' : 'pointer'
+              }}
+            >
+              {availableModels.map((model) => (
+                <option key={model} value={model}>
+                  {model}
+                </option>
+              ))}
+            </select>
+            <p style={{
+              fontSize: '12px',
+              color: '#6b7280',
+              marginTop: '4px',
+              margin: '4px 0 0 0'
+            }}>
+              {isLoadingModels 
+                ? 'Loading available models...' 
+                : 'Choose the AI model for generating meeting briefs. Validate your API key to see all available models.'
+              }
+            </p>
+          </div>
+
           <div style={{ display: 'flex', gap: '8px' }}>
             <button
               onClick={handleSaveKey}
-              disabled={isSaving || !apiKey.trim()}
+              disabled={isSaving}
               style={{
                 padding: '8px 16px',
                 fontSize: '14px',
-                backgroundColor: isSaving || !apiKey.trim() ? '#9ca3af' : '#059669',
+                backgroundColor: isSaving ? '#9ca3af' : '#059669',
                 color: 'white',
                 border: 'none',
                 borderRadius: '6px',
-                cursor: isSaving || !apiKey.trim() ? 'not-allowed' : 'pointer'
+                cursor: isSaving ? 'not-allowed' : 'pointer'
               }}
             >
-              {isSaving ? 'Saving...' : 'Save API Key'}
+              {isSaving ? 'Saving...' : 'Save Settings'}
             </button>
             
             {apiKey && (

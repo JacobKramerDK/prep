@@ -79,71 +79,149 @@ export const MeetingBriefDisplay: React.FC<Props> = ({ brief, onClose }) => {
   }
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-      <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] flex flex-col">
+    <div style={{ 
+      position: 'fixed',
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      backgroundColor: 'rgba(0, 0, 0, 0.5)',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      padding: '16px',
+      zIndex: 1000
+    }}>
+      <div style={{
+        backgroundColor: 'white',
+        borderRadius: '8px',
+        boxShadow: '0 10px 25px rgba(0, 0, 0, 0.15)',
+        maxWidth: '900px',
+        width: '100%',
+        maxHeight: '90vh',
+        display: 'flex',
+        flexDirection: 'column'
+      }}>
         {/* Header */}
-        <div className="flex justify-between items-center p-6 border-b border-gray-200">
+        <div style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          padding: '20px 24px',
+          borderBottom: '1px solid #e2e8f0'
+        }}>
           <div>
-            <h2 className="text-xl font-semibold text-gray-900">Meeting Brief</h2>
-            <p className="text-sm text-gray-600 mt-1">
+            <h2 style={{
+              margin: 0,
+              fontSize: '20px',
+              fontWeight: '600',
+              color: '#1f2937'
+            }}>
+              📄 Meeting Brief
+            </h2>
+            <p style={{
+              margin: '4px 0 0 0',
+              fontSize: '14px',
+              color: '#6b7280'
+            }}>
               Generated {brief.generatedAt.toLocaleString()}
             </p>
           </div>
-          <div className="flex items-center space-x-2">
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <button
               onClick={handleCopyToClipboard}
-              className="px-3 py-2 text-sm font-medium text-gray-700 bg-gray-100 border border-gray-300 rounded-md hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 transition-colors"
+              style={{
+                padding: '8px 12px',
+                fontSize: '14px',
+                backgroundColor: copied ? '#10b981' : '#f8fafc',
+                color: copied ? 'white' : '#374151',
+                border: '1px solid #e2e8f0',
+                borderRadius: '6px',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                fontWeight: '500',
+                transition: 'all 0.2s'
+              }}
               title="Copy to clipboard"
             >
               {copied ? (
-                <span className="flex items-center">
-                  <svg className="w-4 h-4 mr-1 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                  </svg>
+                <>
+                  <span>✅</span>
                   Copied!
-                </span>
+                </>
               ) : (
-                <span className="flex items-center">
-                  <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                  </svg>
+                <>
+                  <span>📋</span>
                   Copy
-                </span>
+                </>
               )}
             </button>
             <button
               onClick={handlePrint}
-              className="px-3 py-2 text-sm font-medium text-gray-700 bg-gray-100 border border-gray-300 rounded-md hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 transition-colors"
+              style={{
+                padding: '8px 12px',
+                fontSize: '14px',
+                backgroundColor: '#f8fafc',
+                color: '#374151',
+                border: '1px solid #e2e8f0',
+                borderRadius: '6px',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                fontWeight: '500'
+              }}
               title="Print brief"
             >
-              <span className="flex items-center">
-                <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
-                </svg>
-                Print
-              </span>
+              <span>🖨️</span>
+              Print
             </button>
             <button
               onClick={onClose}
-              className="text-gray-400 hover:text-gray-600 transition-colors"
+              style={{
+                background: 'none',
+                border: 'none',
+                fontSize: '24px',
+                cursor: 'pointer',
+                color: '#9ca3af',
+                padding: '4px'
+              }}
             >
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
+              ×
             </button>
           </div>
         </div>
 
         {/* Content */}
-        <div className="flex-1 overflow-y-auto p-6">
-          <div className="prose prose-sm max-w-none">
+        <div style={{
+          flex: 1,
+          overflow: 'auto',
+          padding: '24px'
+        }}>
+          <div style={{
+            fontSize: '14px',
+            lineHeight: '1.6',
+            color: '#374151'
+          }}>
             <ReactMarkdown>{brief.content}</ReactMarkdown>
           </div>
         </div>
 
         {/* Footer */}
-        <div className="border-t border-gray-200 p-4 bg-gray-50">
-          <div className="flex justify-between items-center text-sm text-gray-600">
+        <div style={{
+          borderTop: '1px solid #e2e8f0',
+          padding: '12px 24px',
+          backgroundColor: '#f8fafc'
+        }}>
+          <div style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            fontSize: '12px',
+            color: '#6b7280'
+          }}>
             <span>Meeting ID: {brief.meetingId}</span>
             <span>Brief ID: {brief.id}</span>
           </div>

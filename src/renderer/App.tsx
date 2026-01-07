@@ -16,6 +16,7 @@ const App: React.FC = () => {
   const [todaysMeetings, setTodaysMeetings] = useState<Meeting[]>([])
   const [meetingsLoading, setMeetingsLoading] = useState(false)
   const [hasVault, setHasVault] = useState(false)
+  const [calendarError, setCalendarError] = useState<string | null>(null)
 
   useEffect(() => {
     const getVersion = async (): Promise<void> => {
@@ -32,7 +33,22 @@ const App: React.FC = () => {
       }
     }
 
+    // Load existing calendar events on app start
+    const loadExistingEvents = async (): Promise<void> => {
+      try {
+        const existingEvents = await window.electronAPI.getCalendarEvents()
+        if (existingEvents && existingEvents.length > 0) {
+          setCalendarEvents(existingEvents)
+          setCalendarError(null)
+        }
+      } catch (error) {
+        console.error('Failed to load existing calendar events:', error)
+        setCalendarError('Failed to load calendar events. Please try importing your calendar again.')
+      }
+    }
+
     getVersion()
+    loadExistingEvents()
   }, [])
 
   const loadTodaysMeetings = useCallback(async () => {
@@ -59,18 +75,26 @@ const App: React.FC = () => {
       // For now, assume vault is configured if we have calendar events
       // In a real implementation, this would check vault settings
       const vaultConfigured = calendarEvents.length > 0
-      setHasVault(vaultConfigured)
+      
+      // Prevent flickering by batching state updates
+      if (vaultConfigured !== hasVault) {
+        setHasVault(vaultConfigured)
+      }
       
       if (vaultConfigured) {
         await loadTodaysMeetings()
       }
     }
 
-    checkVaultAndLoadMeetings()
-  }, [calendarEvents, loadTodaysMeetings])
+    // Debounce the effect to prevent rapid re-renders
+    const timeoutId = setTimeout(checkVaultAndLoadMeetings, 100)
+    return () => clearTimeout(timeoutId)
+  }, [calendarEvents.length, hasVault, loadTodaysMeetings]) // Use length instead of full array
 
   const handleEventsImported = (events: CalendarEvent[]) => {
     setCalendarEvents(events)
+    // Automatically return to main screen after importing events
+    setShowCalendar(false)
   }
 
   if (showSettings) {
@@ -157,6 +181,24 @@ const App: React.FC = () => {
       </header>
 
       <main>
+        {calendarError && (
+          <div style={{
+            backgroundColor: '#fef2f2',
+            border: '1px solid #fecaca',
+            borderRadius: '8px',
+            padding: '16px',
+            marginBottom: '24px'
+          }}>
+            <p style={{
+              color: '#dc2626',
+              margin: 0,
+              fontSize: '14px'
+            }}>
+              {calendarError}
+            </p>
+          </div>
+        )}
+
         <div style={{ 
           backgroundColor: '#f8fafc', 
           padding: '24px', 
