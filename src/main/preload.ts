@@ -77,7 +77,10 @@ const electronAPI: ElectronAPI = {
   // Add settings methods
   getOpenAIApiKey: () => ipcRenderer.invoke('settings:getOpenAIApiKey'),
   setOpenAIApiKey: (apiKey: string | null) => ipcRenderer.invoke('settings:setOpenAIApiKey', apiKey),
-  validateOpenAIApiKey: (apiKey: string) => ipcRenderer.invoke('settings:validateOpenAIApiKey', apiKey)
+  validateOpenAIApiKey: (apiKey: string) => ipcRenderer.invoke('settings:validateOpenAIApiKey', apiKey),
+  getOpenAIModel: () => ipcRenderer.invoke('settings:getOpenAIModel'),
+  setOpenAIModel: (model: string) => ipcRenderer.invoke('settings:setOpenAIModel', model),
+  getAvailableModels: (apiKey: string) => ipcRenderer.invoke('settings:getAvailableModels', apiKey)
 }
 
 contextBridge.exposeInMainWorld('electronAPI', electronAPI)

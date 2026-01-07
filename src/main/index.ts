@@ -221,7 +221,9 @@ ipcMain.handle('brief:generate', async (_, request: BriefGenerationRequest) => {
       }
     }
 
-    const brief = await openaiService.generateMeetingBrief(request, meeting)
+    // Get the selected model
+    const selectedModel = await settingsManager.getOpenAIModel()
+    const brief = await openaiService.generateMeetingBrief(request, meeting, selectedModel)
     
     return {
       success: true,
@@ -264,6 +266,19 @@ ipcMain.handle('settings:validateOpenAIApiKey', async (_, apiKey: string) => {
   
   const testService = new OpenAIService()
   return await testService.validateApiKey(apiKey)
+})
+
+ipcMain.handle('settings:getOpenAIModel', async () => {
+  return await settingsManager.getOpenAIModel()
+})
+
+ipcMain.handle('settings:setOpenAIModel', async (_, model: string) => {
+  return await settingsManager.setOpenAIModel(model)
+})
+
+ipcMain.handle('settings:getAvailableModels', async (_, apiKey: string) => {
+  const testService = new OpenAIService()
+  return await testService.getAvailableModels(apiKey)
 })
 
 // Initialize OpenAI service on startup

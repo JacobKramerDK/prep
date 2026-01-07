@@ -15,6 +15,7 @@ interface SettingsSchema {
   lastCalendarSync: string | null
   calendarSelection: CalendarSelectionSettings
   openaiApiKey: string | null
+  openaiModel: string
   preferences: {
     autoScan: boolean
     maxSearchResults: number
@@ -41,6 +42,7 @@ export class SettingsManager {
         autoSelectNew: true
       },
       openaiApiKey: null,
+      openaiModel: 'gpt-4o-mini',
       preferences: {
         autoScan: true,
         maxSearchResults: 50
@@ -176,6 +178,30 @@ export class SettingsManager {
 
   async setOpenAIApiKey(apiKey: string | null): Promise<void> {
     this.store.set('openaiApiKey', apiKey)
+  }
+
+  async getOpenAIModel(): Promise<string> {
+    return this.store.get('openaiModel')
+  }
+
+  async setOpenAIModel(model: string): Promise<void> {
+    // Validate model name format
+    if (!this.isValidModelName(model)) {
+      throw new Error(`Invalid model name: ${model}`)
+    }
+    this.store.set('openaiModel', model)
+  }
+
+  private isValidModelName(model: string): boolean {
+    // Basic validation for known model patterns
+    const validPatterns = [
+      /^gpt-[34](\.\d+)?(-turbo)?(-\d{4}-\d{2}-\d{2})?$/,
+      /^gpt-4o(-mini)?(-\d{4}-\d{2}-\d{2})?$/,
+      /^o1-(preview|mini)$/,
+      /^gpt-3\.5-turbo(-16k)?(-\d{4}-\d{2}-\d{2})?$/
+    ]
+    
+    return validPatterns.some(pattern => pattern.test(model))
   }
 
   validateApiKeyFormat(apiKey: string): boolean {

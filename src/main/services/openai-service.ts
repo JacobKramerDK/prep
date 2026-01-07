@@ -24,7 +24,20 @@ export class OpenAIService {
     return this.client !== null && this.apiKey !== null
   }
 
-  async generateMeetingBrief(request: BriefGenerationRequest, meeting: Meeting): Promise<MeetingBrief> {
+  private getModelCapabilities(model: string): { usesCompletionTokens: boolean } {
+    // Models that use max_completion_tokens instead of max_tokens
+    const completionTokenModels = [
+      'o1-preview', 'o1-mini', 'gpt-5', 'gpt-5-mini'
+    ]
+    
+    const usesCompletionTokens = completionTokenModels.some(m => 
+      model === m || model.startsWith(m + '-')
+    )
+    
+    return { usesCompletionTokens }
+  }
+
+  async generateMeetingBrief(request: BriefGenerationRequest, meeting: Meeting, model: string = 'gpt-4o-mini'): Promise<MeetingBrief> {
     if (!this.isConfigured()) {
       throw new Error('OpenAI API key not configured')
     }
@@ -32,8 +45,19 @@ export class OpenAIService {
     const prompt = this.buildPrompt(request, meeting)
     
     try {
-      const response = await this.client!.chat.completions.create({
-        model: 'gpt-4',
+      interface RequestParams {
+        model: string
+        messages: Array<{
+          role: 'system' | 'user' | 'assistant'
+          content: string
+        }>
+        max_tokens?: number
+        max_completion_tokens?: number
+        temperature?: number
+      }
+
+      const requestParams: RequestParams = {
+        model: model,
         messages: [
           {
             role: 'system',
@@ -43,10 +67,20 @@ export class OpenAIService {
             role: 'user',
             content: prompt
           }
-        ],
-        max_tokens: 2000,
-        temperature: 0.7
-      })
+        ]
+      }
+
+      // Use correct parameters based on model capabilities
+      const modelCapabilities = this.getModelCapabilities(model)
+      if (modelCapabilities.usesCompletionTokens) {
+        requestParams.max_completion_tokens = 2000
+        // These models only support temperature = 1 (default)
+      } else {
+        requestParams.max_tokens = 2000
+        requestParams.temperature = 0.7
+      }
+
+      const response = await this.client!.chat.completions.create(requestParams)
 
       const content = response.choices[0]?.message?.content
       if (!content) {
@@ -68,13 +102,17 @@ export class OpenAIService {
   }
 
   private buildPrompt(request: BriefGenerationRequest, meeting: Meeting): string {
+    // Ensure dates are Date objects
+    const startDate = meeting.startDate instanceof Date ? meeting.startDate : new Date(meeting.startDate)
+    const endDate = meeting.endDate instanceof Date ? meeting.endDate : new Date(meeting.endDate)
+    
     const sections = [
       '# Meeting Brief Generation Request',
       '',
       '## Meeting Details',
       `**Title:** ${meeting.title}`,
-      `**Date:** ${meeting.startDate.toLocaleDateString()}`,
-      `**Time:** ${meeting.startDate.toLocaleTimeString()} - ${meeting.endDate.toLocaleTimeString()}`,
+      `**Date:** ${startDate.toLocaleDateString()}`,
+      `**Time:** ${startDate.toLocaleTimeString()} - ${endDate.toLocaleTimeString()}`,
       meeting.location ? `**Location:** ${meeting.location}` : '',
       meeting.description ? `**Description:** ${meeting.description}` : '',
       '',
@@ -123,13 +161,73 @@ export class OpenAIService {
   }
 
   async validateApiKey(apiKey: string): Promise<boolean> {
+    const testModels = ['gpt-4o-mini', 'gpt-3.5-turbo', 'gpt-4']
+    
+    for (const model of testModels) {
+      try {
+        const testClient = new OpenAI({ apiKey })
+        await testClient.chat.completions.create({
+          model: model,
+          messages: [{ role: 'user', content: 'test' }],
+          max_tokens: 1
+        })
+        return true
+      } catch (error) {
+        // Continue to next model if this one fails
+        continue
+      }
+    }
+    
+    console.error('API key validation failed with all test models')
+    return false
+  }
+
+  async getAvailableModels(apiKey: string): Promise<string[]> {
     try {
       const testClient = new OpenAI({ apiKey })
-      await testClient.models.list()
-      return true
+      const response = await testClient.models.list()
+      
+      // Filter for chat completion models - be more inclusive but exclude unwanted types
+      const chatModels = response.data
+        .filter(model => {
+          const id = model.id.toLowerCase()
+          return (id.includes('gpt') || id.includes('o1')) && 
+                 !id.includes('instruct') && 
+                 !id.includes('edit') &&
+                 !id.includes('embedding') &&
+                 !id.includes('whisper') &&
+                 !id.includes('tts') &&
+                 !id.includes('dall-e') &&
+                 !id.includes('codex') &&
+                 !id.includes('image') &&
+                 !id.includes('audio') &&
+                 !id.includes('realtime')
+        })
+        .map(model => model.id)
+        .sort((a, b) => {
+          // Prioritize newer models with more comprehensive list
+          const priority = [
+            'o1-preview', 'o1-mini',
+            'gpt-4o', 'gpt-4o-mini', 'gpt-4o-2024',
+            'gpt-4-turbo', 'gpt-4-turbo-2024', 'gpt-4-turbo-preview',
+            'gpt-4', 'gpt-4-0613', 'gpt-4-0314',
+            'gpt-3.5-turbo', 'gpt-3.5-turbo-16k'
+          ]
+          
+          const aIndex = priority.findIndex(p => a.includes(p) || a === p)
+          const bIndex = priority.findIndex(p => b.includes(p) || b === p)
+          
+          if (aIndex !== -1 && bIndex !== -1) return aIndex - bIndex
+          if (aIndex !== -1) return -1
+          if (bIndex !== -1) return 1
+          return a.localeCompare(b)
+        })
+      
+      return chatModels.length > 0 ? chatModels : ['gpt-4o', 'gpt-4o-mini', 'gpt-4-turbo', 'gpt-4', 'gpt-3.5-turbo']
     } catch (error) {
-      console.error('API key validation failed:', error instanceof Error ? error.message : 'Unknown error')
-      return false
+      console.error('Failed to fetch models:', error instanceof Error ? error.message : 'Unknown error')
+      // Return default models if API call fails
+      return ['gpt-4o', 'gpt-4o-mini', 'gpt-4-turbo', 'gpt-4', 'gpt-3.5-turbo']
     }
   }
 }

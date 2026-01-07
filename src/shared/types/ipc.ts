@@ -32,6 +32,9 @@ export interface ElectronAPI {
   getOpenAIApiKey: () => Promise<string | null>
   setOpenAIApiKey: (apiKey: string | null) => Promise<void>
   validateOpenAIApiKey: (apiKey: string) => Promise<boolean>
+  getOpenAIModel: () => Promise<string>
+  setOpenAIModel: (model: string) => Promise<void>
+  getAvailableModels: (apiKey: string) => Promise<string[]>
 }
 
 declare global {
