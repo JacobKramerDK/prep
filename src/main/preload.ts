@@ -10,6 +10,8 @@ const electronAPI: ElectronAPI = {
   // Add vault methods
   selectVault: () => ipcRenderer.invoke('vault:select'),
   scanVault: (vaultPath: string) => ipcRenderer.invoke('vault:scan', vaultPath),
+  refreshVault: () => ipcRenderer.invoke('vault:refresh'),
+  disconnectVault: () => ipcRenderer.invoke('vault:disconnect'),
   searchFiles: (query: string) => ipcRenderer.invoke('vault:search', query),
   readFile: (filePath: string) => ipcRenderer.invoke('vault:readFile', filePath),
   // Add calendar methods with date handling
@@ -74,6 +76,28 @@ const electronAPI: ElectronAPI = {
   // Add brief generation methods
   generateMeetingBrief: (request: BriefGenerationRequest) => ipcRenderer.invoke('brief:generate', request),
   getBriefGenerationStatus: (meetingId: string) => ipcRenderer.invoke('brief:getStatus', meetingId),
+  // Add context retrieval methods
+  findRelevantContext: async (meetingId: string) => {
+    const result = await ipcRenderer.invoke('context:findRelevant', meetingId)
+    // Ensure dates are properly deserialized
+    if (result && result.matches) {
+      result.matches = result.matches.map((match: any) => ({
+        ...match,
+        file: {
+          ...match.file,
+          created: new Date(match.file.created),
+          modified: new Date(match.file.modified)
+        },
+        matchedAt: new Date(match.matchedAt)
+      }))
+      result.retrievedAt = new Date(result.retrievedAt)
+    }
+    return result
+  },
+  isContextIndexed: () => ipcRenderer.invoke('context:isIndexed'),
+  getContextIndexedFileCount: () => ipcRenderer.invoke('context:getIndexedFileCount'),
+  // Vault status methods
+  getVaultPath: () => ipcRenderer.invoke('vault:getPath'),
   // Add settings methods
   getOpenAIApiKey: () => ipcRenderer.invoke('settings:getOpenAIApiKey'),
   setOpenAIApiKey: (apiKey: string | null) => ipcRenderer.invoke('settings:setOpenAIApiKey', apiKey),

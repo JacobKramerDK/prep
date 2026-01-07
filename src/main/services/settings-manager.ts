@@ -117,8 +117,12 @@ export class SettingsManager {
     return this.store.get('vaultPath')
   }
 
-  async setVaultPath(vaultPath: string): Promise<void> {
-    this.store.set('vaultPath', vaultPath)
+  async setVaultPath(vaultPath: string | null): Promise<void> {
+    if (vaultPath === null) {
+      this.store.delete('vaultPath')
+    } else {
+      this.store.set('vaultPath', vaultPath)
+    }
   }
 
   async getLastVaultScan(): Promise<Date | null> {

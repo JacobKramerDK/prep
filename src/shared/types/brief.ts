@@ -1,3 +1,5 @@
+import { ContextMatch } from './context'
+
 export interface BriefGenerationRequest {
   meetingId: string
   userContext: string
@@ -5,6 +7,10 @@ export interface BriefGenerationRequest {
   meetingPurpose?: string
   keyTopics?: string[]
   attendees?: string[]
+  // Context enhancement fields
+  includeContext?: boolean
+  contextMatches?: ContextMatch[]
+  maxContextResults?: number
 }
 
 export interface MeetingBrief {

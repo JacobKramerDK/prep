@@ -8,6 +8,10 @@ export interface VaultFile {
   created: Date
   modified: Date
   size: number
+  // Enhanced metadata fields for context matching
+  links?: string[]
+  backlinks?: string[]
+  enhancedTags?: string[]
 }
 
 export interface VaultIndex {

@@ -4,17 +4,21 @@ import matter from 'gray-matter'
 import chokidar from 'chokidar'
 import { VaultFile, VaultIndex, SearchResult } from '../../shared/types/vault'
 import { SettingsManager } from './settings-manager'
+import { VaultIndexer } from './vault-indexer'
 
 export class VaultManager {
   private vaultPath: string | null = null
   private index: VaultIndex | null = null
   private watcher: chokidar.FSWatcher | null = null
   private settingsManager: SettingsManager
+  private vaultIndexer: VaultIndexer
   private fileChangeQueue: Array<() => Promise<void>> = []
   private processingQueue = false
+  private isRescanning = false
 
   constructor() {
     this.settingsManager = new SettingsManager()
+    this.vaultIndexer = new VaultIndexer()
     
     // Register cleanup handlers for unexpected exits (only in production)
     if (process.env.NODE_ENV !== 'test') {
@@ -73,6 +77,14 @@ export class VaultManager {
 
       this.index = index
       await this.settingsManager.setLastVaultScan(new Date())
+
+      // Index files for context retrieval (safe re-indexing)
+      try {
+        await this.vaultIndexer.indexFiles(vaultFiles)
+      } catch (indexError) {
+        console.warn('Context indexing failed, but vault scan completed:', indexError)
+        // Don't fail the entire vault scan if indexing fails
+      }
 
       // Start file watching
       this.startFileWatching(vaultPath)
@@ -167,6 +179,19 @@ export class VaultManager {
     try {
       return await fs.readFile(resolvedPath, 'utf-8')
     } catch (error) {
+      if (error instanceof Error && error.message.includes('ENOENT')) {
+        // File not found - trigger a vault rescan to update the index (prevent recursion)
+        if (!this.isRescanning) {
+          console.warn(`File not found: ${filePath}. Triggering vault rescan.`)
+          this.isRescanning = true
+          try {
+            await this.scanVault(this.vaultPath)
+          } finally {
+            this.isRescanning = false
+          }
+        }
+        throw new Error(`File not found: ${path.basename(filePath)}. The vault has been rescanned - please try again.`)
+      }
       throw new Error(`Failed to read file: ${error instanceof Error ? error.message : 'Unknown error'}`)
     }
   }
@@ -322,10 +347,32 @@ export class VaultManager {
     }
   }
 
+  async disconnectVault(): Promise<void> {
+    // Clear the vault connection without deleting any files
+    this.vaultPath = null
+    this.index = null
+    
+    // Close file watcher
+    if (this.watcher) {
+      await this.watcher.close()
+      this.watcher = null
+    }
+    
+    // Clear vault settings
+    await this.settingsManager.setVaultPath(null)
+    
+    // Clear vault indexer
+    this.vaultIndexer.clear()
+  }
+
   async dispose(): Promise<void> {
     if (this.watcher) {
       await this.watcher.close()
       this.watcher = null
     }
+  }
+
+  getVaultIndexer(): VaultIndexer {
+    return this.vaultIndexer
   }
 }

@@ -1,6 +1,8 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import type { Meeting } from '../../shared/types/meeting'
 import { BriefGenerationRequest } from '../../shared/types/brief'
+import { ContextPreview } from './ContextPreview'
+import { useContextRetrieval } from '../hooks/useContextRetrieval'
 
 interface Props {
   meeting: Meeting
@@ -24,8 +26,30 @@ export const BriefGenerator: React.FC<Props> = ({
     meetingPurpose: '',
     keyTopics: '',
     attendees: '',
-    additionalNotes: ''
+    additionalNotes: '',
+    includeContext: true
   })
+
+  const {
+    matches,
+    isLoading: isLoadingContext,
+    error: contextError,
+    isIndexed,
+    indexedFileCount,
+    findRelevantContext,
+    checkIndexStatus
+  } = useContextRetrieval()
+
+  // Check index status and find context when component mounts
+  useEffect(() => {
+    checkIndexStatus()
+  }, [checkIndexStatus])
+
+  useEffect(() => {
+    if (formData.includeContext && isIndexed && meeting.id) {
+      findRelevantContext(meeting.id)
+    }
+  }, [formData.includeContext, isIndexed, meeting.id, findRelevantContext])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -36,14 +60,19 @@ export const BriefGenerator: React.FC<Props> = ({
       meetingPurpose: formData.meetingPurpose,
       keyTopics: formData.keyTopics ? formData.keyTopics.split(',').map(t => t.trim()).filter(t => t) : undefined,
       attendees: formData.attendees ? formData.attendees.split(',').map(a => a.trim()).filter(a => a) : undefined,
-      additionalNotes: formData.additionalNotes
+      additionalNotes: formData.additionalNotes,
+      includeContext: formData.includeContext
     }
 
     await onGenerate(request)
   }
 
   const handleInputChange = (field: keyof typeof formData, value: string) => {
-    setFormData(prev => ({ ...prev, [field]: value }))
+    if (field === 'includeContext') {
+      setFormData(prev => ({ ...prev, [field]: value === 'true' }))
+    } else {
+      setFormData(prev => ({ ...prev, [field]: value }))
+    }
   }
 
   if (inline) {
@@ -178,6 +207,70 @@ export const BriefGenerator: React.FC<Props> = ({
                 />
               </div>
             </div>
+
+            {/* Context Integration Section */}
+            {isIndexed && (
+              <div>
+                <label style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  fontSize: '14px',
+                  fontWeight: '500',
+                  color: '#374151',
+                  marginBottom: '8px',
+                  cursor: 'pointer'
+                }}>
+                  <input
+                    type="checkbox"
+                    checked={formData.includeContext}
+                    onChange={(e) => handleInputChange('includeContext', e.target.checked.toString())}
+                    disabled={isGenerating}
+                    style={{
+                      width: '16px',
+                      height: '16px',
+                      cursor: 'pointer'
+                    }}
+                  />
+                  <span>🧠 Include relevant context from vault</span>
+                  <span style={{
+                    fontSize: '12px',
+                    color: '#64748b',
+                    backgroundColor: '#e2e8f0',
+                    padding: '2px 6px',
+                    borderRadius: '4px'
+                  }}>
+                    {indexedFileCount} files indexed
+                  </span>
+                </label>
+                
+                {formData.includeContext && (
+                  <ContextPreview
+                    matches={matches}
+                    isLoading={isLoadingContext}
+                    error={contextError}
+                  />
+                )}
+              </div>
+            )}
+
+            {!isIndexed && indexedFileCount === 0 && (
+              <div style={{
+                padding: '12px',
+                backgroundColor: '#fef3c7',
+                border: '1px solid #fbbf24',
+                borderRadius: '6px',
+                fontSize: '14px',
+                color: '#92400e'
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span>💡</span>
+                  <span>
+                    <strong>Tip:</strong> Scan your Obsidian vault to enable intelligent context retrieval for enhanced meeting briefs.
+                  </span>
+                </div>
+              </div>
+            )}
 
             <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end', marginTop: '8px' }}>
               <button

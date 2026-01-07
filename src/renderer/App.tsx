@@ -16,6 +16,9 @@ const App: React.FC = () => {
   const [todaysMeetings, setTodaysMeetings] = useState<Meeting[]>([])
   const [meetingsLoading, setMeetingsLoading] = useState(false)
   const [hasVault, setHasVault] = useState(false)
+  const [vaultPath, setVaultPath] = useState<string | null>(null)
+  const [vaultIndexed, setVaultIndexed] = useState(false)
+  const [vaultFileCount, setVaultFileCount] = useState(0)
   const [calendarError, setCalendarError] = useState<string | null>(null)
 
   useEffect(() => {
@@ -33,7 +36,7 @@ const App: React.FC = () => {
       }
     }
 
-    // Load existing calendar events on app start
+    // Load existing calendar events and vault status on app start
     const loadExistingEvents = async (): Promise<void> => {
       try {
         const existingEvents = await window.electronAPI.getCalendarEvents()
@@ -47,8 +50,32 @@ const App: React.FC = () => {
       }
     }
 
+    // Check vault status on app start
+    const checkVaultStatus = async (): Promise<void> => {
+      try {
+        // Check if vault is indexed and get vault path
+        const [isIndexed, fileCount, vaultPath] = await Promise.all([
+          window.electronAPI.isContextIndexed(),
+          window.electronAPI.getContextIndexedFileCount(),
+          window.electronAPI.getVaultPath()
+        ])
+        
+        setVaultIndexed(isIndexed)
+        setVaultFileCount(fileCount)
+        setVaultPath(vaultPath)
+        setHasVault(!!vaultPath) // Vault is connected if path exists
+      } catch (error) {
+        console.error('Failed to check vault status:', error)
+        setHasVault(false)
+        setVaultIndexed(false)
+        setVaultFileCount(0)
+        setVaultPath(null)
+      }
+    }
+
     getVersion()
     loadExistingEvents()
+    checkVaultStatus()
   }, [])
 
   const loadTodaysMeetings = useCallback(async () => {
@@ -265,6 +292,64 @@ const App: React.FC = () => {
               }}>
                 📅 {calendarEvents.length} calendar event{calendarEvents.length !== 1 ? 's' : ''} loaded for today
               </p>
+            </div>
+          )}
+
+          {/* Vault Status Indicator */}
+          {vaultPath && (
+            <div style={{ 
+              marginTop: '16px',
+              padding: '12px',
+              backgroundColor: vaultIndexed ? '#f0fdf4' : '#fef3c7',
+              border: `1px solid ${vaultIndexed ? '#bbf7d0' : '#fbbf24'}`,
+              borderRadius: '6px'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                <span style={{ fontSize: '16px' }}>{vaultIndexed ? '✅' : '⚠️'}</span>
+                <span style={{ 
+                  color: vaultIndexed ? '#166534' : '#92400e',
+                  fontSize: '14px',
+                  fontWeight: '500'
+                }}>
+                  Obsidian Vault {vaultIndexed ? 'Connected & Indexed' : 'Connected (Not Indexed)'}
+                </span>
+              </div>
+              <div style={{ 
+                fontSize: '12px',
+                color: vaultIndexed ? '#065f46' : '#78350f',
+                marginLeft: '24px'
+              }}>
+                📁 {vaultPath}
+                {vaultIndexed && ` • ${vaultFileCount} files indexed for AI context`}
+              </div>
+            </div>
+          )}
+          
+          {!vaultPath && (
+            <div style={{ 
+              marginTop: '16px',
+              padding: '12px',
+              backgroundColor: '#f1f5f9',
+              border: '1px solid #cbd5e1',
+              borderRadius: '6px'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ fontSize: '16px' }}>📚</span>
+                <span style={{ 
+                  color: '#475569',
+                  fontSize: '14px',
+                  fontWeight: '500'
+                }}>
+                  No Obsidian Vault Connected
+                </span>
+              </div>
+              <div style={{ 
+                fontSize: '12px',
+                color: '#64748b',
+                marginLeft: '24px'
+              }}>
+                Use the Vault Browser to connect your Obsidian vault for AI-powered meeting briefs
+              </div>
             </div>
           )}
         </div>

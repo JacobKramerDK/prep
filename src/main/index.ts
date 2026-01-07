@@ -5,15 +5,24 @@ import { CalendarManager } from './services/calendar-manager'
 import { SettingsManager } from './services/settings-manager'
 import { MeetingDetector } from './services/meeting-detector'
 import { OpenAIService } from './services/openai-service'
+import { ContextRetrievalService } from './services/context-retrieval-service'
 import { CalendarSelectionSettings } from '../shared/types/calendar-selection'
 import { BriefGenerationRequest, BriefGenerationStatus } from '../shared/types/brief'
+import { contextRetrievalResultToIPC } from '../shared/types/context'
 
 const isDevelopment = process.env.NODE_ENV === 'development'
 const vaultManager = new VaultManager()
 const calendarManager = new CalendarManager()
 const meetingDetector = new MeetingDetector(calendarManager)
 const settingsManager = new SettingsManager()
+const contextRetrievalService = new ContextRetrievalService()
 let openaiService: OpenAIService | null = null
+
+// Connect the context retrieval service to use the vault manager's indexer
+const connectServices = () => {
+  const vaultIndexer = vaultManager.getVaultIndexer()
+  contextRetrievalService.setVaultIndexer(vaultIndexer)
+}
 
 // Initialize OpenAI service with stored API key
 const initializeOpenAIService = async (): Promise<void> => {
@@ -27,6 +36,12 @@ const initializeOpenAIService = async (): Promise<void> => {
     // Continue without OpenAI service - user can configure it later in settings
     openaiService = null
   }
+}
+
+// Initialize services and connect them
+const initializeServices = async (): Promise<void> => {
+  connectServices()
+  await initializeOpenAIService()
 }
 
 const createWindow = (): void => {
@@ -130,6 +145,19 @@ ipcMain.handle('vault:readFile', async (_, filePath: string) => {
   return await vaultManager.readFile(filePath)
 })
 
+ipcMain.handle('vault:refresh', async () => {
+  const vaultPath = await settingsManager.getVaultPath()
+  if (!vaultPath) {
+    throw new Error('No vault configured')
+  }
+  
+  return await vaultManager.scanVault(vaultPath)
+})
+
+ipcMain.handle('vault:disconnect', async () => {
+  return await vaultManager.disconnectVault()
+})
+
 // Calendar IPC handlers
 ipcMain.handle('calendar:extractEvents', async (_, selectedCalendarNames?: string[]) => {
   return await calendarManager.extractAppleScriptEvents(selectedCalendarNames)
@@ -221,9 +249,28 @@ ipcMain.handle('brief:generate', async (_, request: BriefGenerationRequest) => {
       }
     }
 
+    // Enhance request with context if enabled and available
+    let enhancedRequest = { ...request }
+    
+    if (request.includeContext !== false && contextRetrievalService.isIndexed()) {
+      try {
+        const contextResult = await contextRetrievalService.findRelevantContext(meeting)
+        if (contextResult.matches.length > 0) {
+          enhancedRequest = {
+            ...request,
+            includeContext: true,
+            contextMatches: contextResult.matches
+          }
+        }
+      } catch (contextError) {
+        console.warn('Context retrieval failed, proceeding without context:', contextError)
+        // Continue with brief generation without context
+      }
+    }
+
     // Get the selected model
     const selectedModel = await settingsManager.getOpenAIModel()
-    const brief = await openaiService.generateMeetingBrief(request, meeting, selectedModel)
+    const brief = await openaiService.generateMeetingBrief(enhancedRequest, meeting, selectedModel)
     
     return {
       success: true,
@@ -281,5 +328,36 @@ ipcMain.handle('settings:getAvailableModels', async (_, apiKey: string) => {
   return await testService.getAvailableModels(apiKey)
 })
 
-// Initialize OpenAI service on startup
-initializeOpenAIService() // No need for .catch() since we handle errors internally
+// Context retrieval IPC handlers
+ipcMain.handle('context:findRelevant', async (_, meetingId: string) => {
+  try {
+    // Get the meeting from the meeting detector
+    const todaysMeetings = await meetingDetector.getTodaysMeetings()
+    const meeting = todaysMeetings.meetings.find(m => m.id === meetingId)
+    
+    if (!meeting) {
+      throw new Error('Meeting not found')
+    }
+    
+    const result = await contextRetrievalService.findRelevantContext(meeting)
+    return contextRetrievalResultToIPC(result)
+  } catch (error) {
+    console.error('Context retrieval failed:', error)
+    throw new Error(`Context retrieval failed: ${error instanceof Error ? error.message : 'Unknown error'}`)
+  }
+})
+
+ipcMain.handle('context:isIndexed', async () => {
+  return contextRetrievalService.isIndexed()
+})
+
+ipcMain.handle('context:getIndexedFileCount', async () => {
+  return contextRetrievalService.getIndexedFileCount()
+})
+
+ipcMain.handle('vault:getPath', async () => {
+  return await settingsManager.getVaultPath()
+})
+
+// Initialize services on startup
+initializeServices() // No need for .catch() since we handle errors internally

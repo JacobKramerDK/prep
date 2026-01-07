@@ -14,6 +14,7 @@ export const VaultBrowser: React.FC<VaultBrowserProps> = ({ onBackToHome }) => {
   const [fileContent, setFileContent] = useState<string>('')
   const [loadingContent, setLoadingContent] = useState(false)
   const [fileError, setFileError] = useState<string | null>(null)
+  const [disconnectError, setDisconnectError] = useState<string | null>(null)
 
   const handleVaultSelected = (index: VaultIndex) => {
     setVaultIndex(index)
@@ -60,8 +61,25 @@ export const VaultBrowser: React.FC<VaultBrowserProps> = ({ onBackToHome }) => {
     setFileError(null)
   }
 
+  const handleDisconnectVault = async () => {
+    setDisconnectError(null)
+    try {
+      await window.electronAPI.disconnectVault()
+      setVaultIndex(null)
+      setSelectedFile(null)
+      setFileContent('')
+      setFileError(null)
+      if (onBackToHome) {
+        onBackToHome()
+      }
+    } catch (error) {
+      console.error('Failed to disconnect vault:', error)
+      setDisconnectError('Failed to disconnect from vault. Please try again.')
+    }
+  }
+
   if (!vaultIndex) {
-    return <VaultSelector onVaultSelected={handleVaultSelected} />
+    return <VaultSelector onVaultSelected={handleVaultSelected} onBackToHome={onBackToHome} />
   }
 
   return (
@@ -115,20 +133,49 @@ export const VaultBrowser: React.FC<VaultBrowserProps> = ({ onBackToHome }) => {
           }}>
             {vaultIndex.vaultPath}
           </p>
-          <button
-            onClick={handleSelectNewVault}
-            style={{
-              padding: '6px 12px',
-              fontSize: '12px',
-              backgroundColor: '#f1f5f9',
-              color: '#475569',
-              border: '1px solid #cbd5e1',
+          {disconnectError && (
+            <div style={{
+              backgroundColor: '#fef2f2',
+              border: '1px solid #fecaca',
               borderRadius: '4px',
-              cursor: 'pointer'
-            }}
-          >
-            Change Vault
-          </button>
+              padding: '8px',
+              marginBottom: '12px',
+              fontSize: '12px',
+              color: '#dc2626'
+            }}>
+              {disconnectError}
+            </div>
+          )}
+          <div style={{ display: 'flex', gap: '8px' }}>
+            <button
+              onClick={handleSelectNewVault}
+              style={{
+                padding: '6px 12px',
+                fontSize: '12px',
+                backgroundColor: '#f1f5f9',
+                color: '#475569',
+                border: '1px solid #cbd5e1',
+                borderRadius: '4px',
+                cursor: 'pointer'
+              }}
+            >
+              Change Vault
+            </button>
+            <button
+              onClick={handleDisconnectVault}
+              style={{
+                padding: '6px 12px',
+                fontSize: '12px',
+                backgroundColor: '#fef2f2',
+                color: '#dc2626',
+                border: '1px solid #fecaca',
+                borderRadius: '4px',
+                cursor: 'pointer'
+              }}
+            >
+              Disconnect
+            </button>
+          </div>
         </div>
 
         {/* File List */}

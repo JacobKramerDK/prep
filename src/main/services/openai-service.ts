@@ -121,6 +121,28 @@ export class OpenAIService {
       ''
     ]
 
+    // Add relevant context from vault if available
+    if (request.includeContext && request.contextMatches && request.contextMatches.length > 0) {
+      sections.push('## Relevant Historical Context')
+      sections.push('The following information from your notes may be relevant to this meeting:')
+      sections.push('')
+      
+      request.contextMatches.forEach((match, index) => {
+        sections.push(`### ${index + 1}. ${match.file.title}`)
+        sections.push(`**Source:** ${match.file.path}`)
+        sections.push(`**Relevance Score:** ${(match.relevanceScore * 100).toFixed(1)}%`)
+        
+        if (match.snippets && match.snippets.length > 0) {
+          sections.push('**Key Excerpts:**')
+          match.snippets.forEach(snippet => {
+            sections.push(`> ${snippet}`)
+          })
+        }
+        
+        sections.push('')
+      })
+    }
+
     if (request.meetingPurpose) {
       sections.push('## Meeting Purpose')
       sections.push(request.meetingPurpose)
@@ -150,14 +172,20 @@ export class OpenAIService {
       'Please generate a comprehensive meeting brief that includes:',
       '1. **Executive Summary** - Brief overview of the meeting purpose and expected outcomes',
       '2. **Key Discussion Points** - Main topics to be covered based on the context provided',
+      request.includeContext && request.contextMatches && request.contextMatches.length > 0 
+        ? '3. **Historical Context Integration** - How the relevant historical information relates to this meeting'
+        : '',
       '3. **Preparation Checklist** - Specific items the user should prepare or review beforehand',
       '4. **Questions to Consider** - Thoughtful questions to drive productive discussion',
       '5. **Success Metrics** - How to measure if the meeting was successful',
       '',
+      request.includeContext && request.contextMatches && request.contextMatches.length > 0
+        ? 'Pay special attention to the historical context provided and integrate it meaningfully into your recommendations. Reference specific past discussions, decisions, or action items that are relevant to this upcoming meeting.'
+        : '',
       'Format the response in clear markdown with proper headings and bullet points. Keep it professional, actionable, and tailored to the specific meeting context provided.'
     )
 
-    return sections.filter(line => line !== null).join('\n')
+    return sections.filter(line => line !== null && line !== '').join('\n')
   }
 
   async validateApiKey(apiKey: string): Promise<boolean> {
