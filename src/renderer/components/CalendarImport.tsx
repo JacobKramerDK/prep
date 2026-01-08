@@ -28,7 +28,7 @@ export const CalendarImport: React.FC<CalendarImportProps> = ({ onEventsImported
         
         const existingEvents = await window.electronAPI.getCalendarEvents()
         setEvents(existingEvents)
-        handleEventsImported(existingEvents)
+        // Don't call handleEventsImported during initialization - only when user actually imports
         
         const calendarSettings = await window.electronAPI.getSelectedCalendars()
         setSelectedCalendars(calendarSettings.selectedCalendarUids)
