@@ -12,7 +12,7 @@ const App: React.FC = () => {
   const [showVault, setShowVault] = useState(false)
   const [showCalendar, setShowCalendar] = useState(false)
   const [showSettings, setShowSettings] = useState(false)
-  const [calendarEvents, setCalendarEvents] = useState<CalendarEvent[]>([])
+  const [calendarEvents, setCalendarEvents] = useState<CalendarEvent[]>([]) // Maintains imported events for meeting detection system
   const [todaysMeetings, setTodaysMeetings] = useState<Meeting[]>([])
   const [meetingsLoading, setMeetingsLoading] = useState(false)
   const [hasVault, setHasVault] = useState(false)
@@ -99,9 +99,8 @@ const App: React.FC = () => {
   // Check if vault is configured and load meetings
   useEffect(() => {
     const checkVaultAndLoadMeetings = async () => {
-      // For now, assume vault is configured if we have calendar events
-      // In a real implementation, this would check vault settings
-      const vaultConfigured = calendarEvents.length > 0
+      // Vault is configured if we have a vault path
+      const vaultConfigured = !!vaultPath
       
       // Prevent flickering by batching state updates
       if (vaultConfigured !== hasVault) {
@@ -116,7 +115,7 @@ const App: React.FC = () => {
     // Debounce the effect to prevent rapid re-renders
     const timeoutId = setTimeout(checkVaultAndLoadMeetings, 100)
     return () => clearTimeout(timeoutId)
-  }, [calendarEvents.length, hasVault, loadTodaysMeetings]) // Use length instead of full array
+  }, [vaultPath, hasVault]) // Removed loadTodaysMeetings to avoid circular dependency
 
   const handleEventsImported = (events: CalendarEvent[]) => {
     setCalendarEvents(events)
@@ -226,133 +225,82 @@ const App: React.FC = () => {
           </div>
         )}
 
-        <div style={{ 
-          backgroundColor: '#f8fafc', 
-          padding: '24px', 
-          borderRadius: '8px',
-          border: '1px solid #e2e8f0',
-          marginBottom: '24px'
-        }}>
-          <h2 style={{ 
-            fontSize: '1.5rem', 
-            marginBottom: '16px',
-            color: '#334155'
+        {/* Status Indicators */}
+        {todaysMeetings.length > 0 && (
+          <div style={{ 
+            marginBottom: '24px',
+            padding: '12px',
+            backgroundColor: '#ecfdf5',
+            border: '1px solid #a7f3d0',
+            borderRadius: '6px'
           }}>
-            🚀 Application Status
-          </h2>
-          <ul style={{ 
-            listStyle: 'none', 
-            padding: 0,
-            margin: 0
-          }}>
-            <li style={{ 
-              padding: '8px 0',
-              color: '#059669'
+            <p style={{ 
+              color: '#065f46',
+              margin: 0,
+              fontSize: '14px'
             }}>
-              ✅ Electron + React 19 + TypeScript
-            </li>
-            <li style={{ 
-              padding: '8px 0',
-              color: '#059669'
-            }}>
-              ✅ Obsidian Vault Integration
-            </li>
-            <li style={{ 
-              padding: '8px 0',
-              color: '#059669'
-            }}>
-              ✅ File Search & Browse
-            </li>
-            <li style={{ 
-              padding: '8px 0',
-              color: '#059669'
-            }}>
-              ✅ Calendar Integration (Apple Calendar + ICS Files)
-            </li>
-            <li style={{ 
-              padding: '8px 0',
-              color: '#059669'
-            }}>
-              ✅ AI Meeting Briefs (OpenAI Integration)
-            </li>
-          </ul>
-          
-          {calendarEvents.length > 0 && (
-            <div style={{ 
-              marginTop: '16px',
-              padding: '12px',
-              backgroundColor: '#ecfdf5',
-              border: '1px solid #a7f3d0',
-              borderRadius: '6px'
-            }}>
-              <p style={{ 
-                color: '#065f46',
-                margin: 0,
-                fontSize: '14px'
-              }}>
-                📅 {calendarEvents.length} calendar event{calendarEvents.length !== 1 ? 's' : ''} loaded for today
-              </p>
-            </div>
-          )}
+              📅 {todaysMeetings.length} meeting{todaysMeetings.length !== 1 ? 's' : ''} scheduled for today
+            </p>
+          </div>
+        )}
 
-          {/* Vault Status Indicator */}
-          {vaultPath && (
-            <div style={{ 
-              marginTop: '16px',
-              padding: '12px',
-              backgroundColor: vaultIndexed ? '#f0fdf4' : '#fef3c7',
-              border: `1px solid ${vaultIndexed ? '#bbf7d0' : '#fbbf24'}`,
-              borderRadius: '6px'
-            }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
-                <span style={{ fontSize: '16px' }}>{vaultIndexed ? '✅' : '⚠️'}</span>
-                <span style={{ 
-                  color: vaultIndexed ? '#166534' : '#92400e',
-                  fontSize: '14px',
-                  fontWeight: '500'
-                }}>
-                  Obsidian Vault {vaultIndexed ? 'Connected & Indexed' : 'Connected (Not Indexed)'}
-                </span>
-              </div>
-              <div style={{ 
-                fontSize: '12px',
-                color: vaultIndexed ? '#065f46' : '#78350f',
-                marginLeft: '24px'
+        {/* Vault Status Indicator */}
+        {vaultPath && (
+          <div style={{ 
+            marginBottom: '24px',
+            padding: '12px',
+            backgroundColor: vaultIndexed ? '#f0fdf4' : '#fef3c7',
+            border: `1px solid ${vaultIndexed ? '#bbf7d0' : '#fbbf24'}`,
+            borderRadius: '6px'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+              <span style={{ fontSize: '16px' }}>{vaultIndexed ? '✅' : '⚠️'}</span>
+              <span style={{ 
+                color: vaultIndexed ? '#166534' : '#92400e',
+                fontSize: '14px',
+                fontWeight: '500'
               }}>
-                📁 {vaultPath}
-                {vaultIndexed && ` • ${vaultFileCount} files indexed for AI context`}
-              </div>
+                Obsidian Vault {vaultIndexed ? 'Connected & Indexed' : 'Connected (Not Indexed)'}
+              </span>
             </div>
-          )}
-          
-          {!vaultPath && (
             <div style={{ 
-              marginTop: '16px',
-              padding: '12px',
-              backgroundColor: '#f1f5f9',
-              border: '1px solid #cbd5e1',
-              borderRadius: '6px'
+              fontSize: '12px',
+              color: vaultIndexed ? '#065f46' : '#78350f',
+              marginLeft: '24px'
             }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <span style={{ fontSize: '16px' }}>📚</span>
-                <span style={{ 
-                  color: '#475569',
-                  fontSize: '14px',
-                  fontWeight: '500'
-                }}>
-                  No Obsidian Vault Connected
-                </span>
-              </div>
-              <div style={{ 
-                fontSize: '12px',
-                color: '#64748b',
-                marginLeft: '24px'
-              }}>
-                Use the Vault Browser to connect your Obsidian vault for AI-powered meeting briefs
-              </div>
+              📁 {vaultPath}
+              {vaultIndexed && ` • ${vaultFileCount} files indexed for AI context`}
             </div>
-          )}
-        </div>
+          </div>
+        )}
+        
+        {!vaultPath && (
+          <div style={{ 
+            marginBottom: '24px',
+            padding: '12px',
+            backgroundColor: '#f1f5f9',
+            border: '1px solid #cbd5e1',
+            borderRadius: '6px'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span style={{ fontSize: '16px' }}>📚</span>
+              <span style={{ 
+                color: '#475569',
+                fontSize: '14px',
+                fontWeight: '500'
+              }}>
+                No Obsidian Vault Connected
+              </span>
+            </div>
+            <div style={{ 
+              fontSize: '12px',
+              color: '#64748b',
+              marginLeft: '24px'
+            }}>
+              Use the Vault Browser to connect your Obsidian vault for AI-powered meeting briefs
+            </div>
+          </div>
+        )}
 
         {/* Today's Meetings Section - Show when vault is configured */}
         {hasVault && (
