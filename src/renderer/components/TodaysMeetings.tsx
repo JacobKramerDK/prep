@@ -173,7 +173,7 @@ export const TodaysMeetings: React.FC<Props> = ({ meetings, isLoading, onRefresh
                 borderRadius: '4px',
                 marginLeft: '8px'
               }}>
-                {meeting.source === 'applescript' ? 'Apple Calendar' : 'ICS'}
+                {meeting.source === 'ics' ? 'ICS' : 'Apple Calendar'}
               </span>
             </div>
 

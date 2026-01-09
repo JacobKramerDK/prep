@@ -345,12 +345,12 @@ export const CalendarImport: React.FC<CalendarImportProps> = ({ onEventsImported
                     <span style={{
                       padding: '4px 8px',
                       fontSize: '12px',
-                      backgroundColor: event.source === 'applescript' ? '#dcfce7' : '#dbeafe',
-                      color: event.source === 'applescript' ? '#166534' : '#1e40af',
+                      backgroundColor: event.source === 'ics' ? '#dbeafe' : '#dcfce7',
+                      color: event.source === 'ics' ? '#1e40af' : '#166534',
                       borderRadius: '4px',
                       fontWeight: '500'
                     }}>
-                      {event.source === 'applescript' ? 'Apple Calendar' : 'ICS File'}
+                      {event.source === 'ics' ? 'ICS File' : 'Apple Calendar'}
                     </span>
                   </div>
                   
