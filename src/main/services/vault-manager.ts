@@ -205,7 +205,8 @@ export class VaultManager {
       
       for (const entry of entries) {
         if (entry.isFile() && path.extname(entry.name).toLowerCase() === '.md') {
-          const fullPath = path.join(dirPath, entry.name)
+          // For recursive readdir, entry.path contains the directory path
+          const fullPath = path.join(entry.path || dirPath, entry.name)
           const resolvedPath = path.resolve(fullPath)
           
           // Security: Ensure the resolved path is within the vault directory

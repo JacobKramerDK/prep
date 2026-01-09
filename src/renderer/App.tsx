@@ -26,6 +26,33 @@ const App: React.FC = () => {
     return () => setMounted(false)
   }, [])
 
+  // Check vault status on app start and when needed
+  const checkVaultStatus = useCallback(async (): Promise<void> => {
+    try {
+      // Check if vault is indexed and get vault path
+      const [isIndexed, fileCount, vaultPath] = await Promise.all([
+        window.electronAPI.isContextIndexed(),
+        window.electronAPI.getContextIndexedFileCount(),
+        window.electronAPI.getVaultPath()
+      ])
+      
+      if (mounted) {
+        setVaultIndexed(isIndexed)
+        setVaultFileCount(fileCount)
+        setVaultPath(vaultPath)
+        setHasVault(!!vaultPath) // Vault is connected if path exists
+      }
+    } catch (error) {
+      console.error('Failed to check vault status:', error)
+      if (mounted) {
+        setHasVault(false)
+        setVaultIndexed(false)
+        setVaultFileCount(0)
+        setVaultPath(null)
+      }
+    }
+  }, [mounted])
+
   useEffect(() => {
     const getVersion = async (): Promise<void> => {
       try {
@@ -55,33 +82,10 @@ const App: React.FC = () => {
       }
     }
 
-    // Check vault status on app start
-    const checkVaultStatus = async (): Promise<void> => {
-      try {
-        // Check if vault is indexed and get vault path
-        const [isIndexed, fileCount, vaultPath] = await Promise.all([
-          window.electronAPI.isContextIndexed(),
-          window.electronAPI.getContextIndexedFileCount(),
-          window.electronAPI.getVaultPath()
-        ])
-        
-        setVaultIndexed(isIndexed)
-        setVaultFileCount(fileCount)
-        setVaultPath(vaultPath)
-        setHasVault(!!vaultPath) // Vault is connected if path exists
-      } catch (error) {
-        console.error('Failed to check vault status:', error)
-        setHasVault(false)
-        setVaultIndexed(false)
-        setVaultFileCount(0)
-        setVaultPath(null)
-      }
-    }
-
     getVersion()
     loadExistingEvents()
     checkVaultStatus()
-  }, [])
+  }, [checkVaultStatus])
 
   const loadTodaysMeetings = useCallback(async () => {
     if (!hasVault) return
@@ -133,7 +137,11 @@ const App: React.FC = () => {
   }
 
   if (showSettings) {
-    return <Settings onBackToHome={() => setShowSettings(false)} />
+    return <Settings onBackToHome={() => {
+      setShowSettings(false)
+      // Refresh vault status when returning from Settings
+      setTimeout(() => checkVaultStatus(), 100)
+    }} />
   }
 
   return (

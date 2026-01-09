@@ -41,23 +41,15 @@ export class VaultIndexer {
     // Clear existing index to prevent conflicts
     this.documents.clear()
     
-    // Properly dispose of existing FlexSearch instance
-    if (this.index) {
-      try {
-        // Check if destroy method exists before calling it
-        if (this.index && typeof (this.index as any).destroy === 'function') {
-          (this.index as any).destroy()
-        }
-      } catch (error) {
-        // Silently handle disposal errors - not critical for functionality
-        console.warn('Failed to dispose FlexSearch index:', error)
-      } finally {
-        this.index = null
-      }
-    }
+    // Simply set index to null - FlexSearch will be garbage collected
+    this.index = null
     
     // Initialize fresh index
     this.initializeIndex()
+
+    if (!this.index) {
+      throw new Error('Failed to initialize FlexSearch index')
+    }
 
     let indexTime = 0
     if (process.env.NODE_ENV === 'development') {
