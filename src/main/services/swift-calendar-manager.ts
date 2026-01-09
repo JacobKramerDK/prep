@@ -43,7 +43,11 @@ export class SwiftCalendarManager {
         }
       }
     }
-    return path.join(__dirname, '../../../resources/bin/calendar-helper')
+    
+    // In development mode, resolve from project root
+    // This handles both direct Node.js execution and Electron dev mode
+    const projectRoot = process.cwd()
+    return path.join(projectRoot, 'resources', 'bin', 'calendar-helper')
   }
 
   private isBinaryAvailable(): boolean {
