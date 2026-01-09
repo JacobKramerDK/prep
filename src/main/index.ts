@@ -1,5 +1,6 @@
 import { app, BrowserWindow, ipcMain, dialog } from 'electron'
 import path from 'path'
+import * as fs from 'fs/promises'
 import { VaultManager } from './services/vault-manager'
 import { CalendarManager } from './services/calendar-manager'
 import { SettingsManager } from './services/settings-manager'
@@ -42,6 +43,37 @@ const initializeOpenAIService = async (): Promise<void> => {
 const initializeServices = async (): Promise<void> => {
   connectServices()
   await initializeOpenAIService()
+  await loadExistingVault()
+}
+
+// Load and index existing vault if one was previously configured
+const loadExistingVault = async (): Promise<void> => {
+  try {
+    const vaultPath = await settingsManager.getVaultPath()
+    if (vaultPath) {
+      console.log(`Loading existing vault: ${vaultPath}`)
+      
+      // Validate vault path still exists
+      try {
+        const stats = await fs.stat(vaultPath)
+        if (!stats.isDirectory()) {
+          console.warn(`Stored vault path is not a directory: ${vaultPath}`)
+          await settingsManager.setVaultPath(null) // Clear invalid path
+          return
+        }
+      } catch (error) {
+        console.warn(`Stored vault path no longer exists: ${vaultPath}`)
+        await settingsManager.setVaultPath(null) // Clear invalid path
+        return
+      }
+      
+      await vaultManager.scanVault(vaultPath)
+      console.log(`Vault loaded and indexed successfully`)
+    }
+  } catch (error) {
+    console.warn('Failed to load existing vault on startup:', error instanceof Error ? error.message : 'Unknown error')
+    // Don't fail app startup if vault loading fails - user can reconfigure
+  }
 }
 
 const createWindow = (): void => {
@@ -76,8 +108,16 @@ const createWindow = (): void => {
 }
 
 // This method will be called when Electron has finished initialization
-app.whenReady().then(() => {
-  createWindow()
+app.whenReady().then(async () => {
+  try {
+    // Initialize services first, then create window
+    await initializeServices()
+    createWindow()
+  } catch (error) {
+    console.error('App initialization failed:', error instanceof Error ? error.message : 'Unknown error')
+    // Still create window even if initialization fails - user can reconfigure
+    createWindow()
+  }
 
   app.on('activate', () => {
     // On macOS it's common to re-create a window in the app when the
@@ -359,5 +399,4 @@ ipcMain.handle('vault:getPath', async () => {
   return await settingsManager.getVaultPath()
 })
 
-// Initialize services on startup
-initializeServices() // No need for .catch() since we handle errors internally
+// Remove the duplicate initializeServices call since it's now handled in app.whenReady()
