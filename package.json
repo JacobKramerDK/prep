@@ -2,7 +2,7 @@
   "name": "prep",
   "version": "0.1.0",
   "description": "Desktop meeting preparation assistant that connects to Obsidian vaults and calendars",
-  "main": "dist/main/index.js",
+  "main": "dist/main/src/main/index.js",
   "homepage": "./",
   "scripts": {
     "dev": "concurrently \"npm run dev:renderer\" \"npm run dev:main\"",

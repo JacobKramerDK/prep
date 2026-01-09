@@ -2,15 +2,14 @@ import React, { useState, useEffect, useCallback } from 'react'
 import type { ElectronAPI } from '../shared/types/ipc'
 import type { CalendarEvent } from '../shared/types/calendar'
 import type { Meeting } from '../shared/types/meeting'
-import { VaultBrowser } from './components/VaultBrowser'
-import { CalendarImport } from './components/CalendarImport'
 import { TodaysMeetings } from './components/TodaysMeetings'
 import { Settings } from './components/Settings'
 
 const App: React.FC = () => {
+  // Constants
+  const VAULT_CHECK_DEBOUNCE_MS = 100
+
   const [version, setVersion] = useState<string>('Loading...')
-  const [showVault, setShowVault] = useState(false)
-  const [showCalendar, setShowCalendar] = useState(false)
   const [showSettings, setShowSettings] = useState(false)
   const [calendarEvents, setCalendarEvents] = useState<CalendarEvent[]>([]) // Maintains imported events for meeting detection system
   const [todaysMeetings, setTodaysMeetings] = useState<Meeting[]>([])
@@ -20,6 +19,12 @@ const App: React.FC = () => {
   const [vaultIndexed, setVaultIndexed] = useState(false)
   const [vaultFileCount, setVaultFileCount] = useState(0)
   const [calendarError, setCalendarError] = useState<string | null>(null)
+  const [mounted, setMounted] = useState(true)
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => setMounted(false)
+  }, [])
 
   useEffect(() => {
     const getVersion = async (): Promise<void> => {
@@ -83,14 +88,20 @@ const App: React.FC = () => {
     setMeetingsLoading(true)
     try {
       const result = await window.electronAPI.getTodaysMeetings()
-      setTodaysMeetings(result.meetings)
+      if (mounted) {
+        setTodaysMeetings(result.meetings)
+      }
     } catch (error) {
       console.error('Failed to load meetings:', error)
-      setTodaysMeetings([])
+      if (mounted) {
+        setTodaysMeetings([])
+      }
     } finally {
-      setMeetingsLoading(false)
+      if (mounted) {
+        setMeetingsLoading(false)
+      }
     }
-  }, [hasVault])
+  }, [hasVault, mounted])
 
   const handleRefreshMeetings = useCallback(() => {
     loadTodaysMeetings()
@@ -103,7 +114,7 @@ const App: React.FC = () => {
       const vaultConfigured = !!vaultPath
       
       // Prevent flickering by batching state updates
-      if (vaultConfigured !== hasVault) {
+      if (vaultConfigured !== hasVault && mounted) {
         setHasVault(vaultConfigured)
       }
       
@@ -113,67 +124,39 @@ const App: React.FC = () => {
     }
 
     // Debounce the effect to prevent rapid re-renders
-    const timeoutId = setTimeout(checkVaultAndLoadMeetings, 100)
+    const timeoutId = setTimeout(checkVaultAndLoadMeetings, VAULT_CHECK_DEBOUNCE_MS)
     return () => clearTimeout(timeoutId)
-  }, [vaultPath, hasVault]) // Removed loadTodaysMeetings to avoid circular dependency
+  }, [vaultPath, hasVault, mounted, loadTodaysMeetings])
 
   const handleEventsImported = (events: CalendarEvent[]) => {
     setCalendarEvents(events)
-    // Automatically return to main screen after importing events
-    setShowCalendar(false)
   }
 
   if (showSettings) {
     return <Settings onBackToHome={() => setShowSettings(false)} />
   }
 
-  if (showVault) {
-    return <VaultBrowser onBackToHome={() => setShowVault(false)} />
-  }
-
-  if (showCalendar) {
-    return (
-      <div>
-        <div style={{ padding: '16px', borderBottom: '1px solid #e2e8f0' }}>
-          <button
-            onClick={() => setShowCalendar(false)}
-            style={{
-              padding: '8px 16px',
-              fontSize: '14px',
-              backgroundColor: '#f1f5f9',
-              color: '#475569',
-              border: '1px solid #cbd5e1',
-              borderRadius: '6px',
-              cursor: 'pointer'
-            }}
-          >
-            ← Back to Home
-          </button>
-        </div>
-        <CalendarImport onEventsImported={handleEventsImported} />
-      </div>
-    )
-  }
-
   return (
     <div style={{ 
       padding: '40px', 
       fontFamily: 'system-ui, -apple-system, sans-serif',
-      maxWidth: '800px',
-      margin: '0 auto'
+      maxWidth: '900px',
+      margin: '0 auto',
+      lineHeight: '1.6'
     }}>
-      <header style={{ marginBottom: '40px' }}>
+      <header style={{ marginBottom: '48px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
           <div>
             <h1 style={{ 
-              fontSize: '2.5rem', 
+              fontSize: '2.75rem', 
               color: '#2563eb',
-              marginBottom: '16px'
+              marginBottom: '16px',
+              fontWeight: '700'
             }}>
               Prep - Meeting Assistant
             </h1>
             <p style={{ 
-              fontSize: '1.2rem', 
+              fontSize: '1.25rem', 
               color: '#64748b',
               marginBottom: '8px'
             }}>
@@ -189,16 +172,17 @@ const App: React.FC = () => {
           <button
             onClick={() => setShowSettings(true)}
             style={{
-              padding: '8px 16px',
+              padding: '10px 18px',
               fontSize: '14px',
               backgroundColor: '#f1f5f9',
               color: '#475569',
               border: '1px solid #cbd5e1',
-              borderRadius: '6px',
+              borderRadius: '8px',
               cursor: 'pointer',
               display: 'flex',
               alignItems: 'center',
-              gap: '8px'
+              gap: '8px',
+              fontWeight: '500'
             }}
           >
             ⚙️ Settings
@@ -206,7 +190,7 @@ const App: React.FC = () => {
         </div>
       </header>
 
-      <main>
+      <main style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
         {calendarError && (
           <div style={{
             backgroundColor: '#fef2f2',
@@ -247,118 +231,107 @@ const App: React.FC = () => {
         {/* Vault Status Indicator */}
         {vaultPath && (
           <div style={{ 
-            marginBottom: '24px',
-            padding: '12px',
+            marginBottom: '32px',
+            padding: '16px',
             backgroundColor: vaultIndexed ? '#f0fdf4' : '#fef3c7',
-            border: `1px solid ${vaultIndexed ? '#bbf7d0' : '#fbbf24'}`,
-            borderRadius: '6px'
+            border: `2px solid ${vaultIndexed ? '#bbf7d0' : '#fbbf24'}`,
+            borderRadius: '8px'
           }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
-              <span style={{ fontSize: '16px' }}>{vaultIndexed ? '✅' : '⚠️'}</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '8px' }}>
+              <span style={{ fontSize: '20px' }}>{vaultIndexed ? '✅' : '⚠️'}</span>
               <span style={{ 
                 color: vaultIndexed ? '#166534' : '#92400e',
-                fontSize: '14px',
-                fontWeight: '500'
+                fontSize: '16px',
+                fontWeight: '600'
               }}>
                 Obsidian Vault {vaultIndexed ? 'Connected & Indexed' : 'Connected (Not Indexed)'}
               </span>
             </div>
             <div style={{ 
-              fontSize: '12px',
+              fontSize: '14px',
               color: vaultIndexed ? '#065f46' : '#78350f',
-              marginLeft: '24px'
+              marginLeft: '32px',
+              lineHeight: '1.4'
             }}>
               📁 {vaultPath}
-              {vaultIndexed && ` • ${vaultFileCount} files indexed for AI context`}
+              {vaultIndexed && (
+                <div style={{ marginTop: '4px' }}>
+                  🔍 {vaultFileCount} files indexed for AI context
+                </div>
+              )}
             </div>
           </div>
         )}
         
         {!vaultPath && (
           <div style={{ 
-            marginBottom: '24px',
-            padding: '12px',
-            backgroundColor: '#f1f5f9',
-            border: '1px solid #cbd5e1',
-            borderRadius: '6px'
+            marginBottom: '32px',
+            padding: '20px',
+            backgroundColor: '#f8fafc',
+            border: '2px solid #cbd5e1',
+            borderRadius: '8px',
+            textAlign: 'center'
           }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <span style={{ fontSize: '16px' }}>📚</span>
+            <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '12px', marginBottom: '12px' }}>
+              <span style={{ fontSize: '24px' }}>📚</span>
               <span style={{ 
                 color: '#475569',
-                fontSize: '14px',
-                fontWeight: '500'
+                fontSize: '18px',
+                fontWeight: '600'
               }}>
                 No Obsidian Vault Connected
               </span>
             </div>
-            <div style={{ 
-              fontSize: '12px',
+            <p style={{ 
+              fontSize: '14px',
               color: '#64748b',
-              marginLeft: '24px'
+              marginBottom: '16px',
+              lineHeight: '1.5'
             }}>
-              Use the Vault Browser to connect your Obsidian vault for AI-powered meeting briefs
-            </div>
+              Connect your Obsidian vault to generate AI-powered meeting briefs with relevant context from your notes.
+            </p>
+            <button
+              onClick={() => setShowSettings(true)}
+              style={{
+                padding: '12px 24px',
+                fontSize: '14px',
+                backgroundColor: '#2563eb',
+                color: 'white',
+                border: 'none',
+                borderRadius: '6px',
+                cursor: 'pointer',
+                fontWeight: '500',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                margin: '0 auto'
+              }}
+            >
+              ⚙️ Open Settings to Connect Vault
+            </button>
           </div>
         )}
 
         {/* Today's Meetings Section - Show when vault is configured */}
         {hasVault && (
-          <TodaysMeetings 
-            meetings={todaysMeetings}
-            isLoading={meetingsLoading}
-            onRefresh={handleRefreshMeetings}
-          />
+          <div style={{ marginBottom: '32px' }}>
+            <h2 style={{ 
+              fontSize: '1.5rem', 
+              color: '#1e293b',
+              marginBottom: '16px',
+              fontWeight: '600'
+            }}>
+              📅 Today's Meetings
+            </h2>
+            <TodaysMeetings 
+              meetings={todaysMeetings}
+              isLoading={meetingsLoading}
+              onRefresh={handleRefreshMeetings}
+            />
+          </div>
         )}
 
-        <div style={{ 
-          display: 'grid',
-          gridTemplateColumns: '1fr 1fr',
-          gap: '16px',
-          marginBottom: '24px'
-        }}>
-          <button
-            onClick={() => setShowVault(true)}
-            style={{
-              padding: '20px',
-              fontSize: '16px',
-              backgroundColor: '#2563eb',
-              color: 'white',
-              border: 'none',
-              borderRadius: '8px',
-              cursor: 'pointer',
-              fontWeight: '500',
-              textAlign: 'left'
-            }}
-          >
-            <div style={{ fontSize: '24px', marginBottom: '8px' }}>📚</div>
-            <div style={{ fontWeight: '600', marginBottom: '4px' }}>Vault Browser</div>
-            <div style={{ fontSize: '14px', opacity: 0.9 }}>
-              Browse and search your Obsidian notes
-            </div>
-          </button>
-          
-          <button
-            onClick={() => setShowCalendar(true)}
-            style={{
-              padding: '20px',
-              fontSize: '16px',
-              backgroundColor: '#059669',
-              color: 'white',
-              border: 'none',
-              borderRadius: '8px',
-              cursor: 'pointer',
-              fontWeight: '500',
-              textAlign: 'left'
-            }}
-          >
-            <div style={{ fontSize: '24px', marginBottom: '8px' }}>📅</div>
-            <div style={{ fontWeight: '600', marginBottom: '4px' }}>Calendar Import</div>
-            <div style={{ fontSize: '14px', opacity: 0.9 }}>
-              Import today's meetings from Apple Calendar or ICS files
-            </div>
-          </button>
-        </div>
+
       </main>
     </div>
   )
