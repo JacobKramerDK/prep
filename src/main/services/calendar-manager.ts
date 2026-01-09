@@ -7,6 +7,7 @@ import * as crypto from 'crypto'
 import { CalendarEvent, CalendarImportResult, CalendarError } from '../../shared/types/calendar'
 import { CalendarMetadata, CalendarDiscoveryResult } from '../../shared/types/calendar-selection'
 import { SettingsManager } from './settings-manager'
+import { SwiftCalendarManager } from './swift-calendar-manager'
 
 const execAsync = promisify(exec)
 
@@ -22,14 +23,17 @@ try {
 
 export class CalendarManager {
   private settingsManager: SettingsManager
+  private swiftCalendarManager: SwiftCalendarManager
   private readonly isAppleScriptAvailable = process.platform === 'darwin'
   private appleScriptPromise: Promise<CalendarImportResult> | null = null
   private isExtracting = false
   private lastExtraction: Date | null = null
   private readonly CACHE_DURATION = 2 * 60 * 1000 // 2 minutes for better freshness
+  private readonly useSwiftBackend = true // Feature flag for Swift backend
 
   constructor() {
     this.settingsManager = new SettingsManager()
+    this.swiftCalendarManager = new SwiftCalendarManager()
     if (process.env.NODE_ENV !== 'test') {
       process.on('exit', () => this.dispose())
     }
@@ -40,6 +44,25 @@ export class CalendarManager {
   }
 
   async extractAppleScriptEvents(selectedCalendarNames?: string[]): Promise<CalendarImportResult> {
+    // Try Swift backend first if enabled and available
+    if (this.useSwiftBackend && this.swiftCalendarManager.isSupported()) {
+      try {
+        console.log('Using Swift backend for calendar extraction')
+        const result = await this.swiftCalendarManager.extractEvents()
+        await this.settingsManager.setCalendarEvents(result.events)
+        this.lastExtraction = new Date()
+        return result
+      } catch (error) {
+        // Reset cache state on Swift failure to ensure fresh data from AppleScript
+        this.lastExtraction = null
+        if (process.env.NODE_ENV === 'development') {
+          console.warn('Swift backend failed, falling back to AppleScript:', error instanceof Error ? error.message : 'Unknown error')
+        }
+        // Continue to AppleScript fallback
+      }
+    }
+
+    // AppleScript fallback
     if (!this.isAppleScriptAvailable) {
       throw new CalendarError('AppleScript not available on this platform', 'PLATFORM_UNSUPPORTED')
     }
@@ -157,9 +180,9 @@ end tell`
       console.log('Executing AppleScript for calendar extraction...')
       const startTime = Date.now()
       
-      // Execute with reduced timeout - bulk fetching should be much faster
+      // Execute with increased timeout for large calendars
       const { stdout } = await execAsync(`osascript "${scriptPath}"`, {
-        timeout: 30000, // Reduced from 60s - bulk fetching should be faster
+        timeout: 60000, // Increased to 60s for large calendar imports
         killSignal: 'SIGTERM'
       })
       
@@ -195,7 +218,7 @@ end tell`
       // If the script fails or times out, provide better error handling
       if (error.code === 'TIMEOUT' || error.killed || error.signal === 'SIGTERM') {
         throw new CalendarError(
-          'Calendar extraction timed out after 30 seconds. Try using ICS file import instead.',
+          'Calendar extraction timed out after 60 seconds. Try using ICS file import instead.',
           'TIMEOUT',
           error instanceof Error ? error : undefined
         )

@@ -11,6 +11,10 @@
     "build": "npm run build:renderer && npm run build:main",
     "build:renderer": "vite build",
     "build:main": "tsc -p tsconfig.main.json",
+    "check-swift": "swift --version || echo 'Install Xcode Command Line Tools: xcode-select --install'",
+    "build:native": "cd native && ./build.sh",
+    "prebuild": "npm run check-swift && npm run build:native && npm run validate:binary",
+    "validate:binary": "test -f resources/bin/calendar-helper || (echo 'ERROR: Native binary not found after build' && exit 1)",
     "package": "npm run build && electron-builder",
     "test": "jest",
     "test:coverage": "jest --coverage",
@@ -73,8 +77,14 @@
       "dist/**/*",
       "node_modules/**/*"
     ],
+    "extraResources": [
+      "resources/**/*"
+    ],
     "mac": {
-      "category": "public.app-category.productivity"
+      "category": "public.app-category.productivity",
+      "hardenedRuntime": true,
+      "entitlements": "build/entitlements.mac.plist",
+      "entitlementsInherit": "build/entitlements.mac.plist"
     },
     "win": {
       "target": "nsis"

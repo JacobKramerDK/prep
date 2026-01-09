@@ -21,12 +21,18 @@ files:
   - "!**/{appveyor.yml,.travis.yml,circle.yml}"
   - "!**/{npm-debug.log,yarn.lock,.yarn-integrity,.yarn-metadata.json}"
 
+extraResources:
+  - "resources/**/*"
+
 mac:
   category: public.app-category.productivity
   target:
     - target: dmg
       arch: [x64, arm64]
   icon: build/icon.icns
+  hardenedRuntime: true
+  entitlements: "build/entitlements.mac.plist"
+  entitlementsInherit: "build/entitlements.mac.plist"
 
 win:
   target:

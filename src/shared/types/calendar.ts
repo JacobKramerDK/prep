@@ -7,7 +7,7 @@ export interface CalendarEvent {
   location?: string
   attendees?: string[]
   isAllDay: boolean
-  source: 'applescript' | 'ics'
+  source: 'applescript' | 'ics' | 'swift'
   calendarName?: string
 }
 
@@ -21,7 +21,7 @@ export interface CalendarEventIPC {
   location?: string
   attendees?: string[]
   isAllDay: boolean
-  source: 'applescript' | 'ics'
+  source: 'applescript' | 'ics' | 'swift'
   calendarName?: string
 }
 
@@ -29,7 +29,7 @@ export interface CalendarImportResult {
   events: CalendarEvent[]
   totalEvents: number
   importedAt: Date
-  source: 'applescript' | 'ics'
+  source: 'applescript' | 'ics' | 'swift'
   errors?: Array<{
     event?: string
     error: string
@@ -41,7 +41,7 @@ export interface CalendarImportResultIPC {
   events: CalendarEventIPC[]
   totalEvents: number
   importedAt: string // ISO string
-  source: 'applescript' | 'ics'
+  source: 'applescript' | 'ics' | 'swift'
   errors?: Array<{
     event?: string
     error: string
