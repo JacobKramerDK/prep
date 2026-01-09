@@ -16,6 +16,10 @@ interface SettingsSchema {
   calendarSelection: CalendarSelectionSettings
   openaiApiKey: string | null
   openaiModel: string
+  googleCalendarRefreshToken: string | null
+  googleCalendarTokenExpiry: string | null
+  googleCalendarUserEmail: string | null
+  googleCalendarConnected: boolean
   preferences: {
     autoScan: boolean
     maxSearchResults: number
@@ -43,6 +47,10 @@ export class SettingsManager {
       },
       openaiApiKey: null,
       openaiModel: 'gpt-4o-mini',
+      googleCalendarRefreshToken: null,
+      googleCalendarTokenExpiry: null,
+      googleCalendarUserEmail: null,
+      googleCalendarConnected: false,
       preferences: {
         autoScan: true,
         maxSearchResults: 50
@@ -214,5 +222,45 @@ export class SettingsManager {
            apiKey.startsWith('sk-') && 
            apiKey.length >= 20 && 
            apiKey.length <= 100
+  }
+
+  // Google Calendar settings methods
+  async getGoogleCalendarRefreshToken(): Promise<string | null> {
+    return this.store.get('googleCalendarRefreshToken')
+  }
+
+  async setGoogleCalendarRefreshToken(token: string | null): Promise<void> {
+    this.store.set('googleCalendarRefreshToken', token)
+  }
+
+  async getGoogleCalendarTokenExpiry(): Promise<string | null> {
+    return this.store.get('googleCalendarTokenExpiry')
+  }
+
+  async setGoogleCalendarTokenExpiry(expiry: string | null): Promise<void> {
+    this.store.set('googleCalendarTokenExpiry', expiry)
+  }
+
+  async getGoogleCalendarUserEmail(): Promise<string | null> {
+    return this.store.get('googleCalendarUserEmail')
+  }
+
+  async setGoogleCalendarUserEmail(email: string | null): Promise<void> {
+    this.store.set('googleCalendarUserEmail', email)
+  }
+
+  async getGoogleCalendarConnected(): Promise<boolean> {
+    return this.store.get('googleCalendarConnected')
+  }
+
+  async setGoogleCalendarConnected(connected: boolean): Promise<void> {
+    this.store.set('googleCalendarConnected', connected)
+  }
+
+  async clearGoogleCalendarSettings(): Promise<void> {
+    this.store.set('googleCalendarRefreshToken', null)
+    this.store.set('googleCalendarTokenExpiry', null)
+    this.store.set('googleCalendarUserEmail', null)
+    this.store.set('googleCalendarConnected', false)
   }
 }

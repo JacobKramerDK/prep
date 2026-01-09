@@ -46,7 +46,7 @@ export class SwiftCalendarManager {
     
     // In development mode, resolve from project root with security validation
     // Use __dirname as anchor point and resolve relative to known project structure
-    const projectRoot = path.resolve(__dirname, '../../../..')
+    const projectRoot = path.resolve(__dirname, '../../../../..')
     const helperPath = path.join(projectRoot, 'resources', 'bin', 'calendar-helper')
     
     // Security validation: ensure the resolved path is within expected project boundaries

@@ -11,6 +11,10 @@ import { CalendarSelectionSettings } from '../shared/types/calendar-selection'
 import { BriefGenerationRequest, BriefGenerationStatus } from '../shared/types/brief'
 import { contextRetrievalResultToIPC } from '../shared/types/context'
 
+// Load environment variables
+import * as dotenv from 'dotenv'
+dotenv.config()
+
 const isDevelopment = process.env.NODE_ENV === 'development'
 const vaultManager = new VaultManager()
 const calendarManager = new CalendarManager()
@@ -253,6 +257,33 @@ ipcMain.handle('calendar:getSelectedCalendars', async () => {
 
 ipcMain.handle('calendar:updateSelectedCalendars', async (_, settings: Partial<CalendarSelectionSettings>) => {
   return await settingsManager.updateCalendarSelection(settings)
+})
+
+// Google Calendar IPC handlers
+ipcMain.handle('calendar:authenticateGoogle', async () => {
+  const authUrl = await calendarManager.authenticateGoogleCalendar()
+  
+  // Open the auth URL in the system browser
+  const { shell } = require('electron')
+  await shell.openExternal(authUrl)
+  
+  return authUrl
+})
+
+ipcMain.handle('calendar:getGoogleEvents', async () => {
+  return await calendarManager.getGoogleCalendarEvents()
+})
+
+ipcMain.handle('calendar:isGoogleConnected', async () => {
+  return await calendarManager.isGoogleCalendarConnected()
+})
+
+ipcMain.handle('calendar:disconnectGoogle', async () => {
+  return await calendarManager.disconnectGoogleCalendar()
+})
+
+ipcMain.handle('calendar:getGoogleUserInfo', async () => {
+  return await calendarManager.getGoogleCalendarUserInfo()
 })
 
 // Meeting IPC handlers

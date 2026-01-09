@@ -104,7 +104,25 @@ const electronAPI: ElectronAPI = {
   validateOpenAIApiKey: (apiKey: string) => ipcRenderer.invoke('settings:validateOpenAIApiKey', apiKey),
   getOpenAIModel: () => ipcRenderer.invoke('settings:getOpenAIModel'),
   setOpenAIModel: (model: string) => ipcRenderer.invoke('settings:setOpenAIModel', model),
-  getAvailableModels: (apiKey: string) => ipcRenderer.invoke('settings:getAvailableModels', apiKey)
+  getAvailableModels: (apiKey: string) => ipcRenderer.invoke('settings:getAvailableModels', apiKey),
+  // Google Calendar methods
+  authenticateGoogleCalendar: () => ipcRenderer.invoke('calendar:authenticateGoogle'),
+  getGoogleCalendarEvents: async () => {
+    const result = await ipcRenderer.invoke('calendar:getGoogleEvents')
+    // Ensure dates are properly deserialized
+    if (result && result.events) {
+      result.events = result.events.map((event: any) => ({
+        ...event,
+        startDate: new Date(event.startDate),
+        endDate: new Date(event.endDate)
+      }))
+      result.importedAt = new Date(result.importedAt)
+    }
+    return result
+  },
+  isGoogleCalendarConnected: () => ipcRenderer.invoke('calendar:isGoogleConnected'),
+  disconnectGoogleCalendar: () => ipcRenderer.invoke('calendar:disconnectGoogle'),
+  getGoogleCalendarUserInfo: () => ipcRenderer.invoke('calendar:getGoogleUserInfo')
 }
 
 contextBridge.exposeInMainWorld('electronAPI', electronAPI)

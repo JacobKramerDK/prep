@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { VaultBrowser } from './VaultBrowser'
 import { CalendarImport } from './CalendarImport'
+import { GoogleCalendarAuth } from './GoogleCalendarAuth'
 import type { CalendarEvent } from '../../shared/types/calendar'
 
 interface Props {

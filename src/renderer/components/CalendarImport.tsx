@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react'
 import { CalendarEvent, CalendarImportResult } from '../../shared/types/calendar'
 import { CalendarSelector } from './CalendarSelector'
 import { CalendarSelectionSettings } from '../../shared/types/calendar-selection'
+import { GoogleCalendarAuth } from './GoogleCalendarAuth'
 
 interface CalendarImportProps {
   onEventsImported?: (events: CalendarEvent[]) => void
@@ -14,6 +15,7 @@ export const CalendarImport: React.FC<CalendarImportProps> = ({ onEventsImported
   const [isAppleScriptSupported, setIsAppleScriptSupported] = useState(false)
   const [showCalendarSelector, setShowCalendarSelector] = useState(false)
   const [selectedCalendars, setSelectedCalendars] = useState<string[]>([])
+  const [isGoogleConnected, setIsGoogleConnected] = useState(false)
 
   // Filter events for today's date (same logic as MeetingDetector)
   const filterTodaysEvents = useCallback((allEvents: CalendarEvent[]): CalendarEvent[] => {
@@ -39,17 +41,21 @@ export const CalendarImport: React.FC<CalendarImportProps> = ({ onEventsImported
   useEffect(() => {
     const initialize = async () => {
       try {
-        const supported = await window.electronAPI.isAppleScriptSupported()
-        setIsAppleScriptSupported(supported)
+        const [supported, existingEvents, calendarSettings, googleConnected] = await Promise.all([
+          window.electronAPI.isAppleScriptSupported(),
+          window.electronAPI.getCalendarEvents(),
+          window.electronAPI.getSelectedCalendars(),
+          window.electronAPI.isGoogleCalendarConnected()
+        ])
         
-        const existingEvents = await window.electronAPI.getCalendarEvents()
+        setIsAppleScriptSupported(supported)
+        setIsGoogleConnected(googleConnected)
         
         // Filter for today's events only - this fixes the bug where yesterday's events were showing
         const todaysEvents = filterTodaysEvents(existingEvents)
         setEvents(todaysEvents)
         // Don't call handleEventsImported during initialization - only when user actually imports
         
-        const calendarSettings = await window.electronAPI.getSelectedCalendars()
         setSelectedCalendars(calendarSettings.selectedCalendarUids)
       } catch (err) {
         console.warn('Failed to initialize calendar:', err)
@@ -117,6 +123,30 @@ export const CalendarImport: React.FC<CalendarImportProps> = ({ onEventsImported
     } finally {
       setLoading(false)
     }
+  }
+
+  const handleGoogleCalendarImport = async () => {
+    setLoading(true)
+    setError(null)
+    
+    try {
+      const result: CalendarImportResult = await window.electronAPI.getGoogleCalendarEvents()
+      
+      // Filter the imported events for today only
+      const todaysEvents = filterTodaysEvents(result.events)
+      setEvents(todaysEvents)
+      handleEventsImported(todaysEvents)
+    } catch (err: any) {
+      setError(err?.message || 'Failed to import Google Calendar events')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleGoogleAuthSuccess = () => {
+    setIsGoogleConnected(true)
+    // Automatically import events after successful authentication
+    handleGoogleCalendarImport()
   }
 
   const handleClearEvents = async () => {
@@ -251,6 +281,48 @@ export const CalendarImport: React.FC<CalendarImportProps> = ({ onEventsImported
           >
             {loading ? 'Importing...' : '📁 Import ICS File'}
           </button>
+
+          {/* Google Calendar Section */}
+          <div style={{ 
+            border: '1px solid #e5e7eb', 
+            borderRadius: '8px', 
+            padding: '16px',
+            backgroundColor: '#f9fafb'
+          }}>
+            <h3 style={{ 
+              margin: '0 0 12px 0', 
+              fontSize: '16px', 
+              fontWeight: '600',
+              color: '#374151'
+            }}>
+              Google Calendar
+            </h3>
+            
+            <GoogleCalendarAuth 
+              onAuthSuccess={handleGoogleAuthSuccess}
+              onAuthError={(error) => setError(error)}
+            />
+            
+            {isGoogleConnected && (
+              <button
+                onClick={handleGoogleCalendarImport}
+                disabled={loading}
+                style={{
+                  padding: '12px 16px',
+                  fontSize: '14px',
+                  backgroundColor: loading ? '#94a3b8' : '#4285f4',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '6px',
+                  cursor: loading ? 'not-allowed' : 'pointer',
+                  fontWeight: '500',
+                  marginTop: '12px'
+                }}
+              >
+                {loading ? 'Importing...' : '📅 Import Google Calendar Events'}
+              </button>
+            )}
+          </div>
         </div>
         
         {events.length > 0 && (
@@ -345,14 +417,17 @@ export const CalendarImport: React.FC<CalendarImportProps> = ({ onEventsImported
                     <span style={{
                       padding: '4px 8px',
                       fontSize: '12px',
-                      // Check ICS first since it's the only non-Apple Calendar source
-                      // Both 'applescript' and 'swift' should show as Apple Calendar
-                      backgroundColor: event.source === 'ics' ? '#dbeafe' : '#dcfce7',
-                      color: event.source === 'ics' ? '#1e40af' : '#166534',
+                      backgroundColor: 
+                        event.source === 'ics' ? '#dbeafe' : 
+                        event.source === 'google' ? '#fef3c7' : '#dcfce7',
+                      color: 
+                        event.source === 'ics' ? '#1e40af' : 
+                        event.source === 'google' ? '#92400e' : '#166534',
                       borderRadius: '4px',
                       fontWeight: '500'
                     }}>
-                      {event.source === 'ics' ? 'ICS File' : 'Apple Calendar'}
+                      {event.source === 'ics' ? 'ICS File' : 
+                       event.source === 'google' ? 'Google Calendar' : 'Apple Calendar'}
                     </span>
                   </div>
                   

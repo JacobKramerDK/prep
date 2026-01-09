@@ -44,6 +44,12 @@ export interface ElectronAPI {
   getOpenAIModel: () => Promise<string>
   setOpenAIModel: (model: string) => Promise<void>
   getAvailableModels: (apiKey: string) => Promise<string[]>
+  // Google Calendar operations
+  authenticateGoogleCalendar: () => Promise<string>
+  getGoogleCalendarEvents: () => Promise<CalendarImportResult>
+  isGoogleCalendarConnected: () => Promise<boolean>
+  disconnectGoogleCalendar: () => Promise<void>
+  getGoogleCalendarUserInfo: () => Promise<{ email: string; name?: string } | null>
 }
 
 declare global {

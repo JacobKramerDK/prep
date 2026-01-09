@@ -8,6 +8,8 @@ import { CalendarEvent, CalendarImportResult, CalendarError } from '../../shared
 import { CalendarMetadata, CalendarDiscoveryResult } from '../../shared/types/calendar-selection'
 import { SettingsManager } from './settings-manager'
 import { SwiftCalendarManager } from './swift-calendar-manager'
+import { GoogleCalendarManager } from './google-calendar-manager'
+import { GoogleOAuthManager } from './google-oauth-manager'
 
 const execAsync = promisify(exec)
 
@@ -24,6 +26,8 @@ try {
 export class CalendarManager {
   private settingsManager: SettingsManager
   private swiftCalendarManager: SwiftCalendarManager
+  private googleOAuthManager: GoogleOAuthManager
+  private googleCalendarManager: GoogleCalendarManager
   private readonly isAppleScriptAvailable = process.platform === 'darwin'
   private appleScriptPromise: Promise<CalendarImportResult> | null = null
   private isExtracting = false
@@ -34,6 +38,8 @@ export class CalendarManager {
   constructor() {
     this.settingsManager = new SettingsManager()
     this.swiftCalendarManager = new SwiftCalendarManager()
+    this.googleOAuthManager = new GoogleOAuthManager()
+    this.googleCalendarManager = new GoogleCalendarManager(this.googleOAuthManager)
     if (process.env.NODE_ENV !== 'test') {
       process.on('exit', () => this.dispose())
     }
@@ -41,6 +47,7 @@ export class CalendarManager {
 
   async dispose(): Promise<void> {
     // Cleanup resources if needed
+    this.googleOAuthManager.cleanup()
   }
 
   async extractAppleScriptEvents(selectedCalendarNames?: string[]): Promise<CalendarImportResult> {
@@ -49,9 +56,20 @@ export class CalendarManager {
       try {
         console.log('Using Swift backend for calendar extraction')
         const result = await this.swiftCalendarManager.extractEvents()
-        await this.settingsManager.setCalendarEvents(result.events)
+        
+        // Merge with existing Google Calendar events
+        const existingEvents = await this.settingsManager.getCalendarEvents()
+        const googleEvents = existingEvents.filter(event => event.source === 'google')
+        const mergedEvents = [...googleEvents, ...result.events]
+        
+        await this.settingsManager.setCalendarEvents(mergedEvents)
         this.lastExtraction = new Date()
-        return result
+        
+        return {
+          ...result,
+          events: mergedEvents,
+          totalEvents: mergedEvents.length
+        }
       } catch (error) {
         // Reset cache state on Swift failure to ensure fresh data from AppleScript
         this.lastExtraction = null
@@ -180,9 +198,9 @@ end tell`
       console.log('Executing AppleScript for calendar extraction...')
       const startTime = Date.now()
       
-      // Execute with increased timeout for large calendars
+      // Execute with timeout for calendar extraction
       const { stdout } = await execAsync(`osascript "${scriptPath}"`, {
-        timeout: 60000, // Increased to 60s for large calendar imports
+        timeout: 30000, // Reduced to 30s to avoid long hangs
         killSignal: 'SIGTERM'
       })
       
@@ -218,7 +236,7 @@ end tell`
       // If the script fails or times out, provide better error handling
       if (error.code === 'TIMEOUT' || error.killed || error.signal === 'SIGTERM') {
         throw new CalendarError(
-          'Calendar extraction timed out after 60 seconds. Try using ICS file import instead.',
+          'Calendar extraction timed out after 30 seconds. Try using ICS file import instead, or check if Calendar app is responding.',
           'TIMEOUT',
           error instanceof Error ? error : undefined
         )
@@ -631,6 +649,86 @@ end tell`
       }
       
       throw error
+    }
+  }
+
+  // Google Calendar integration methods
+  async authenticateGoogleCalendar(): Promise<string> {
+    try {
+      const authUrl = await this.googleOAuthManager.initiateOAuthFlow()
+      
+      // Start the OAuth server and handle the callback
+      this.googleOAuthManager.startOAuthServer().catch(error => {
+        console.error('OAuth server error:', error)
+      })
+      
+      return authUrl
+    } catch (error) {
+      throw new CalendarError(
+        'Failed to authenticate with Google Calendar',
+        'PERMISSION_DENIED',
+        error instanceof Error ? error : undefined
+      )
+    }
+  }
+
+  async getGoogleCalendarEvents(): Promise<CalendarImportResult> {
+    try {
+      const refreshToken = await this.settingsManager.getGoogleCalendarRefreshToken()
+      if (!refreshToken) {
+        throw new CalendarError('Google Calendar not authenticated', 'PERMISSION_DENIED')
+      }
+
+      const result = await this.googleCalendarManager.getEvents(refreshToken)
+      
+      // Merge with existing events from other sources
+      const existingEvents = await this.settingsManager.getCalendarEvents()
+      const nonGoogleEvents = existingEvents.filter(event => event.source !== 'google')
+      const allEvents = [...nonGoogleEvents, ...result.events]
+      
+      await this.settingsManager.setCalendarEvents(allEvents)
+      
+      return result
+    } catch (error) {
+      throw new CalendarError(
+        'Failed to fetch Google Calendar events',
+        'PARSE_ERROR',
+        error instanceof Error ? error : undefined
+      )
+    }
+  }
+
+  async isGoogleCalendarConnected(): Promise<boolean> {
+    return await this.settingsManager.getGoogleCalendarConnected()
+  }
+
+  async disconnectGoogleCalendar(): Promise<void> {
+    try {
+      await this.settingsManager.clearGoogleCalendarSettings()
+      
+      // Remove Google Calendar events from stored events
+      const existingEvents = await this.settingsManager.getCalendarEvents()
+      const nonGoogleEvents = existingEvents.filter(event => event.source !== 'google')
+      await this.settingsManager.setCalendarEvents(nonGoogleEvents)
+    } catch (error) {
+      throw new CalendarError(
+        'Failed to disconnect Google Calendar',
+        'PARSE_ERROR',
+        error instanceof Error ? error : undefined
+      )
+    }
+  }
+
+  async getGoogleCalendarUserInfo(): Promise<{ email: string; name?: string } | null> {
+    try {
+      const refreshToken = await this.settingsManager.getGoogleCalendarRefreshToken()
+      if (!refreshToken) {
+        return null
+      }
+
+      return await this.googleCalendarManager.getUserInfo(refreshToken)
+    } catch (error) {
+      return null
     }
   }
 }
