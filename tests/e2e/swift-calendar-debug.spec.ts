@@ -110,13 +110,31 @@ test.describe('Swift Calendar Integration Debug', () => {
       return
     }
 
-    // Test direct binary execution
+    // Security validation: ensure binary path is within expected boundaries
+    const projectRoot = path.normalize(process.cwd())
+    const normalizedBinaryPath = path.normalize(binaryPath)
+    
+    if (!normalizedBinaryPath.startsWith(projectRoot)) {
+      console.log('❌ Security violation: Binary path outside project boundaries')
+      return
+    }
+
+    // Additional validation: check if it's actually the expected binary
+    const stats = fs.statSync(binaryPath)
+    if (!stats.isFile() || !(stats.mode & parseInt('111', 8))) {
+      console.log('❌ Binary validation failed: not executable file')
+      return
+    }
+
+    // Test direct binary execution with security constraints
     const { spawn } = require('child_process')
     
     const testExecution = () => new Promise((resolve) => {
-      const child = spawn(binaryPath, ['--version'], { 
+      const child = spawn(binaryPath, [], { 
         stdio: 'pipe',
-        timeout: 5000 
+        timeout: 5000,
+        // Security: prevent shell injection
+        shell: false
       })
       
       let output = ''

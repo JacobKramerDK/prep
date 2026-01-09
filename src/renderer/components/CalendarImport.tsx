@@ -345,6 +345,8 @@ export const CalendarImport: React.FC<CalendarImportProps> = ({ onEventsImported
                     <span style={{
                       padding: '4px 8px',
                       fontSize: '12px',
+                      // Check ICS first since it's the only non-Apple Calendar source
+                      // Both 'applescript' and 'swift' should show as Apple Calendar
                       backgroundColor: event.source === 'ics' ? '#dbeafe' : '#dcfce7',
                       color: event.source === 'ics' ? '#1e40af' : '#166534',
                       borderRadius: '4px',
