@@ -15,6 +15,22 @@ export const CalendarImport: React.FC<CalendarImportProps> = ({ onEventsImported
   const [showCalendarSelector, setShowCalendarSelector] = useState(false)
   const [selectedCalendars, setSelectedCalendars] = useState<string[]>([])
 
+  // Filter events for today's date (same logic as MeetingDetector)
+  const filterTodaysEvents = useCallback((allEvents: CalendarEvent[]): CalendarEvent[] => {
+    const today = new Date()
+    const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate())
+    const todayEnd = new Date(todayStart.getTime() + 24 * 60 * 60 * 1000)
+
+    return allEvents.filter(event => {
+      const eventStart = new Date(event.startDate)
+      const eventEnd = new Date(event.endDate)
+
+      // Event starts today OR event spans across today
+      return (eventStart >= todayStart && eventStart < todayEnd) ||
+             (eventStart < todayStart && eventEnd > todayStart)
+    })
+  }, [])
+
   // Memoize the callback to prevent unnecessary re-renders
   const handleEventsImported = useCallback((events: CalendarEvent[]) => {
     onEventsImported?.(events)
@@ -27,7 +43,10 @@ export const CalendarImport: React.FC<CalendarImportProps> = ({ onEventsImported
         setIsAppleScriptSupported(supported)
         
         const existingEvents = await window.electronAPI.getCalendarEvents()
-        setEvents(existingEvents)
+        
+        // Filter for today's events only - this fixes the bug where yesterday's events were showing
+        const todaysEvents = filterTodaysEvents(existingEvents)
+        setEvents(todaysEvents)
         // Don't call handleEventsImported during initialization - only when user actually imports
         
         const calendarSettings = await window.electronAPI.getSelectedCalendars()
@@ -38,7 +57,7 @@ export const CalendarImport: React.FC<CalendarImportProps> = ({ onEventsImported
     }
     
     initialize()
-  }, [handleEventsImported])
+  }, [handleEventsImported, filterTodaysEvents])
 
   const handleAppleScriptExtraction = async () => {
     if (loading) {
@@ -54,8 +73,11 @@ export const CalendarImport: React.FC<CalendarImportProps> = ({ onEventsImported
       const result: CalendarImportResult = await window.electronAPI.extractCalendarEvents(
         selectedCalendars.length > 0 ? selectedCalendars : undefined
       )
-      setEvents(result.events)
-      handleEventsImported(result.events)
+      
+      // Filter the extracted events for today only
+      const todaysEvents = filterTodaysEvents(result.events)
+      setEvents(todaysEvents)
+      handleEventsImported(todaysEvents)
     } catch (err: any) {
       setError(err?.message || 'Failed to extract calendar events')
     } finally {
@@ -83,8 +105,11 @@ export const CalendarImport: React.FC<CalendarImportProps> = ({ onEventsImported
     try {
       const filePath = await window.electronAPI.selectICSFile()
       const result: CalendarImportResult = await window.electronAPI.parseICSFile(filePath)
-      setEvents(result.events)
-      handleEventsImported(result.events)
+      
+      // Filter the imported events for today only
+      const todaysEvents = filterTodaysEvents(result.events)
+      setEvents(todaysEvents)
+      handleEventsImported(todaysEvents)
     } catch (err: any) {
       if (err?.message !== 'No file selected') {
         setError(err?.message || 'Failed to import ICS file')
