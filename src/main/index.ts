@@ -3,6 +3,7 @@ import path from 'path'
 import * as fs from 'fs/promises'
 import { VaultManager } from './services/vault-manager'
 import { CalendarManager } from './services/calendar-manager'
+import { CalendarSyncScheduler } from './services/calendar-sync-scheduler'
 import { SettingsManager } from './services/settings-manager'
 import { MeetingDetector } from './services/meeting-detector'
 import { OpenAIService } from './services/openai-service'
@@ -10,6 +11,7 @@ import { ContextRetrievalService } from './services/context-retrieval-service'
 import { CalendarSelectionSettings } from '../shared/types/calendar-selection'
 import { BriefGenerationRequest, BriefGenerationStatus } from '../shared/types/brief'
 import { contextRetrievalResultToIPC } from '../shared/types/context'
+import { calendarSyncStatusToIPC, calendarSyncResultToIPC } from '../shared/types/calendar-sync'
 
 // Load environment variables
 import * as dotenv from 'dotenv'
@@ -18,6 +20,7 @@ dotenv.config()
 const isDevelopment = process.env.NODE_ENV === 'development'
 const vaultManager = new VaultManager()
 const calendarManager = new CalendarManager()
+const calendarSyncScheduler = new CalendarSyncScheduler(calendarManager)
 const meetingDetector = new MeetingDetector(calendarManager)
 const settingsManager = new SettingsManager()
 const contextRetrievalService = new ContextRetrievalService()
@@ -151,6 +154,19 @@ ipcMain.handle('app:getVersion', () => {
   return app.getVersion()
 })
 
+// Context and vault status IPC handlers (needed early for app initialization)
+ipcMain.handle('context:isIndexed', async () => {
+  return contextRetrievalService.isIndexed()
+})
+
+ipcMain.handle('context:getIndexedFileCount', async () => {
+  return contextRetrievalService.getIndexedFileCount()
+})
+
+ipcMain.handle('vault:getPath', async () => {
+  return await settingsManager.getVaultPath()
+})
+
 // Vault IPC handlers
 ipcMain.handle('vault:select', async () => {
   const result = await dialog.showOpenDialog({
@@ -259,6 +275,23 @@ ipcMain.handle('calendar:updateSelectedCalendars', async (_, settings: Partial<C
   return await settingsManager.updateCalendarSelection(settings)
 })
 
+// Calendar sync scheduler IPC handlers
+ipcMain.handle('calendar:getSyncStatus', async () => {
+  return calendarSyncStatusToIPC(await calendarSyncScheduler.getStatus())
+})
+
+ipcMain.handle('calendar:performManualSync', async () => {
+  return calendarSyncResultToIPC(await calendarSyncScheduler.performManualSync())
+})
+
+ipcMain.handle('calendar:startDailySync', async () => {
+  return await calendarSyncScheduler.startDailySync()
+})
+
+ipcMain.handle('calendar:stopDailySync', async () => {
+  return await calendarSyncScheduler.stopDailySync()
+})
+
 // Google Calendar IPC handlers
 ipcMain.handle('calendar:authenticateGoogle', async () => {
   const authUrl = await calendarManager.authenticateGoogleCalendar()
@@ -284,6 +317,17 @@ ipcMain.handle('calendar:disconnectGoogle', async () => {
 
 ipcMain.handle('calendar:getGoogleUserInfo', async () => {
   return await calendarManager.getGoogleCalendarUserInfo()
+})
+
+// Calendar sync IPC handlers
+ipcMain.handle('calendar:startAutoSync', async () => {
+  await calendarSyncScheduler.startDailySync()
+  return true
+})
+
+ipcMain.handle('calendar:getAutoSyncStatus', async () => {
+  const status = await calendarSyncScheduler.getStatus()
+  return calendarSyncStatusToIPC(status)
 })
 
 // Meeting IPC handlers
@@ -418,16 +462,7 @@ ipcMain.handle('context:findRelevant', async (_, meetingId: string) => {
   }
 })
 
-ipcMain.handle('context:isIndexed', async () => {
-  return contextRetrievalService.isIndexed()
+// Cleanup on app exit
+app.on('before-quit', () => {
+  calendarSyncScheduler.dispose()
 })
-
-ipcMain.handle('context:getIndexedFileCount', async () => {
-  return contextRetrievalService.getIndexedFileCount()
-})
-
-ipcMain.handle('vault:getPath', async () => {
-  return await settingsManager.getVaultPath()
-})
-
-// Remove the duplicate initializeServices call since it's now handled in app.whenReady()

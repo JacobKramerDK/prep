@@ -5,14 +5,56 @@ jest.mock('fs', () => ({
   readFileSync: jest.fn().mockReturnValue('mock ics content')
 }))
 
+// Mock googleapis
+jest.mock('googleapis', () => ({
+  google: {
+    auth: {
+      OAuth2: jest.fn().mockImplementation(() => ({
+        setCredentials: jest.fn(),
+        getAccessToken: jest.fn()
+      }))
+    },
+    calendar: jest.fn().mockReturnValue({
+      events: {
+        list: jest.fn()
+      }
+    })
+  }
+}))
+
 // Mock the SettingsManager
 const mockSettingsManager = {
   getCalendarEvents: jest.fn().mockResolvedValue([]),
-  setCalendarEvents: jest.fn().mockResolvedValue(undefined)
+  setCalendarEvents: jest.fn().mockResolvedValue(undefined),
+  getGoogleCalendarConnected: jest.fn().mockResolvedValue(false),
+  getGoogleCalendarRefreshToken: jest.fn().mockResolvedValue(null)
 }
 
 jest.mock('../../src/main/services/settings-manager', () => ({
   SettingsManager: jest.fn().mockImplementation(() => mockSettingsManager)
+}))
+
+// Mock SwiftCalendarManager
+jest.mock('../../src/main/services/swift-calendar-manager', () => ({
+  SwiftCalendarManager: jest.fn().mockImplementation(() => ({
+    isSupported: jest.fn().mockReturnValue(false),
+    extractEvents: jest.fn()
+  }))
+}))
+
+// Mock GoogleOAuthManager
+jest.mock('../../src/main/services/google-oauth-manager', () => ({
+  GoogleOAuthManager: jest.fn().mockImplementation(() => ({
+    cleanup: jest.fn()
+  }))
+}))
+
+// Mock GoogleCalendarManager
+jest.mock('../../src/main/services/google-calendar-manager', () => ({
+  GoogleCalendarManager: jest.fn().mockImplementation(() => ({
+    getEvents: jest.fn(),
+    getUserInfo: jest.fn()
+  }))
 }))
 
 // Mock applescript
@@ -118,6 +160,98 @@ describe('CalendarManager', () => {
     it('should clear stored events', async () => {
       await calendarManager.clearEvents()
       expect(mockSettingsManager.setCalendarEvents).toHaveBeenCalledWith([])
+    })
+  })
+
+  describe('hasConnectedCalendars', () => {
+    beforeEach(() => {
+      calendarManager = new CalendarManager()
+    })
+
+    it('should return true when Google Calendar is connected', async () => {
+      mockSettingsManager.getGoogleCalendarConnected.mockResolvedValue(true)
+      
+      const result = await calendarManager.hasConnectedCalendars()
+      expect(result).toBe(true)
+    })
+
+    it('should return true when Apple Calendar is available on macOS', async () => {
+      Object.defineProperty(process, 'platform', { value: 'darwin' })
+      mockSettingsManager.getGoogleCalendarConnected.mockResolvedValue(false)
+      calendarManager = new CalendarManager()
+      
+      const result = await calendarManager.hasConnectedCalendars()
+      expect(result).toBe(true)
+    })
+
+    it('should return false when no calendars are connected', async () => {
+      Object.defineProperty(process, 'platform', { value: 'win32' })
+      mockSettingsManager.getGoogleCalendarConnected.mockResolvedValue(false)
+      calendarManager = new CalendarManager()
+      
+      const result = await calendarManager.hasConnectedCalendars()
+      expect(result).toBe(false)
+    })
+
+    it('should handle errors gracefully', async () => {
+      mockSettingsManager.getGoogleCalendarConnected.mockRejectedValue(new Error('Settings error'))
+      
+      const result = await calendarManager.hasConnectedCalendars()
+      expect(result).toBe(false)
+    })
+  })
+
+  describe('syncTodaysEvents', () => {
+    beforeEach(() => {
+      calendarManager = new CalendarManager()
+    })
+
+    it('should filter events to only today', async () => {
+      const today = new Date()
+      const yesterday = new Date(today)
+      yesterday.setDate(yesterday.getDate() - 1)
+      const tomorrow = new Date(today)
+      tomorrow.setDate(tomorrow.getDate() + 1)
+
+      const mockEvents = [
+        {
+          id: '1',
+          title: 'Yesterday Event',
+          startDate: yesterday,
+          endDate: yesterday,
+          isAllDay: false,
+          source: 'swift' as const
+        },
+        {
+          id: '2',
+          title: 'Today Event',
+          startDate: today,
+          endDate: today,
+          isAllDay: false,
+          source: 'swift' as const
+        },
+        {
+          id: '3',
+          title: 'Tomorrow Event',
+          startDate: tomorrow,
+          endDate: tomorrow,
+          isAllDay: false,
+          source: 'swift' as const
+        }
+      ]
+
+      // Mock the performAutomaticSync method
+      jest.spyOn(calendarManager, 'performAutomaticSync').mockResolvedValue({
+        events: mockEvents,
+        totalEvents: mockEvents.length,
+        importedAt: new Date(),
+        source: 'swift'
+      })
+
+      const result = await calendarManager.syncTodaysEvents()
+      
+      expect(result).toHaveLength(1)
+      expect(result[0].title).toBe('Today Event')
     })
   })
 })

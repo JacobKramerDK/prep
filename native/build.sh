@@ -49,6 +49,19 @@ fi
 # Make executable
 chmod +x ../resources/bin/calendar-helper
 
+# Sign the binary with calendar entitlements
+echo "Signing binary with calendar entitlements..."
+if [ -f ../build/entitlements.mac.plist ]; then
+    if codesign --force --sign - --entitlements ../build/entitlements.mac.plist ../resources/bin/calendar-helper; then
+        echo "SUCCESS: Binary signed with calendar entitlements"
+    else
+        echo "WARNING: Failed to sign binary, but continuing..."
+    fi
+else
+    echo "WARNING: Entitlements file not found, signing without entitlements..."
+    codesign --force --sign - ../resources/bin/calendar-helper || echo "WARNING: Failed to sign binary"
+fi
+
 echo "Built universal binary: resources/bin/calendar-helper"
 
 # Verify binary

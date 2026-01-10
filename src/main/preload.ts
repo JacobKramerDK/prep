@@ -57,6 +57,11 @@ const electronAPI: ElectronAPI = {
   getSelectedCalendars: () => ipcRenderer.invoke('calendar:getSelectedCalendars'),
   updateSelectedCalendars: (settings: Partial<CalendarSelectionSettings>) => 
     ipcRenderer.invoke('calendar:updateSelectedCalendars', settings),
+  // Calendar sync scheduler methods
+  getCalendarSyncStatus: () => ipcRenderer.invoke('calendar:getSyncStatus'),
+  performManualCalendarSync: () => ipcRenderer.invoke('calendar:performManualSync'),
+  startDailyCalendarSync: () => ipcRenderer.invoke('calendar:startDailySync'),
+  stopDailyCalendarSync: () => ipcRenderer.invoke('calendar:stopDailySync'),
   // Add meeting methods with date handling
   getTodaysMeetings: async () => {
     const result = await ipcRenderer.invoke('meeting:getTodaysMeetings')
@@ -122,7 +127,32 @@ const electronAPI: ElectronAPI = {
   },
   isGoogleCalendarConnected: () => ipcRenderer.invoke('calendar:isGoogleConnected'),
   disconnectGoogleCalendar: () => ipcRenderer.invoke('calendar:disconnectGoogle'),
-  getGoogleCalendarUserInfo: () => ipcRenderer.invoke('calendar:getGoogleUserInfo')
+  getGoogleCalendarUserInfo: () => ipcRenderer.invoke('calendar:getGoogleUserInfo'),
+  // Calendar sync methods
+  startAutoSync: () => ipcRenderer.invoke('calendar:startAutoSync'),
+  getAutoSyncStatus: async () => {
+    const result = await ipcRenderer.invoke('calendar:getAutoSyncStatus')
+    // Ensure dates are properly deserialized
+    if (result) {
+      return {
+        ...result,
+        lastSyncTime: result.lastSyncTime ? new Date(result.lastSyncTime) : null,
+        nextSyncTime: result.nextSyncTime ? new Date(result.nextSyncTime) : null
+      }
+    }
+    return result
+  },
+  performManualSync: async () => {
+    const result = await ipcRenderer.invoke('calendar:performManualSync')
+    // Ensure dates are properly deserialized
+    if (result) {
+      return {
+        ...result,
+        syncTime: new Date(result.syncTime)
+      }
+    }
+    return result
+  }
 }
 
 contextBridge.exposeInMainWorld('electronAPI', electronAPI)

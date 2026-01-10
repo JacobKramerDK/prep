@@ -5,11 +5,11 @@
 **Total Time**: ~29 hours (Phase 1-4 Complete + Security Hardening)  
 
 ### Overall Progress
-- **Total Development Days**: 5
-- **Total Hours Logged**: 32.5h
-- **Total Commits**: 17
-- **Lines of Code Added**: 36292+
-- **Lines of Code Removed**: 3928+
+- **Total Development Days**: 6
+- **Total Hours Logged**: 35.5h
+- **Total Commits**: 31
+- **Lines of Code Added**: 48931
+- **Lines of Code Removed**: 4543
 - **Files Modified**: 104+  
 
 ## Overview
@@ -2480,5 +2480,104 @@ All major features implemented with comprehensive security hardening:
 - Continue with AI integration phase for meeting brief generation
 - Implement OpenAI API integration for context-aware meeting preparation
 - Add Whisper API for post-meeting audio transcription capabilities
+
+---
+
+## Day 6 (January 9, 2026) - Google Calendar Integration & Swift CLI Fixes [3h]
+
+### 📊 **Daily Metrics**
+- **Time Spent**: 3h (Google Calendar implementation: 2h, Swift CLI path fix: 1h)
+- **Commits Made**: 1 (major feature commit)
+- **Lines Added**: 3425
+- **Lines Removed**: 55
+- **Net Lines**: +3370
+- **Files Modified**: 19
+
+### 🎯 **Accomplishments**
+- Implemented complete Google Calendar integration with OAuth 2.0 authentication
+- Added secure token storage and refresh functionality using Electron's safeStorage
+- Created professional Google Calendar authentication UI component
+- Integrated Google Calendar events with existing Apple Calendar and ICS file sources
+- Fixed Swift calendar binary path resolution issue that was breaking Apple Calendar extraction
+- Added comprehensive error handling and rate limiting for Google API calls
+
+### 💻 **Technical Progress**
+**Commits Made Today:**
+- `e8cd64d` - feat: Add Google Calendar integration with OAuth 2.0 authentication
+
+**Code Changes:**
+- **New Files Created (8)**:
+  - `src/main/services/google-oauth-manager.ts` - OAuth 2.0 authentication with PKCE security
+  - `src/main/services/google-calendar-manager.ts` - Google Calendar API integration with rate limiting
+  - `src/renderer/components/GoogleCalendarAuth.tsx` - Professional authentication UI component
+  - `src/shared/types/google-calendar.ts` - Google Calendar specific types and interfaces
+  - `tests/unit/google-oauth-manager.test.ts` - Comprehensive OAuth manager unit tests
+  - `tests/unit/google-calendar-manager.test.ts` - Google Calendar manager unit tests
+  - `.agents/plans/add-google-calendar-integration.md` - Detailed implementation plan
+  - `google-calendar-integration-research.md` - Technical research and documentation
+
+- **Files Modified (11)**:
+  - `package.json` - Added googleapis and express dependencies
+  - `src/main/index.ts` - Added Google Calendar IPC handlers and dotenv support
+  - `src/main/services/calendar-manager.ts` - Integrated Google Calendar with existing sources
+  - `src/main/services/settings-manager.ts` - Added Google Calendar settings storage
+  - `src/main/services/swift-calendar-manager.ts` - Fixed binary path resolution
+  - `src/renderer/components/CalendarImport.tsx` - Added Google Calendar import option
+  - `src/renderer/components/Settings.tsx` - Added Google Calendar auth import
+  - `src/shared/types/calendar.ts` - Added 'google' as calendar source type
+  - `src/shared/types/ipc.ts` - Added Google Calendar IPC methods
+  - `src/main/preload.ts` - Exposed Google Calendar API methods
+
+### 🔧 **Work Breakdown**
+- **Google Calendar OAuth Implementation**: 1h - OAuth 2.0 flow with PKCE, secure token storage
+- **Google Calendar API Integration**: 1h - Event retrieval, rate limiting, error handling
+- **Swift CLI Path Resolution Fix**: 1h - Debugging and fixing binary path issue
+
+### 🚧 **Challenges & Solutions**
+**Challenge 1: OAuth 2.0 Authentication Flow**
+- **Issue**: Needed secure OAuth implementation for desktop app without exposing client secrets
+- **Root Cause**: Desktop apps require different OAuth flow than web applications
+- **Solution**: Implemented OAuth 2.0 with PKCE (Proof Key for Code Exchange) for enhanced security, using localhost redirect server
+
+**Challenge 2: Google API Client Configuration**
+- **Issue**: Initial attempts failed with "invalid_client" and "access_denied" errors
+- **Root Cause**: Incorrect OAuth client type and missing redirect URI configuration
+- **Solution**: Created web app OAuth client with proper redirect URI, added client secret support
+
+**Challenge 3: Swift Calendar Binary Path Resolution**
+- **Issue**: After Google Calendar implementation, Swift backend stopped working and fell back to slow AppleScript
+- **Root Cause**: Binary path resolution was looking in `dist/resources/bin/` instead of `resources/bin/`
+- **Solution**: Fixed path resolution to go up correct number of directory levels from compiled location
+
+**Challenge 4: Token Storage and Refresh**
+- **Issue**: Need secure storage for OAuth refresh tokens with automatic refresh capability
+- **Root Cause**: Desktop apps need persistent authentication without re-authorization
+- **Solution**: Used Electron's safeStorage for encrypted token storage with automatic refresh logic
+
+### 🧠 **Key Decisions**
+- **OAuth 2.0 with PKCE**: Chose secure OAuth flow appropriate for desktop applications
+- **Web App Client Type**: Used web app OAuth client instead of desktop client for redirect URI support
+- **Secure Token Storage**: Leveraged Electron's safeStorage for encrypted refresh token persistence
+- **Rate Limiting**: Implemented exponential backoff with jitter for Google API rate limits
+- **Event Merging**: Designed system to merge Google Calendar events with existing Apple Calendar and ICS events
+
+### 📚 **Learnings & Insights**
+- **OAuth for Desktop Apps**: PKCE is essential for secure OAuth in desktop applications without client secrets
+- **Google Cloud Console**: Web app OAuth clients provide more flexibility than desktop clients for redirect URIs
+- **Electron Security**: safeStorage provides robust encryption for sensitive data like OAuth tokens
+- **Path Resolution**: Compiled Electron apps require careful path resolution relative to build output structure
+- **API Rate Limiting**: Google Calendar API has strict rate limits requiring exponential backoff implementation
+
+### ⚡ **Kiro CLI Usage**
+- Used `@execute` command to systematically implement comprehensive Google Calendar integration plan
+- Leveraged Kiro's knowledge of OAuth 2.0 best practices and security patterns
+- Applied Kiro's guidance on Electron security practices for token storage
+- Used debugging assistance to resolve Swift binary path resolution issue
+
+### 📋 **Next Session Plan**
+- Test Google Calendar integration with real Google account
+- Implement additional calendar providers (Microsoft Outlook, CalDAV)
+- Add calendar sync preferences and selective event import
+- Enhance meeting brief generation with calendar context
 
 ---

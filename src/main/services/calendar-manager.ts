@@ -33,7 +33,8 @@ export class CalendarManager {
   private isExtracting = false
   private lastExtraction: Date | null = null
   private readonly CACHE_DURATION = 2 * 60 * 1000 // 2 minutes for better freshness
-  private readonly useSwiftBackend = true // Feature flag for Swift backend
+  private readonly useSwiftBackend = true // Must get this working!
+  private tempFiles: Set<string> = new Set() // Track temp files for cleanup
 
   constructor() {
     this.settingsManager = new SettingsManager()
@@ -42,11 +43,29 @@ export class CalendarManager {
     this.googleCalendarManager = new GoogleCalendarManager(this.googleOAuthManager)
     if (process.env.NODE_ENV !== 'test') {
       process.on('exit', () => this.dispose())
+      // Ensure cleanup on process termination
+      process.on('SIGTERM', () => this.cleanup())
+      process.on('SIGINT', () => this.cleanup())
     }
+  }
+
+  private cleanup(): void {
+    // Clean up any remaining temporary files
+    for (const tempFile of this.tempFiles) {
+      try {
+        if (fs.existsSync(tempFile)) {
+          fs.unlinkSync(tempFile)
+        }
+      } catch (error) {
+        // Ignore cleanup errors
+      }
+    }
+    this.tempFiles.clear()
   }
 
   async dispose(): Promise<void> {
     // Cleanup resources if needed
+    this.cleanup()
     this.googleOAuthManager.cleanup()
   }
 
@@ -55,7 +74,21 @@ export class CalendarManager {
     if (this.useSwiftBackend && this.swiftCalendarManager.isSupported()) {
       try {
         console.log('Using Swift backend for calendar extraction')
-        const result = await this.swiftCalendarManager.extractEvents()
+        
+        // First, ensure we have calendar permissions by running a simple AppleScript check
+        // This will trigger the permission dialog if needed
+        try {
+          await this.checkAppleScriptPermissions()
+        } catch (permissionError) {
+          throw permissionError // Fall through to AppleScript
+        }
+        
+        let result
+        try {
+          result = await this.swiftCalendarManager.extractEvents()
+        } catch (swiftError) {
+          throw swiftError
+        }
         
         // Merge with existing Google Calendar events
         const existingEvents = await this.settingsManager.getCalendarEvents()
@@ -122,18 +155,56 @@ export class CalendarManager {
   private async performAppleScriptExtraction(selectedCalendarNames?: string[]): Promise<CalendarImportResult> {
     await this.checkAppleScriptPermissions()
 
-    console.log('Selected calendars for extraction:', selectedCalendarNames)
+    if (process.env.NODE_ENV === 'development') {
+      console.log('Selected calendars for extraction:', selectedCalendarNames)
+    }
 
     // Don't filter out the main Calendar - only filter truly problematic ones
     const filteredCalendars = selectedCalendarNames?.filter(name => 
       !['Birthdays', 'Siri Suggestions'].includes(name)
     ) || []
     
-    console.log('Filtered calendars (excluding system calendars):', filteredCalendars)
+    if (process.env.NODE_ENV === 'development') {
+      console.log('Filtered calendars (excluding system calendars):', filteredCalendars)
+    }
+
+    // If no calendars are selected, fall back to discovering and using all available calendars
+    if (filteredCalendars.length === 0) {
+      if (process.env.NODE_ENV === 'development') {
+        console.log('No calendars selected, discovering available calendars...')
+      }
+      try {
+        const discoveryResult = await this.discoverCalendars()
+        const availableCalendars = discoveryResult.calendars
+          .filter(cal => cal.isVisible && !['Birthdays', 'Siri Suggestions'].includes(cal.name))
+          .map(cal => cal.name)
+        
+        if (availableCalendars.length === 0) {
+          throw new CalendarError('No available calendars found', 'NO_CALENDARS')
+        }
+        
+        if (process.env.NODE_ENV === 'development') {
+          console.log('Using discovered calendars:', availableCalendars)
+        }
+        
+        // Use immutable pattern for clarity
+        const finalCalendars = [...filteredCalendars, ...availableCalendars]
+        filteredCalendars.length = 0
+        filteredCalendars.push(...finalCalendars)
+      } catch (error) {
+        throw new CalendarError(
+          `Failed to discover calendars: ${error instanceof Error ? error.message : 'Unknown error'}`,
+          'DISCOVERY_FAILED'
+        )
+      }
+    }
 
     // Use a temporary file approach to avoid quote escaping issues
     const tempDir = os.tmpdir()
     const scriptPath = path.join(tempDir, `calendar-script-${crypto.randomUUID()}.scpt`)
+    
+    // Track temp file for cleanup
+    this.tempFiles.add(scriptPath)
     
     // Much faster AppleScript - get recent events and filter in JavaScript
     const script = filteredCalendars && filteredCalendars.length > 0 ? 
@@ -195,7 +266,9 @@ end tell`
       // Write script to temporary file
       fs.writeFileSync(scriptPath, script, 'utf8')
       
-      console.log('Executing AppleScript for calendar extraction...')
+      if (process.env.NODE_ENV === 'development') {
+        console.log('Executing AppleScript for calendar extraction...')
+      }
       const startTime = Date.now()
       
       // Execute with timeout for calendar extraction
@@ -205,14 +278,19 @@ end tell`
       })
       
       const executionTime = Date.now() - startTime
-      console.log(`AppleScript completed in ${executionTime}ms`)
+      if (process.env.NODE_ENV === 'development') {
+        console.log(`AppleScript completed in ${executionTime}ms`)
+      }
       
       const events = this.parseOSAScriptResult(stdout.trim())
-      console.log(`Parsed ${events.length} events from AppleScript`)
+      if (process.env.NODE_ENV === 'development') {
+        console.log(`Parsed ${events.length} events from AppleScript`)
+      }
       
       // Clean up temporary file
       try {
         fs.unlinkSync(scriptPath)
+        this.tempFiles.delete(scriptPath)
       } catch (cleanupError) {
         // Ignore cleanup errors
       }
@@ -229,6 +307,7 @@ end tell`
       // Clean up temporary file on error
       try {
         fs.unlinkSync(scriptPath)
+        this.tempFiles.delete(scriptPath)
       } catch (cleanupError) {
         // Ignore cleanup errors
       }
@@ -623,6 +702,9 @@ end tell`
     const tempDir = os.tmpdir()
     const scriptPath = path.join(tempDir, `calendar-discovery-${crypto.randomUUID()}.scpt`)
     
+    // Track temp file for cleanup
+    this.tempFiles.add(scriptPath)
+    
     try {
       // Write script to temporary file
       fs.writeFileSync(scriptPath, script, 'utf8')
@@ -635,6 +717,7 @@ end tell`
       // Clean up temporary file
       try {
         fs.unlinkSync(scriptPath)
+        this.tempFiles.delete(scriptPath)
       } catch (cleanupError) {
         // Ignore cleanup errors
       }
@@ -644,6 +727,7 @@ end tell`
       // Clean up temporary file on error
       try {
         fs.unlinkSync(scriptPath)
+        this.tempFiles.delete(scriptPath)
       } catch (cleanupError) {
         // Ignore cleanup errors
       }
@@ -730,5 +814,108 @@ end tell`
     } catch (error) {
       return null
     }
+  }
+
+  // Automatic sync methods
+  async hasConnectedCalendars(): Promise<boolean> {
+    try {
+      // Check if Google Calendar is connected
+      const isGoogleConnected = await this.settingsManager.getGoogleCalendarConnected()
+      
+      // Check if Apple Calendar is available (macOS only)
+      const isAppleAvailable = this.isAppleScriptAvailable
+      
+      return isGoogleConnected || isAppleAvailable
+    } catch (error) {
+      return false
+    }
+  }
+
+  async performAutomaticSync(): Promise<CalendarImportResult> {
+    const allEvents: CalendarEvent[] = []
+    let totalEvents = 0
+    const errors: Array<{ event?: string; error: string }> = []
+    let hasAnySuccess = false
+
+    try {
+      // Sync Google Calendar if connected
+      const isGoogleConnected = await this.settingsManager.getGoogleCalendarConnected()
+      if (isGoogleConnected) {
+        try {
+          const googleResult = await this.getGoogleCalendarEvents()
+          allEvents.push(...googleResult.events)
+          totalEvents += googleResult.totalEvents
+          hasAnySuccess = true
+        } catch (error) {
+          errors.push({
+            error: `Google Calendar sync failed: ${error instanceof Error ? error.message : 'Unknown error'}`
+          })
+        }
+      }
+
+      // Sync Apple Calendar if available (macOS only)
+      if (this.isAppleScriptAvailable) {
+        try {
+          // Get selected calendars from settings
+          const calendarSelection = await this.settingsManager.getCalendarSelection()
+          const selectedCalendarNames = calendarSelection.selectedCalendarUids
+          
+          const appleResult = await this.extractAppleScriptEvents(selectedCalendarNames)
+          // Filter out Google events to avoid duplicates
+          const appleEvents = appleResult.events.filter(event => event.source !== 'google')
+          allEvents.push(...appleEvents)
+          totalEvents += appleEvents.length
+          hasAnySuccess = true
+        } catch (error) {
+          errors.push({
+            error: `Apple Calendar sync failed: ${error instanceof Error ? error.message : 'Unknown error'}`
+          })
+        }
+      }
+
+      // Store all events
+      await this.settingsManager.setCalendarEvents(allEvents)
+
+      // Return results even if some sources failed, as long as we have some success
+      return {
+        events: allEvents,
+        totalEvents,
+        importedAt: new Date(),
+        source: 'swift', // Use 'swift' as a generic automatic sync source
+        errors: errors.length > 0 ? errors : undefined
+      }
+    } catch (error) {
+      // If we have partial success, return it with errors
+      if (hasAnySuccess) {
+        return {
+          events: allEvents,
+          totalEvents,
+          importedAt: new Date(),
+          source: 'swift',
+          errors: [...errors, { error: `Sync completion failed: ${error instanceof Error ? error.message : 'Unknown error'}` }]
+        }
+      }
+      
+      // Complete failure - throw with error information
+      throw new CalendarError(
+        `Automatic sync failed: ${error instanceof Error ? error.message : 'Unknown error'}${errors.length > 0 ? '. Additional errors: ' + errors.map(e => e.error).join(', ') : ''}`,
+        'PARSE_ERROR',
+        error instanceof Error ? error : undefined
+      )
+    }
+  }
+
+  async syncTodaysEvents(): Promise<CalendarEvent[]> {
+    const result = await this.performAutomaticSync()
+    
+    // Filter to only today's events
+    const today = new Date()
+    const startOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate())
+    const endOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1)
+
+    return result.events.filter(event => {
+      const eventStart = new Date(event.startDate)
+      return eventStart >= startOfDay && eventStart < endOfDay
+    })
   }
 }

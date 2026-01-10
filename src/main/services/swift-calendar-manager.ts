@@ -1,4 +1,4 @@
-import { execFile } from 'child_process'
+import { execFile, exec } from 'child_process'
 import { promisify } from 'util'
 import * as fs from 'fs'
 import * as path from 'path'
@@ -12,6 +12,8 @@ const execFileAsync = (() => {
     return null
   }
 })()
+
+const execAsync = promisify(exec)
 
 interface SwiftCalendarEvent {
   id: string
@@ -44,9 +46,9 @@ export class SwiftCalendarManager {
       }
     }
     
-    // In development mode, resolve from project root with security validation
-    // Use __dirname as anchor point and resolve relative to known project structure
-    const projectRoot = path.resolve(__dirname, '../../../../..')
+    // In development mode, resolve from project root
+    // Use process.cwd() as it was working before (commit fa6f886)
+    const projectRoot = process.cwd()
     const helperPath = path.join(projectRoot, 'resources', 'bin', 'calendar-helper')
     
     // Security validation: ensure the resolved path is within expected project boundaries
@@ -86,6 +88,14 @@ export class SwiftCalendarManager {
         'execFile not available in this environment',
         'PLATFORM_UNSUPPORTED'
       )
+    }
+
+    // Trigger calendar permission dialog via AppleScript first
+    // This ensures calendar access is granted before running Swift binary
+    try {
+      await execAsync('osascript -e \'tell application "Calendar" to return "permission-check"\'')
+    } catch (permissionError) {
+      // Continue anyway - the Swift binary will handle the error
     }
 
     const helperPath = this.getHelperPath()

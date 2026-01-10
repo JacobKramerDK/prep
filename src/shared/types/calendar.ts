@@ -84,7 +84,7 @@ export function calendarImportResultFromIPC(result: CalendarImportResultIPC): Ca
 export class CalendarError extends Error {
   constructor(
     message: string,
-    public code: 'PERMISSION_DENIED' | 'INVALID_FILE' | 'PARSE_ERROR' | 'PLATFORM_UNSUPPORTED' | 'TIMEOUT',
+    public code: 'PERMISSION_DENIED' | 'INVALID_FILE' | 'PARSE_ERROR' | 'PLATFORM_UNSUPPORTED' | 'TIMEOUT' | 'NO_CALENDARS' | 'DISCOVERY_FAILED',
     public cause?: Error
   ) {
     super(message)

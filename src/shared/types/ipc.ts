@@ -1,6 +1,7 @@
 import type { VaultIndex, SearchResult } from './vault'
 import type { CalendarEvent, CalendarImportResult } from './calendar'
 import type { CalendarDiscoveryResult, CalendarSelectionSettings } from './calendar-selection'
+import type { CalendarSyncStatusIPC, CalendarSyncResultIPC } from './calendar-sync'
 import type { TodaysMeetingsResult } from './meeting'
 import type { BriefGenerationRequest, BriefGenerationResult, BriefGenerationStatus } from './brief'
 import type { ContextRetrievalResultIPC, ContextRetrievalRequest } from './context'
@@ -24,6 +25,11 @@ export interface ElectronAPI {
   discoverCalendars: () => Promise<CalendarDiscoveryResult>
   getSelectedCalendars: () => Promise<CalendarSelectionSettings>
   updateSelectedCalendars: (settings: Partial<CalendarSelectionSettings>) => Promise<void>
+  // Calendar sync scheduler operations
+  getCalendarSyncStatus: () => Promise<CalendarSyncStatusIPC>
+  performManualCalendarSync: () => Promise<CalendarSyncResultIPC>
+  startDailyCalendarSync: () => Promise<void>
+  stopDailyCalendarSync: () => Promise<void>
   // Meeting operations
   getTodaysMeetings: () => Promise<TodaysMeetingsResult>
   hasTodaysMeetings: () => Promise<boolean>
@@ -50,6 +56,10 @@ export interface ElectronAPI {
   isGoogleCalendarConnected: () => Promise<boolean>
   disconnectGoogleCalendar: () => Promise<void>
   getGoogleCalendarUserInfo: () => Promise<{ email: string; name?: string } | null>
+  // Calendar sync operations
+  startAutoSync: () => Promise<boolean>
+  getAutoSyncStatus: () => Promise<import('./calendar-sync').CalendarSyncStatus>
+  performManualSync: () => Promise<import('./calendar-sync').CalendarSyncResult>
 }
 
 declare global {

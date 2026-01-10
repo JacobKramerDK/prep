@@ -82,8 +82,25 @@ const App: React.FC = () => {
       }
     }
 
+    // Perform automatic calendar sync on app startup
+    const performAutoSync = async (): Promise<void> => {
+      try {
+        await window.electronAPI.startAutoSync()
+        // Refresh events after starting auto sync
+        const events = await window.electronAPI.getCalendarEvents()
+        if (events && events.length > 0) {
+          setCalendarEvents(events)
+          setCalendarError(null)
+        }
+      } catch (error) {
+        console.error('Auto sync failed:', error)
+        // Don't show error to user for auto sync failures - it's background functionality
+      }
+    }
+
     getVersion()
     loadExistingEvents()
+    performAutoSync()
     checkVaultStatus()
   }, [checkVaultStatus])
 
