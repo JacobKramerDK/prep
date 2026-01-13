@@ -1,3 +1,5 @@
+export type CalendarSource = 'applescript' | 'ics' | 'swift' | 'google' | 'automatic-sync'
+
 export interface CalendarEvent {
   id: string
   title: string
@@ -7,7 +9,7 @@ export interface CalendarEvent {
   location?: string
   attendees?: string[]
   isAllDay: boolean
-  source: 'applescript' | 'ics' | 'swift' | 'google'
+  source: CalendarSource
   calendarName?: string
 }
 
@@ -21,7 +23,7 @@ export interface CalendarEventIPC {
   location?: string
   attendees?: string[]
   isAllDay: boolean
-  source: 'applescript' | 'ics' | 'swift' | 'google'
+  source: CalendarSource
   calendarName?: string
 }
 
@@ -29,7 +31,7 @@ export interface CalendarImportResult {
   events: CalendarEvent[]
   totalEvents: number
   importedAt: Date
-  source: 'applescript' | 'ics' | 'swift' | 'google'
+  source: CalendarSource
   errors?: Array<{
     event?: string
     error: string
@@ -41,7 +43,7 @@ export interface CalendarImportResultIPC {
   events: CalendarEventIPC[]
   totalEvents: number
   importedAt: string // ISO string
-  source: 'applescript' | 'ics' | 'swift' | 'google'
+  source: CalendarSource
   errors?: Array<{
     event?: string
     error: string

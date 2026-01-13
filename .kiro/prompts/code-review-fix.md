@@ -13,6 +13,6 @@ Scope: Disregard Low issues unless it is a very simple fix. Any other issues sho
 For each fix:
 1. Explain what was wrong
 2. Show the fix
-3. Create and run relevant tests to verify
+3. Create and run relevant tests to verify. Make sure to use the Playwright MCP to validate tests when possible. 
 
 After all fixes, run the validate command (see commands/validate.md) to finalize your fixes.

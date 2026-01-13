@@ -22,6 +22,9 @@ interface SwiftCalendarEvent {
   endDate: string    // ISO8601
   calendar: string
   location: string
+  notes?: string
+  attendees?: string[]
+  url?: string
   isAllDay: boolean
 }
 
@@ -131,18 +134,27 @@ export class SwiftCalendarManager {
 
       console.log(`Parsed ${events.length} events from Swift helper`)
 
-      const calendarEvents: CalendarEvent[] = events.map(event => ({
-        id: event.id,
-        title: event.title,
-        description: undefined,
-        startDate: new Date(event.startDate),
-        endDate: new Date(event.endDate),
-        location: event.location,
-        attendees: [],
-        isAllDay: event.isAllDay,
-        source: 'swift' as const,
-        calendarName: event.calendar
-      }))
+      const calendarEvents: CalendarEvent[] = []
+      
+      events.forEach((event, index) => {
+        try {
+          calendarEvents.push({
+            id: event.id,
+            title: event.title,
+            description: event.notes,
+            startDate: new Date(event.startDate),
+            endDate: new Date(event.endDate),
+            location: event.location,
+            attendees: event.attendees || [],
+            isAllDay: event.isAllDay,
+            source: 'swift' as const,
+            calendarName: event.calendar
+          })
+        } catch (parseError) {
+          console.warn(`Failed to parse Swift event ${index}:`, parseError)
+          // Skip invalid events rather than failing entirely
+        }
+      })
 
       return {
         events: calendarEvents,

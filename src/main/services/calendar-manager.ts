@@ -86,6 +86,13 @@ export class CalendarManager {
         let result
         try {
           result = await this.swiftCalendarManager.extractEvents()
+          
+          // Apply Google Calendar detection to Swift results
+          const enhancedEvents = this.enhanceEventSources(result.events)
+          result = {
+            ...result,
+            events: enhancedEvents
+          }
         } catch (swiftError) {
           throw swiftError
         }
@@ -295,11 +302,14 @@ end tell`
         // Ignore cleanup errors
       }
       
-      await this.settingsManager.setCalendarEvents(events)
+      // Apply Google Calendar detection to AppleScript results
+      const enhancedEvents = this.enhanceEventSources(events)
+      
+      await this.settingsManager.setCalendarEvents(enhancedEvents)
       
       return {
-        events,
-        totalEvents: events.length,
+        events: enhancedEvents,
+        totalEvents: enhancedEvents.length,
         importedAt: new Date(),
         source: 'applescript'
       }
@@ -816,6 +826,103 @@ end tell`
     }
   }
 
+  /**
+   * Detect if an Apple Calendar event is likely a Google Calendar event
+   * based on calendar name and common patterns
+   */
+  private isLikelyGoogleCalendarEvent(event: CalendarEvent): boolean {
+    // Skip if already marked as Google
+    if (event.source === 'google') {
+      return false
+    }
+    
+    const calendarName = event.calendarName?.toLowerCase() || ''
+    const title = event.title?.toLowerCase() || ''
+    const location = event.location?.toLowerCase() || ''
+    
+    // Check for Google Calendar indicators in calendar name
+    if (calendarName.includes('google') || 
+        calendarName.includes('gmail') ||
+        calendarName.includes('work') ||  // Common for work Google Calendars
+        calendarName.includes('arbejde')) { // Danish for "work"
+      return true
+    }
+    
+    // Check for Google Meet or Zoom indicators (common in Google Calendar events)
+    if (location.includes('meet.google.com') || 
+        location.includes('zoom.us') || 
+        title.includes('google meet') ||
+        title.includes('zoom')) {
+      return true
+    }
+    
+    // Check for common Google Calendar event patterns in title
+    // Events with "Placeholder:" prefix are often from Google Calendar
+    if (title.startsWith('placeholder:')) {
+      return true
+    }
+    
+    return false
+  }
+
+  /**
+   * Enhance Apple Calendar events by detecting Google Calendar events
+   * and updating their source accordingly
+   */
+  private enhanceEventSources(events: CalendarEvent[]): CalendarEvent[] {
+    // Guard against empty or invalid input
+    if (!events || events.length === 0) {
+      return events
+    }
+    
+    return events.map(event => {
+      if (event.source === 'applescript' && this.isLikelyGoogleCalendarEvent(event)) {
+        if (process.env.NODE_ENV === 'development') {
+          console.log(`Detected Google Calendar event in Apple Calendar: ${event.title}`)
+        }
+        return {
+          ...event,
+          source: 'google' as const
+        }
+      }
+      return event
+    })
+  }
+
+  /**
+   * Deduplicate events based on title, start time, and calendar name
+   * Preserves the source of the first occurrence (Google events take precedence)
+   */
+  private deduplicateEvents(events: CalendarEvent[]): CalendarEvent[] {
+    const seen = new Map<string, number>() // Map key to index in deduplicated array
+    const deduplicated: CalendarEvent[] = []
+
+    for (const event of events) {
+      // Create a unique key based on title, start time, and calendar
+      const key = `${event.title}|${event.startDate.getTime()}|${event.calendarName}`
+      
+      if (!seen.has(key)) {
+        seen.set(key, deduplicated.length)
+        deduplicated.push(event)
+      } else {
+        // If we already have this event, prefer Google Calendar source over Apple Calendar
+        const existingIndex = seen.get(key)!
+        const existingEvent = deduplicated[existingIndex]
+        
+        if (event.source === 'google' && existingEvent.source !== 'google') {
+          // Replace Apple Calendar event with Google Calendar event
+          deduplicated[existingIndex] = event
+        }
+        
+        if (process.env.NODE_ENV === 'development') {
+          console.log(`Skipping duplicate event: ${event.title} at ${event.startDate} (keeping ${deduplicated[existingIndex].source} over ${event.source})`)
+        }
+      }
+    }
+
+    return deduplicated
+  }
+
   // Automatic sync methods
   async hasConnectedCalendars(): Promise<boolean> {
     try {
@@ -856,16 +963,53 @@ end tell`
       // Sync Apple Calendar if available (macOS only)
       if (this.isAppleScriptAvailable) {
         try {
-          // Get selected calendars from settings
-          const calendarSelection = await this.settingsManager.getCalendarSelection()
-          const selectedCalendarNames = calendarSelection.selectedCalendarUids
+          // Try Swift backend first, but fall back to AppleScript if it fails
+          let appleEvents: CalendarEvent[] = []
           
-          const appleResult = await this.extractAppleScriptEvents(selectedCalendarNames)
-          // Filter out Google events to avoid duplicates
-          const appleEvents = appleResult.events.filter(event => event.source !== 'google')
+          if (this.useSwiftBackend && this.swiftCalendarManager.isSupported()) {
+            try {
+              console.log('Attempting Swift backend for automatic sync')
+              const swiftResult = await this.swiftCalendarManager.extractEvents()
+              appleEvents = swiftResult.events
+              hasAnySuccess = true
+            } catch (swiftError) {
+              console.log('Swift backend failed, falling back to AppleScript:', swiftError instanceof Error ? swiftError.message : 'Unknown error')
+              
+              // Fallback to AppleScript
+              try {
+                const calendarSelection = await this.settingsManager.getCalendarSelection()
+                const selectedCalendarNames = calendarSelection.selectedCalendarUids
+                
+                const appleResult = await this.extractAppleScriptEvents(selectedCalendarNames)
+                // Don't filter out Google events - they were correctly detected in extractAppleScriptEvents
+                appleEvents = appleResult.events
+                hasAnySuccess = true
+              } catch (appleScriptError) {
+                // Both Swift and AppleScript failed - add to errors but don't fail completely
+                errors.push({
+                  error: `Apple Calendar sync failed: ${appleScriptError instanceof Error ? appleScriptError.message : 'Unknown error'}`
+                })
+              }
+            }
+          } else {
+            // Use AppleScript directly
+            try {
+              const calendarSelection = await this.settingsManager.getCalendarSelection()
+              const selectedCalendarNames = calendarSelection.selectedCalendarUids
+              
+              const appleResult = await this.extractAppleScriptEvents(selectedCalendarNames)
+              // Don't filter out Google events - they were correctly detected in extractAppleScriptEvents
+              appleEvents = appleResult.events
+              hasAnySuccess = true
+            } catch (appleScriptError) {
+              errors.push({
+                error: `Apple Calendar sync failed: ${appleScriptError instanceof Error ? appleScriptError.message : 'Unknown error'}`
+              })
+            }
+          }
+          
           allEvents.push(...appleEvents)
           totalEvents += appleEvents.length
-          hasAnySuccess = true
         } catch (error) {
           errors.push({
             error: `Apple Calendar sync failed: ${error instanceof Error ? error.message : 'Unknown error'}`
@@ -873,25 +1017,50 @@ end tell`
         }
       }
 
+      // Apply Google Calendar detection and deduplication with better error handling
+      let finalEvents = allEvents
+      try {
+        if (allEvents.length > 0) {
+          const enhancedEvents = this.enhanceEventSources(allEvents)
+          finalEvents = this.deduplicateEvents(enhancedEvents)
+          
+          if (process.env.NODE_ENV === 'development') {
+            const googleEvents = finalEvents.filter(e => e.source === 'google')
+            console.log(`Enhanced events: ${googleEvents.length} Google Calendar events detected`)
+          }
+        }
+      } catch (processingError) {
+        // If event processing fails, use original events to prevent total failure
+        console.error('Event processing failed, using original events:', processingError)
+        finalEvents = allEvents
+      }
+      
       // Store all events
-      await this.settingsManager.setCalendarEvents(allEvents)
+      await this.settingsManager.setCalendarEvents(finalEvents)
 
       // Return results even if some sources failed, as long as we have some success
       return {
-        events: allEvents,
-        totalEvents,
+        events: finalEvents,
+        totalEvents: finalEvents.length,
         importedAt: new Date(),
-        source: 'swift', // Use 'swift' as a generic automatic sync source
+        source: 'automatic-sync',
         errors: errors.length > 0 ? errors : undefined
       }
     } catch (error) {
       // If we have partial success, return it with errors
       if (hasAnySuccess) {
+        let finalEvents = allEvents
+        try {
+          finalEvents = this.deduplicateEvents(allEvents)
+        } catch (processingError) {
+          console.error('Event deduplication failed, using original events:', processingError)
+        }
+        
         return {
-          events: allEvents,
-          totalEvents,
+          events: finalEvents,
+          totalEvents: finalEvents.length,
           importedAt: new Date(),
-          source: 'swift',
+          source: 'automatic-sync',
           errors: [...errors, { error: `Sync completion failed: ${error instanceof Error ? error.message : 'Unknown error'}` }]
         }
       }

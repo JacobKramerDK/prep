@@ -15,6 +15,19 @@ export class CalendarSyncScheduler {
   constructor(calendarManager: CalendarManager) {
     this.calendarManager = calendarManager
     this.setupPowerMonitor()
+    // Don't call async initialization in constructor - handle it in startDailySync
+  }
+
+  private async initializeLastSyncTime(): Promise<void> {
+    try {
+      // Import SettingsManager dynamically to avoid circular dependency
+      const { SettingsManager } = await import('./settings-manager')
+      const settingsManager = new SettingsManager()
+      this.lastSyncTime = await settingsManager.getLastCalendarSync()
+    } catch (error) {
+      console.error('Failed to initialize last sync time:', error)
+      this.lastSyncTime = null
+    }
   }
 
   private setupPowerMonitor(): void {
@@ -27,6 +40,11 @@ export class CalendarSyncScheduler {
   async startDailySync(): Promise<void> {
     if (this.isEnabled) {
       return
+    }
+
+    // Initialize last sync time from settings before proceeding
+    if (this.lastSyncTime === null) {
+      await this.initializeLastSyncTime()
     }
 
     this.isEnabled = true

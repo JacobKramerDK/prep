@@ -39,6 +39,11 @@ let dateFormatter = ISO8601DateFormatter()
 var output: [[String: Any]] = []
 
 for event in events {
+    // Extract attendees - EKParticipant.url is not optional but can be nil in practice
+    let attendeeEmails = event.attendees?.compactMap { attendee in
+        return attendee.url.absoluteString.replacingOccurrences(of: "mailto:", with: "")
+    } ?? []
+    
     output.append([
         "id": event.eventIdentifier ?? UUID().uuidString,
         "title": event.title ?? "Untitled",
@@ -46,7 +51,10 @@ for event in events {
         "endDate": dateFormatter.string(from: event.endDate),
         "calendar": event.calendar.title,
         "location": event.location ?? "",
-        "isAllDay": event.isAllDay
+        "notes": event.notes ?? "",
+        "attendees": attendeeEmails,
+        "isAllDay": event.isAllDay,
+        "url": event.url?.absoluteString ?? ""
     ])
 }
 
