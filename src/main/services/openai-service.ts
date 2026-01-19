@@ -42,6 +42,16 @@ export class OpenAIService {
       throw new Error('OpenAI API key not configured')
     }
 
+    // Validate API key before making the request
+    try {
+      const isValid = await this.validateApiKey(this.apiKey!)
+      if (!isValid) {
+        throw new Error('Invalid OpenAI API key. Please check your API key in settings.')
+      }
+    } catch (validationError) {
+      throw new Error('Failed to validate OpenAI API key. Please check your internet connection and API key.')
+    }
+
     const prompt = this.buildPrompt(request, meeting)
     
     try {
@@ -73,17 +83,33 @@ export class OpenAIService {
       // Use correct parameters based on model capabilities
       const modelCapabilities = this.getModelCapabilities(model)
       if (modelCapabilities.usesCompletionTokens) {
-        requestParams.max_completion_tokens = 2000
+        requestParams.max_completion_tokens = 8000  // Higher limit for reasoning models
         // These models only support temperature = 1 (default)
       } else {
         requestParams.max_tokens = 2000
         requestParams.temperature = 0.7
       }
 
+      console.log('Making OpenAI request with params:', {
+        model: requestParams.model,
+        messageCount: requestParams.messages.length,
+        maxTokens: requestParams.max_tokens || requestParams.max_completion_tokens,
+        temperature: requestParams.temperature
+      })
+
       const response = await this.client!.chat.completions.create(requestParams)
+
+      console.log('OpenAI response received:', {
+        choices: response.choices?.length || 0,
+        firstChoiceContent: response.choices?.[0]?.message?.content ? 'present' : 'missing',
+        usage: response.usage
+      })
 
       const content = response.choices[0]?.message?.content
       if (!content) {
+        console.error('No content in OpenAI response:', {
+          response: JSON.stringify(response, null, 2)
+        })
         throw new Error('No content generated from OpenAI')
       }
 
@@ -96,7 +122,27 @@ export class OpenAIService {
         status: BriefGenerationStatus.SUCCESS
       }
     } catch (error) {
-      console.error('OpenAI API error:', error instanceof Error ? error.message : 'Unknown error')
+      console.error('OpenAI API error details:', {
+        error: error instanceof Error ? error.message : 'Unknown error',
+        stack: error instanceof Error ? error.stack : undefined,
+        model: model,
+        apiKeyConfigured: !!this.apiKey,
+        clientConfigured: !!this.client
+      })
+      
+      // Provide more specific error messages
+      if (error instanceof Error) {
+        if (error.message.includes('401')) {
+          throw new Error('Invalid OpenAI API key. Please check your API key in settings.')
+        } else if (error.message.includes('429')) {
+          throw new Error('OpenAI API rate limit exceeded. Please try again later.')
+        } else if (error.message.includes('insufficient_quota')) {
+          throw new Error('OpenAI API quota exceeded. Please check your billing.')
+        } else if (error.message.includes('model_not_found')) {
+          throw new Error(`Model "${model}" not found. Please select a different model.`)
+        }
+      }
+      
       throw new Error(`Failed to generate meeting brief: ${error instanceof Error ? error.message : 'Unknown error'}`)
     }
   }
