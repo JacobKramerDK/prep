@@ -426,7 +426,7 @@ ipcMain.handle('settings:validateOpenAIApiKey', async (_, apiKey: string) => {
     return false
   }
   
-  const testService = new OpenAIService()
+  const testService = new OpenAIService(apiKey)
   return await testService.validateApiKey(apiKey)
 })
 
@@ -439,7 +439,7 @@ ipcMain.handle('settings:setOpenAIModel', async (_, model: string) => {
 })
 
 ipcMain.handle('settings:getAvailableModels', async (_, apiKey: string) => {
-  const testService = new OpenAIService()
+  const testService = new OpenAIService(apiKey)
   return await testService.getAvailableModels(apiKey)
 })
 

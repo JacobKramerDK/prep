@@ -7,6 +7,10 @@ import * as fs from 'fs'
 import { CalendarEvent } from '../../shared/types/calendar'
 import { CalendarSelectionSettings } from '../../shared/types/calendar-selection'
 
+// API key validation constants
+const API_KEY_MIN_LENGTH = 20
+const API_KEY_MAX_LENGTH = 200 // Accommodates both legacy (51 chars) and new project keys (up to ~200 chars)
+
 interface SettingsSchema {
   vaultPath: string | null
   lastVaultScan: string | null
@@ -205,23 +209,27 @@ export class SettingsManager {
   }
 
   private isValidModelName(model: string): boolean {
-    // Basic validation for known model patterns
+    // Consolidated OpenAI model validation patterns
     const validPatterns = [
-      /^gpt-[34](\.\d+)?(-turbo)?(-\d{4}-\d{2}-\d{2})?$/,
-      /^gpt-4o(-mini)?(-\d{4}-\d{2}-\d{2})?$/,
-      /^o1-(preview|mini)$/,
-      /^gpt-3\.5-turbo(-16k)?(-\d{4}-\d{2}-\d{2})?$/
+      // GPT models with flexible variant combinations
+      /^gpt-([3-9](\.\d+)?|4o)(-turbo(-16k)?|-mini|-nano|-pro|-search-preview|-transcribe|-diarize)?(-\d{4}(-\d{2}-\d{2})?|-preview)?$/,
+      // O1 models: o1, o1-preview, o1-mini, o1-pro with optional dates
+      /^o1(-preview|-mini|-pro)?(-\d{4}-\d{2}-\d{2})?$/,
+      // Special latest models
+      /^(chatgpt-4o-latest|gpt-[45](\.\d+)?-(chat-)?latest)$/
     ]
     
     return validPatterns.some(pattern => pattern.test(model))
   }
 
   validateApiKeyFormat(apiKey: string): boolean {
-    // OpenAI API keys start with 'sk-' and are typically 51 characters long
+    // OpenAI API keys start with 'sk-' and can be various lengths
+    // Old format: ~51 characters
+    // New project format: ~164 characters
     return typeof apiKey === 'string' && 
            apiKey.startsWith('sk-') && 
-           apiKey.length >= 20 && 
-           apiKey.length <= 100
+           apiKey.length >= API_KEY_MIN_LENGTH && 
+           apiKey.length <= API_KEY_MAX_LENGTH
   }
 
   // Google Calendar settings methods

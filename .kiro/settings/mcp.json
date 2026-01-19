@@ -5,6 +5,9 @@
       "args": [
         "@playwright/mcp@latest"
       ]
-    }
+    },
+    "magic-patterns": {
+    "url": "https://mcp.magicpatterns.com/mcp"
+  }
   }
 }

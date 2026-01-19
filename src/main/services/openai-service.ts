@@ -189,25 +189,30 @@ export class OpenAIService {
   }
 
   async validateApiKey(apiKey: string): Promise<boolean> {
-    const testModels = ['gpt-4o-mini', 'gpt-3.5-turbo', 'gpt-4']
-    
-    for (const model of testModels) {
-      try {
-        const testClient = new OpenAI({ apiKey })
-        await testClient.chat.completions.create({
-          model: model,
-          messages: [{ role: 'user', content: 'test' }],
-          max_tokens: 1
-        })
-        return true
-      } catch (error) {
-        // Continue to next model if this one fails
-        continue
+    try {
+      const testClient = new OpenAI({ apiKey })
+      await testClient.models.list()
+      return true
+    } catch (error) {
+      // Multi-model fallback test for better validation coverage
+      const fallbackModels = ['gpt-4o-mini', 'gpt-3.5-turbo', 'gpt-4']
+      
+      for (const model of fallbackModels) {
+        try {
+          const testClient = new OpenAI({ apiKey })
+          await testClient.chat.completions.create({
+            model,
+            messages: [{ role: 'user', content: 'test' }],
+            max_tokens: 1
+          })
+          return true
+        } catch (chatError) {
+          // Continue to next model
+          continue
+        }
       }
+      return false
     }
-    
-    console.error('API key validation failed with all test models')
-    return false
   }
 
   async getAvailableModels(apiKey: string): Promise<string[]> {

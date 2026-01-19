@@ -6,6 +6,14 @@ export default defineConfig({
   plugins: [react()],
   base: './',
   root: 'src/renderer',
+  css: {
+    postcss: {
+      plugins: [
+        require('@tailwindcss/postcss'),
+        require('autoprefixer')
+      ]
+    }
+  },
   build: {
     outDir: '../../dist/renderer',
     emptyOutDir: true,
