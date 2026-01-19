@@ -110,6 +110,10 @@ const electronAPI: ElectronAPI = {
   getOpenAIModel: () => ipcRenderer.invoke('settings:getOpenAIModel'),
   setOpenAIModel: (model: string) => ipcRenderer.invoke('settings:setOpenAIModel', model),
   getAvailableModels: (apiKey: string) => ipcRenderer.invoke('settings:getAvailableModels', apiKey),
+  
+  // Debug mode methods
+  getDebugMode: () => ipcRenderer.invoke('settings:getDebugMode'),
+  setDebugMode: (enabled: boolean) => ipcRenderer.invoke('settings:setDebugMode', enabled),
   // Google Calendar methods
   authenticateGoogleCalendar: () => ipcRenderer.invoke('calendar:authenticateGoogle'),
   getGoogleCalendarEvents: async () => {

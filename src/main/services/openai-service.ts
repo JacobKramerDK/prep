@@ -2,10 +2,13 @@ import OpenAI from 'openai'
 import { randomUUID } from 'crypto'
 import { BriefGenerationRequest, MeetingBrief, BriefGenerationStatus } from '../../shared/types/brief'
 import { Meeting } from '../../shared/types/meeting'
+import { Debug } from '../../shared/utils/debug'
 
 export class OpenAIService {
   private client: OpenAI | null = null
   private apiKey: string | null = null
+  private validationCache: { key: string; isValid: boolean; timestamp: number } | null = null
+  private readonly VALIDATION_CACHE_TTL = 5 * 60 * 1000 // 5 minutes
 
   constructor(apiKey?: string) {
     if (apiKey) {
@@ -18,6 +21,8 @@ export class OpenAIService {
     this.client = new OpenAI({
       apiKey: apiKey
     })
+    // Clear validation cache when API key changes
+    this.validationCache = null
   }
 
   isConfigured(): boolean {
@@ -37,14 +42,35 @@ export class OpenAIService {
     return { usesCompletionTokens }
   }
 
+  private async isApiKeyValidCached(): Promise<boolean> {
+    if (!this.apiKey) return false
+    
+    // Check cache first
+    if (this.validationCache && 
+        this.validationCache.key === this.apiKey &&
+        Date.now() - this.validationCache.timestamp < this.VALIDATION_CACHE_TTL) {
+      return this.validationCache.isValid
+    }
+    
+    // Validate and cache result
+    const isValid = await this.validateApiKey(this.apiKey)
+    this.validationCache = {
+      key: this.apiKey,
+      isValid,
+      timestamp: Date.now()
+    }
+    
+    return isValid
+  }
+
   async generateMeetingBrief(request: BriefGenerationRequest, meeting: Meeting, model: string = 'gpt-4o-mini'): Promise<MeetingBrief> {
     if (!this.isConfigured()) {
       throw new Error('OpenAI API key not configured')
     }
 
-    // Validate API key before making the request
+    // Use cached validation
     try {
-      const isValid = await this.validateApiKey(this.apiKey!)
+      const isValid = await this.isApiKeyValidCached()
       if (!isValid) {
         throw new Error('Invalid OpenAI API key. Please check your API key in settings.')
       }
@@ -90,7 +116,7 @@ export class OpenAIService {
         requestParams.temperature = 0.7
       }
 
-      console.log('Making OpenAI request with params:', {
+      Debug.log('Making OpenAI request with params:', {
         model: requestParams.model,
         messageCount: requestParams.messages.length,
         maxTokens: requestParams.max_tokens || requestParams.max_completion_tokens,
@@ -99,7 +125,7 @@ export class OpenAIService {
 
       const response = await this.client!.chat.completions.create(requestParams)
 
-      console.log('OpenAI response received:', {
+      Debug.log('OpenAI response received:', {
         choices: response.choices?.length || 0,
         firstChoiceContent: response.choices?.[0]?.message?.content ? 'present' : 'missing',
         usage: response.usage
@@ -107,7 +133,7 @@ export class OpenAIService {
 
       const content = response.choices[0]?.message?.content
       if (!content) {
-        console.error('No content in OpenAI response:', {
+        Debug.error('No content in OpenAI response:', {
           response: JSON.stringify(response, null, 2)
         })
         throw new Error('No content generated from OpenAI')
@@ -122,7 +148,7 @@ export class OpenAIService {
         status: BriefGenerationStatus.SUCCESS
       }
     } catch (error) {
-      console.error('OpenAI API error details:', {
+      Debug.error('OpenAI API error details:', {
         error: error instanceof Error ? error.message : 'Unknown error',
         stack: error instanceof Error ? error.stack : undefined,
         model: model,

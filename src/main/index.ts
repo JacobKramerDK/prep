@@ -443,6 +443,15 @@ ipcMain.handle('settings:getAvailableModels', async (_, apiKey: string) => {
   return await testService.getAvailableModels(apiKey)
 })
 
+// Debug mode IPC handlers
+ipcMain.handle('settings:getDebugMode', async () => {
+  return settingsManager.getDebugMode()
+})
+
+ipcMain.handle('settings:setDebugMode', async (_, enabled: boolean) => {
+  settingsManager.setDebugMode(enabled)
+})
+
 // Context retrieval IPC handlers
 ipcMain.handle('context:findRelevant', async (_, meetingId: string) => {
   try {

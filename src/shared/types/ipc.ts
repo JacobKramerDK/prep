@@ -50,6 +50,10 @@ export interface ElectronAPI {
   getOpenAIModel: () => Promise<string>
   setOpenAIModel: (model: string) => Promise<void>
   getAvailableModels: (apiKey: string) => Promise<string[]>
+  
+  // Debug mode
+  getDebugMode: () => Promise<boolean>
+  setDebugMode: (enabled: boolean) => Promise<void>
   // Google Calendar operations
   authenticateGoogleCalendar: () => Promise<string>
   getGoogleCalendarEvents: () => Promise<CalendarImportResult>

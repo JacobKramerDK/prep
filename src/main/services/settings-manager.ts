@@ -6,6 +6,7 @@ import * as os from 'os'
 import * as fs from 'fs'
 import { CalendarEvent } from '../../shared/types/calendar'
 import { CalendarSelectionSettings } from '../../shared/types/calendar-selection'
+import { Debug } from '../../shared/utils/debug'
 
 // API key validation constants
 const API_KEY_MIN_LENGTH = 20
@@ -18,6 +19,7 @@ interface SettingsSchema {
   calendarEvents: CalendarEvent[]
   lastCalendarSync: string | null
   calendarSelection: CalendarSelectionSettings
+  debugMode: boolean
   openaiApiKey: string | null
   openaiModel: string
   googleCalendarRefreshToken: string | null
@@ -55,6 +57,7 @@ export class SettingsManager {
       googleCalendarTokenExpiry: null,
       googleCalendarUserEmail: null,
       googleCalendarConnected: false,
+      debugMode: false,
       preferences: {
         autoScan: true,
         maxSearchResults: 50
@@ -89,6 +92,10 @@ export class SettingsManager {
         throw retryError
       }
     }
+
+    // Initialize debug mode
+    const debugMode = this.store.get('debugMode', false)
+    Debug.setDebugMode(debugMode)
   }
 
   private getOrCreateEncryptionKey(): string {
@@ -270,5 +277,15 @@ export class SettingsManager {
     this.store.set('googleCalendarTokenExpiry', null)
     this.store.set('googleCalendarUserEmail', null)
     this.store.set('googleCalendarConnected', false)
+  }
+
+  // Debug mode methods
+  getDebugMode(): boolean {
+    return this.store.get('debugMode', false)
+  }
+
+  setDebugMode(enabled: boolean): void {
+    this.store.set('debugMode', enabled)
+    Debug.setDebugMode(enabled)
   }
 }
