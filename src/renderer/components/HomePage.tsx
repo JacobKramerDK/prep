@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { Settings, RefreshCw, Calendar, Sparkles } from 'lucide-react'
+import { Settings, RefreshCw, Calendar, Sparkles, BookOpen, Clock, CalendarDays, Link } from 'lucide-react'
 import { StatusCard } from './StatusCard'
 import { MeetingCard } from './MeetingCard'
 import { BriefGenerator } from './BriefGenerator'
@@ -133,7 +133,9 @@ export function HomePage({
       {!vaultPath && (
         <div className="mb-12 p-8 bg-surface border border-border rounded-xl text-center">
           <div className="flex justify-center items-center gap-3 mb-4">
-            <span className="text-3xl">📚</span>
+            <div className="p-3 bg-brand-50 dark:bg-brand-900/20 rounded-lg">
+              <BookOpen className="w-8 h-8 text-brand-600 dark:text-brand-400" />
+            </div>
             <span className="text-xl font-semibold text-primary">
               No Obsidian Vault Connected
             </span>
@@ -173,12 +175,20 @@ export function HomePage({
 
           {meetingsLoading ? (
             <div className="bg-surface border border-border rounded-xl p-8 text-center">
-              <div className="text-2xl mb-2">⏳</div>
+              <div className="flex justify-center mb-4">
+                <div className="p-3 bg-brand-50 dark:bg-brand-900/20 rounded-lg">
+                  <Clock className="w-8 h-8 text-brand-600 dark:text-brand-400" />
+                </div>
+              </div>
               <p className="text-secondary">Loading today's meetings...</p>
             </div>
           ) : todaysMeetings.length === 0 ? (
             <div className="bg-surface border border-border rounded-xl p-8 text-center">
-              <div className="text-5xl mb-4">📅</div>
+              <div className="flex justify-center mb-4">
+                <div className="p-3 bg-surface-hover rounded-lg">
+                  <CalendarDays className="w-12 h-12 text-secondary" />
+                </div>
+              </div>
               <p className="text-lg text-primary mb-2">No meetings scheduled for today</p>
               <p className="text-sm text-secondary">Import your calendar to see today's meetings</p>
             </div>

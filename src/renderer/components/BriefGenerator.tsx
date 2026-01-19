@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react'
+import { Lightbulb, Sparkles, Loader2, Bot, Brain } from 'lucide-react'
 import type { Meeting } from '../../shared/types/meeting'
 import { BriefGenerationRequest } from '../../shared/types/brief'
 import { ContextPreview } from './ContextPreview'
@@ -77,132 +78,63 @@ export const BriefGenerator: React.FC<Props> = ({
 
   if (inline) {
     return (
-      <div style={{
-        marginTop: '16px',
-        padding: '16px',
-        backgroundColor: '#f8fafc',
-        borderRadius: '8px',
-        border: '1px solid #e2e8f0'
-      }}>
-        <div style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          marginBottom: '16px'
-        }}>
-          <h4 style={{
-            margin: 0,
-            fontSize: '16px',
-            fontWeight: '600',
-            color: '#334155'
-          }}>
-            🤖 Generate AI Meeting Brief
+      <div className="mt-4 p-4 bg-surface border border-border rounded-lg">
+        <div className="flex justify-between items-center mb-4">
+          <h4 className="text-base font-semibold text-primary flex items-center gap-2">
+            <Bot className="w-5 h-5" />
+            Generate AI Meeting Brief
           </h4>
         </div>
 
         {error && (
-          <div style={{
-            padding: '12px',
-            backgroundColor: '#fef2f2',
-            border: '1px solid #fecaca',
-            borderRadius: '6px',
-            marginBottom: '16px'
-          }}>
-            <p style={{
-              margin: 0,
-              fontSize: '14px',
-              color: '#dc2626'
-            }}>
+          <div className="p-3 bg-danger-light/30 border border-danger/30 dark:bg-danger-dark/10 dark:border-danger-dark/30 rounded-lg mb-4">
+            <p className="text-sm text-danger-dark dark:text-danger-400 m-0">
               {error}
             </p>
           </div>
         )}
 
         <form onSubmit={handleSubmit}>
-          <div style={{ display: 'grid', gap: '12px' }}>
+          <div className="grid gap-3">
             <div>
-              <label style={{
-                display: 'block',
-                fontSize: '14px',
-                fontWeight: '500',
-                color: '#374151',
-                marginBottom: '4px'
-              }}>
-                Meeting Context <span style={{ color: '#9ca3af', fontWeight: 'normal' }}>(Optional)</span>
+              <label className="block text-sm font-medium text-primary mb-1">
+                Meeting Context <span className="text-tertiary font-normal">(Optional)</span>
               </label>
               <textarea
                 value={formData.userContext}
                 onChange={(e) => handleInputChange('userContext', e.target.value)}
                 placeholder="What's this meeting about? Your role? Key objectives?"
-                style={{
-                  width: '100%',
-                  padding: '8px 12px',
-                  border: '1px solid #d1d5db',
-                  borderRadius: '6px',
-                  fontSize: '14px',
-                  fontFamily: 'inherit',
-                  resize: 'vertical',
-                  minHeight: '80px',
-                  boxSizing: 'border-box'
-                }}
+                className="w-full p-2 border border-border rounded-lg text-sm bg-background text-primary placeholder-tertiary resize-vertical min-h-[80px] disabled:opacity-60"
                 disabled={isGenerating}
                 rows={3}
               />
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+            <div className="grid grid-cols-2 gap-3">
               <div>
-                <label style={{
-                  display: 'block',
-                  fontSize: '14px',
-                  fontWeight: '500',
-                  color: '#374151',
-                  marginBottom: '4px'
-                }}>
-                  Purpose <span style={{ color: '#9ca3af', fontWeight: 'normal' }}>(Optional)</span>
+                <label className="block text-sm font-medium text-primary mb-1">
+                  Purpose <span className="text-tertiary font-normal">(Optional)</span>
                 </label>
                 <input
                   type="text"
                   value={formData.meetingPurpose}
                   onChange={(e) => handleInputChange('meetingPurpose', e.target.value)}
                   placeholder="e.g., Planning, Review, Decision"
-                  style={{
-                    width: '100%',
-                    padding: '8px 12px',
-                    border: '1px solid #d1d5db',
-                    borderRadius: '6px',
-                    fontSize: '14px',
-                    fontFamily: 'inherit',
-                    boxSizing: 'border-box'
-                  }}
+                  className="w-full p-2 border border-border rounded-lg text-sm bg-background text-primary placeholder-tertiary disabled:opacity-60"
                   disabled={isGenerating}
                 />
               </div>
 
               <div>
-                <label style={{
-                  display: 'block',
-                  fontSize: '14px',
-                  fontWeight: '500',
-                  color: '#374151',
-                  marginBottom: '4px'
-                }}>
-                  Key Topics <span style={{ color: '#9ca3af', fontWeight: 'normal' }}>(Optional)</span>
+                <label className="block text-sm font-medium text-primary mb-1">
+                  Key Topics <span className="text-tertiary font-normal">(Optional)</span>
                 </label>
                 <input
                   type="text"
                   value={formData.keyTopics}
                   onChange={(e) => handleInputChange('keyTopics', e.target.value)}
                   placeholder="e.g., Budget, Timeline, Resources"
-                  style={{
-                    width: '100%',
-                    padding: '8px 12px',
-                    border: '1px solid #d1d5db',
-                    borderRadius: '6px',
-                    fontSize: '14px',
-                    fontFamily: 'inherit',
-                    boxSizing: 'border-box'
-                  }}
+                  className="w-full p-2 border border-border rounded-lg text-sm bg-background text-primary placeholder-tertiary disabled:opacity-60"
                   disabled={isGenerating}
                 />
               </div>
@@ -211,35 +143,19 @@ export const BriefGenerator: React.FC<Props> = ({
             {/* Context Integration Section */}
             {isIndexed && (
               <div>
-                <label style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '8px',
-                  fontSize: '14px',
-                  fontWeight: '500',
-                  color: '#374151',
-                  marginBottom: '8px',
-                  cursor: 'pointer'
-                }}>
+                <label className="flex items-center gap-2 text-sm font-medium text-primary mb-2 cursor-pointer">
                   <input
                     type="checkbox"
                     checked={formData.includeContext}
                     onChange={(e) => handleInputChange('includeContext', e.target.checked.toString())}
                     disabled={isGenerating}
-                    style={{
-                      width: '16px',
-                      height: '16px',
-                      cursor: 'pointer'
-                    }}
+                    className="w-4 h-4 cursor-pointer"
                   />
-                  <span>🧠 Include relevant context from vault</span>
-                  <span style={{
-                    fontSize: '12px',
-                    color: '#64748b',
-                    backgroundColor: '#e2e8f0',
-                    padding: '2px 6px',
-                    borderRadius: '4px'
-                  }}>
+                  <span className="flex items-center gap-2">
+                    <Brain className="w-4 h-4" />
+                    Include relevant context from vault
+                  </span>
+                  <span className="text-xs text-tertiary bg-surface-hover px-2 py-0.5 rounded">
                     {indexedFileCount} files indexed
                   </span>
                 </label>
@@ -255,16 +171,9 @@ export const BriefGenerator: React.FC<Props> = ({
             )}
 
             {!isIndexed && indexedFileCount === 0 && (
-              <div style={{
-                padding: '12px',
-                backgroundColor: '#fef3c7',
-                border: '1px solid #fbbf24',
-                borderRadius: '6px',
-                fontSize: '14px',
-                color: '#92400e'
-              }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <span>💡</span>
+              <div className="p-3 bg-warning-light/30 border border-warning/30 dark:bg-warning-dark/10 dark:border-warning-dark/30 rounded-lg text-sm text-warning-dark dark:text-warning-400">
+                <div className="flex items-center gap-2">
+                  <Lightbulb className="w-4 h-4" />
                   <span>
                     <strong>Tip:</strong> Scan your Obsidian vault to enable intelligent context retrieval for enhanced meeting briefs.
                   </span>
@@ -272,50 +181,28 @@ export const BriefGenerator: React.FC<Props> = ({
               </div>
             )}
 
-            <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end', marginTop: '8px' }}>
+            <div className="flex gap-2 justify-end mt-2">
               <button
                 type="button"
                 onClick={onClose}
                 disabled={isGenerating}
-                style={{
-                  padding: '8px 16px',
-                  fontSize: '14px',
-                  backgroundColor: '#f8fafc',
-                  color: '#64748b',
-                  border: '1px solid #e2e8f0',
-                  borderRadius: '6px',
-                  cursor: isGenerating ? 'not-allowed' : 'pointer',
-                  fontWeight: '500',
-                  opacity: isGenerating ? 0.6 : 1
-                }}
+                className="px-4 py-2 text-sm font-medium text-secondary hover:text-primary bg-surface-hover border border-border rounded-lg hover:bg-surface transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
               >
                 Cancel
               </button>
               <button
                 type="submit"
                 disabled={isGenerating}
-                style={{
-                  padding: '8px 20px',
-                  fontSize: '14px',
-                  backgroundColor: isGenerating ? '#9ca3af' : '#3b82f6',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '6px',
-                  cursor: isGenerating ? 'not-allowed' : 'pointer',
-                  fontWeight: '500',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '6px'
-                }}
+                className="px-5 py-2 text-sm font-medium text-white bg-brand-600 hover:bg-brand-700 disabled:bg-secondary rounded-lg transition-colors disabled:cursor-not-allowed flex items-center gap-2"
               >
                 {isGenerating ? (
                   <>
-                    <span style={{ animation: 'spin 1s linear infinite' }}>⏳</span>
+                    <Loader2 className="w-4 h-4 animate-spin" />
                     Generating...
                   </>
                 ) : (
                   <>
-                    <span>✨</span>
+                    <Sparkles className="w-4 h-4" />
                     Generate Brief
                   </>
                 )}
@@ -323,13 +210,6 @@ export const BriefGenerator: React.FC<Props> = ({
             </div>
           </div>
         </form>
-
-        <style>{`
-          @keyframes spin {
-            from { transform: rotate(0deg); }
-            to { transform: rotate(360deg); }
-          }
-        `}</style>
       </div>
     )
   }

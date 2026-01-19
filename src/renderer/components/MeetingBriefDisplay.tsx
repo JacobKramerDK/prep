@@ -1,5 +1,6 @@
 import React, { useState } from 'react'
 import ReactMarkdown from 'react-markdown'
+import { Check, Copy } from 'lucide-react'
 import { MeetingBrief } from '../../shared/types/brief'
 
 interface Props {
@@ -148,12 +149,12 @@ export const MeetingBriefDisplay: React.FC<Props> = ({ brief, onClose }) => {
             >
               {copied ? (
                 <>
-                  <span>✅</span>
+                  <Check className="w-4 h-4" />
                   Copied!
                 </>
               ) : (
                 <>
-                  <span>📋</span>
+                  <Copy className="w-4 h-4" />
                   Copy
                 </>
               )}

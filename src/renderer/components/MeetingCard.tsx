@@ -9,6 +9,8 @@ import {
   Calendar,
   Sparkles,
   FileText,
+  File,
+  Chrome,
 } from 'lucide-react'
 import type { Meeting } from '../../shared/types/meeting'
 
@@ -43,9 +45,9 @@ export function MeetingCard({ meeting, onGenerateBrief, onViewBrief, hasBrief, i
   }
 
   const getSourceIcon = (source: string) => {
-    if (source === 'ics') return '📄'
-    if (source === 'google') return '🟢'
-    return '🍎' // Apple Calendar
+    if (source === 'ics') return <File className="w-4 h-4" />
+    if (source === 'google') return <Chrome className="w-4 h-4" />
+    return <Calendar className="w-4 h-4" /> // Apple Calendar
   }
 
   const timeDisplay = meeting.isAllDay 
