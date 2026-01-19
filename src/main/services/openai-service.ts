@@ -83,7 +83,7 @@ export class OpenAIService {
       // Use correct parameters based on model capabilities
       const modelCapabilities = this.getModelCapabilities(model)
       if (modelCapabilities.usesCompletionTokens) {
-        requestParams.max_completion_tokens = 8000  // Higher limit for reasoning models
+        requestParams.max_completion_tokens = 32000  // Higher limit for reasoning models (up to 100k supported)
         // These models only support temperature = 1 (default)
       } else {
         requestParams.max_tokens = 2000
