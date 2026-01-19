@@ -5,12 +5,12 @@
 **Total Time**: ~29 hours (Phase 1-4 Complete + Security Hardening)  
 
 ### Overall Progress
-- **Total Development Days**: 6
-- **Total Hours Logged**: 37h
-- **Total Commits**: 32
-- **Lines of Code Added**: 51354
-- **Lines of Code Removed**: 4575
-- **Files Modified**: 128+  
+- **Total Development Days**: 9
+- **Total Hours Logged**: 38h
+- **Total Commits**: 33
+- **Lines of Code Added**: 52705
+- **Lines of Code Removed**: 4615
+- **Files Modified**: 140+  
 
 ## Overview
 Building a desktop meeting preparation assistant that connects to Obsidian vaults and calendars to automatically surface relevant context and generate AI-powered meeting briefs. Using Kiro CLI extensively for AI-assisted development and modern Electron architecture.
@@ -2655,5 +2655,66 @@ All major features implemented with comprehensive security hardening:
 - **Workflow Optimization**: Implement workflow changes to improve development and user processes
 - **Calendar Integration**: Further enhance the auto-loading calendar functionality
 - **Vault Integration**: Apply learnings from indexing research to improve vault processing
+
+---
+
+## Day 9 (January 13, 2026) - Calendar Bug Fixes [1h]
+
+### 📊 **Daily Metrics**
+- **Time Spent**: 1 hour
+- **Commits Made**: 1
+- **Lines Added**: 1,351
+- **Lines Removed**: 40
+- **Net Lines**: +1,311
+- **Files Modified**: 12
+
+### 🎯 **Accomplishments**
+- Fixed critical calendar sync issues and Google Calendar detection
+- Resolved race condition in event storage
+- Fixed deduplication logic bugs
+- Improved error handling for calendar operations
+
+### 💻 **Technical Progress**
+**Commits Made Today:**
+- `bc2cab2` - fix: resolve critical calendar sync issues and Google Calendar detection
+
+**Code Changes:**
+- Fixed race condition where enhanced events weren't stored consistently
+- Replaced reference equality bug in deduplication with proper index tracking
+- Fixed async constructor pattern in calendar sync scheduler
+- Added null safety to Swift calendar helper URL handling
+- Removed incorrect filtering of Google Calendar events in automatic sync
+- Added comprehensive test suite (22/22 tests passing)
+
+**Key Files Modified:**
+- `src/main/services/calendar-manager.ts` (+203 lines)
+- `src/main/services/swift-calendar-manager.ts` (+36 lines)
+- `src/main/services/calendar-sync-scheduler.ts` (+18 lines)
+- `native/CalendarHelper.swift` (improved attendee extraction)
+- Added 3 new E2E test files (+901 lines total)
+
+### 🔧 **Work Breakdown**
+- **Bug Investigation**: 0.3h - Identified Google Calendar detection being overwritten
+- **Code Fixes**: 0.5h - Fixed race conditions, deduplication, and filtering issues
+- **Testing & Validation**: 0.2h - Verified fixes with comprehensive test suite
+
+### 🚧 **Challenges & Solutions**
+- **Challenge**: Google Calendar events correctly detected on settings page but overwritten as Apple Calendar on main page
+- **Solution**: Found automatic sync was filtering out Google events after correct detection - removed incorrect filter
+
+### 🧠 **Key Decisions**
+- Removed `.filter(event => event.source !== 'google')` from automatic sync to preserve correct Google Calendar detection
+- Added CalendarSource type alias for better maintainability
+- Enhanced error handling to be more graceful rather than failing completely
+
+### ⚡ **Kiro CLI Usage**
+- Used `@code-review-fix` prompt to systematically address code review findings
+- Applied `@add-to-devlog` for structured progress tracking
+- Leveraged subagent delegation for comprehensive testing
+
+### 📋 **Next Session Plan**
+- Continue fixing remaining calendar bugs
+- Improve UI/UX based on user feedback
+- Potentially add more calendar integration features
 
 ---

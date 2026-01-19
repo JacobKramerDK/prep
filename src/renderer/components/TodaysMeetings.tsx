@@ -14,6 +14,7 @@ interface Props {
 export const TodaysMeetings: React.FC<Props> = ({ meetings, isLoading, onRefresh }) => {
   const [expandedMeetingId, setExpandedMeetingId] = useState<string | null>(null)
   const [viewingBriefForMeeting, setViewingBriefForMeeting] = useState<string | null>(null)
+  const [expandedDescriptions, setExpandedDescriptions] = useState<Set<string>>(new Set())
   
   const {
     isGenerating,
@@ -43,6 +44,16 @@ export const TodaysMeetings: React.FC<Props> = ({ meetings, isLoading, onRefresh
 
   const handleCloseBriefDisplay = () => {
     setViewingBriefForMeeting(null)
+  }
+
+  const toggleDescriptionExpanded = (meetingId: string) => {
+    const newExpanded = new Set(expandedDescriptions)
+    if (newExpanded.has(meetingId)) {
+      newExpanded.delete(meetingId)
+    } else {
+      newExpanded.add(meetingId)
+    }
+    setExpandedDescriptions(newExpanded)
   }
   if (isLoading) {
     return (
@@ -148,7 +159,9 @@ export const TodaysMeetings: React.FC<Props> = ({ meetings, isLoading, onRefresh
             padding: '16px',
             borderRadius: '8px',
             border: '1px solid #e2e8f0',
-            boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)'
+            boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)',
+            maxWidth: '100%',
+            overflow: 'hidden'
           }}>
             <div style={{
               display: 'flex',
@@ -161,7 +174,10 @@ export const TodaysMeetings: React.FC<Props> = ({ meetings, isLoading, onRefresh
                 fontSize: '16px',
                 fontWeight: '600',
                 color: '#1e293b',
-                flex: 1
+                flex: 1,
+                wordWrap: 'break-word',
+                overflowWrap: 'break-word',
+                maxWidth: '100%'
               }}>
                 {meeting.title || 'Untitled Meeting'}
               </h4>
@@ -199,26 +215,66 @@ export const TodaysMeetings: React.FC<Props> = ({ meetings, isLoading, onRefresh
               <div style={{
                 fontSize: '14px',
                 color: '#64748b',
-                marginBottom: '8px'
+                marginBottom: '8px',
+                wordWrap: 'break-word',
+                overflowWrap: 'break-word',
+                maxWidth: '100%'
               }}>
                 📍 {meeting.location}
               </div>
             )}
 
             {meeting.description && (
-              <div style={{
-                fontSize: '14px',
-                color: '#475569',
-                marginTop: '8px',
-                padding: '8px',
-                backgroundColor: '#f8fafc',
-                borderRadius: '4px',
-                borderLeft: '3px solid #e2e8f0'
-              }}>
-                {meeting.description.length > 150 
-                  ? `${meeting.description.substring(0, 150)}...` 
-                  : meeting.description
-                }
+              <div>
+                <div style={{
+                  fontSize: '14px',
+                  color: '#475569',
+                  marginTop: '8px',
+                  padding: '8px',
+                  backgroundColor: '#f8fafc',
+                  borderRadius: '4px',
+                  borderLeft: '3px solid #e2e8f0',
+                  wordWrap: 'break-word',
+                  overflowWrap: 'break-word',
+                  maxWidth: '100%',
+                  overflow: 'hidden'
+                }}>
+                  {expandedDescriptions.has(meeting.id) || meeting.description.length <= 150
+                    ? meeting.description
+                    : `${meeting.description.substring(0, 150)}...`
+                  }
+                </div>
+                {meeting.description.length > 150 && (
+                  <button
+                    onClick={() => toggleDescriptionExpanded(meeting.id)}
+                    style={{
+                      marginTop: '4px',
+                      padding: '4px 8px',
+                      fontSize: '12px',
+                      backgroundColor: '#e2e8f0',
+                      color: '#3b82f6',
+                      border: '1px solid #3b82f6',
+                      borderRadius: '4px',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                      fontWeight: '500'
+                    }}
+                  >
+                    {expandedDescriptions.has(meeting.id) ? (
+                      <>
+                        <span>▲</span>
+                        Show less
+                      </>
+                    ) : (
+                      <>
+                        <span>▼</span>
+                        Show more
+                      </>
+                    )}
+                  </button>
+                )}
               </div>
             )}
 
