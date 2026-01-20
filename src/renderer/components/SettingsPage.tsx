@@ -17,6 +17,7 @@ import {
   FileText,
 } from 'lucide-react'
 import { PromptTemplateEditor } from './PromptTemplateEditor'
+import { RelevanceWeightSettings } from './RelevanceWeightSettings'
 
 interface SettingsPageProps {
   onBack: () => void
@@ -182,6 +183,11 @@ export function SettingsPage({ onBack, vaultFileCount }: SettingsPageProps) {
       icon: <Bot className="w-4 h-4" />,
     },
     {
+      id: 'relevance',
+      label: 'Relevance Scoring',
+      icon: <SettingsIcon className="w-4 h-4" />,
+    },
+    {
       id: 'vault',
       label: 'Vault Management',
       icon: <Database className="w-4 h-4" />,
@@ -333,6 +339,10 @@ export function SettingsPage({ onBack, vaultFileCount }: SettingsPageProps) {
               </div>
             </div>
           </div>
+        )}
+
+        {activeTab === 'relevance' && (
+          <RelevanceWeightSettings />
         )}
 
         {activeTab === 'vault' && (

@@ -2,6 +2,7 @@ import { contextBridge, ipcRenderer } from 'electron'
 import type { ElectronAPI } from '../shared/types/ipc'
 import type { CalendarSelectionSettings } from '../shared/types/calendar-selection'
 import type { BriefGenerationRequest } from '../shared/types/brief'
+import type { RelevanceWeights } from '../shared/types/relevance-weights'
 
 // Expose protected methods that allow the renderer process to use
 // the ipcRenderer without exposing the entire object
@@ -131,6 +132,10 @@ const electronAPI: ElectronAPI = {
   getOpenAIModel: () => ipcRenderer.invoke('settings:getOpenAIModel'),
   setOpenAIModel: (model: string) => ipcRenderer.invoke('settings:setOpenAIModel', model),
   getAvailableModels: (apiKey: string) => ipcRenderer.invoke('settings:getAvailableModels', apiKey),
+  
+  // Relevance weights methods
+  getRelevanceWeights: () => ipcRenderer.invoke('settings:getRelevanceWeights'),
+  setRelevanceWeights: (weights: RelevanceWeights) => ipcRenderer.invoke('settings:setRelevanceWeights', weights),
   
   // Debug mode methods
   getDebugMode: () => ipcRenderer.invoke('settings:getDebugMode'),

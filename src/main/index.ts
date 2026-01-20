@@ -12,6 +12,7 @@ import { CalendarSelectionSettings } from '../shared/types/calendar-selection'
 import { BriefGenerationRequest, BriefGenerationStatus } from '../shared/types/brief'
 import { contextRetrievalResultToIPC } from '../shared/types/context'
 import { calendarSyncStatusToIPC, calendarSyncResultToIPC } from '../shared/types/calendar-sync'
+import { RelevanceWeights } from '../shared/types/relevance-weights'
 
 // Load environment variables
 import * as dotenv from 'dotenv'
@@ -441,6 +442,15 @@ ipcMain.handle('settings:setOpenAIModel', async (_, model: string) => {
 ipcMain.handle('settings:getAvailableModels', async (_, apiKey: string) => {
   const testService = new OpenAIService(apiKey)
   return await testService.getAvailableModels(apiKey)
+})
+
+// Relevance weights IPC handlers
+ipcMain.handle('settings:getRelevanceWeights', async () => {
+  return await settingsManager.getRelevanceWeights()
+})
+
+ipcMain.handle('settings:setRelevanceWeights', async (_, weights: RelevanceWeights) => {
+  await settingsManager.setRelevanceWeights(weights)
 })
 
 // Debug mode IPC handlers

@@ -6,6 +6,7 @@ import * as os from 'os'
 import * as fs from 'fs'
 import { CalendarEvent } from '../../shared/types/calendar'
 import { CalendarSelectionSettings } from '../../shared/types/calendar-selection'
+import { RelevanceWeights, DEFAULT_RELEVANCE_WEIGHTS } from '../../shared/types/relevance-weights'
 import { Debug } from '../../shared/utils/debug'
 
 // API key validation constants
@@ -27,6 +28,7 @@ interface SettingsSchema {
   googleCalendarTokenExpiry: string | null
   googleCalendarUserEmail: string | null
   googleCalendarConnected: boolean
+  relevanceWeights: RelevanceWeights
   preferences: {
     autoScan: boolean
     maxSearchResults: number
@@ -60,6 +62,7 @@ export class SettingsManager {
       googleCalendarUserEmail: null,
       googleCalendarConnected: false,
       debugMode: false,
+      relevanceWeights: DEFAULT_RELEVANCE_WEIGHTS,
       preferences: {
         autoScan: true,
         maxSearchResults: 50
@@ -239,6 +242,14 @@ export class SettingsManager {
            apiKey.startsWith('sk-') && 
            apiKey.length >= API_KEY_MIN_LENGTH && 
            apiKey.length <= API_KEY_MAX_LENGTH
+  }
+
+  async getRelevanceWeights(): Promise<RelevanceWeights> {
+    return this.store.get('relevanceWeights')
+  }
+
+  async setRelevanceWeights(weights: RelevanceWeights): Promise<void> {
+    this.store.set('relevanceWeights', weights)
   }
 
   // Google Calendar settings methods

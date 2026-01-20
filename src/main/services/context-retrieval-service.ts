@@ -4,6 +4,7 @@ import { TextCleaner } from '../../shared/utils/text-cleaner'
 import { Meeting } from '../../shared/types/meeting'
 import { ContextMatch, ContextRetrievalRequest, ContextRetrievalResult, ContextConfiguration } from '../../shared/types/context'
 import { VaultFile } from '../../shared/types/vault'
+import { RelevanceWeights, DEFAULT_RELEVANCE_WEIGHTS } from '../../shared/types/relevance-weights'
 
 export class ContextRetrievalService {
   private vaultIndexer: VaultIndexer | null = null
@@ -96,7 +97,7 @@ export class ContextRetrievalService {
       const matches: ContextMatch[] = []
       
       for (const result of allResults) {
-        const relevanceScore = this.calculateRelevanceScore(meeting, result.file)
+        const relevanceScore = await this.calculateRelevanceScore(meeting, result.file)
         if (this.settingsManager.getDebugMode()) {
           console.log(`📄 File: ${result.file.title}, Score: ${relevanceScore.toFixed(3)}, Threshold: ${config.minRelevanceScore}`)
         }
@@ -286,15 +287,17 @@ export class ContextRetrievalService {
     return file.modified || null
   }
 
-  private calculateRelevanceScore(meeting: Meeting, file: VaultFile): number {
+  private async calculateRelevanceScore(meeting: Meeting, file: VaultFile): Promise<number> {
     let score = 0
-    const weights = {
-      title: 0.4,
-      content: 0.3,
-      tags: 0.2,
-      attendees: 0.1,
-      flexSearchBonus: 0.2, // Bonus for being found by FlexSearch
-      recencyBonus: 0.15 // Bonus for recent files
+    
+    // Get configurable weights from settings, fallback to defaults
+    let weights: RelevanceWeights
+    try {
+      weights = await this.settingsManager.getRelevanceWeights()
+    } catch (error) {
+      // Log specific error and fallback to default weights
+      console.warn('Failed to load relevance weights, using defaults:', error instanceof Error ? error.message : 'Unknown error')
+      weights = DEFAULT_RELEVANCE_WEIGHTS
     }
     
     // Give bonus points for being found by FlexSearch (it already did the heavy lifting)

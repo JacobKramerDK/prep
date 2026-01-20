@@ -5,6 +5,7 @@ import type { CalendarSyncStatusIPC, CalendarSyncResultIPC } from './calendar-sy
 import type { TodaysMeetingsResult } from './meeting'
 import type { BriefGenerationRequest, BriefGenerationResult, BriefGenerationStatus } from './brief'
 import type { ContextRetrievalResultIPC, ContextRetrievalRequest } from './context'
+import type { RelevanceWeights } from './relevance-weights'
 
 export interface ElectronAPI {
   getVersion: () => Promise<string>
@@ -55,6 +56,10 @@ export interface ElectronAPI {
   getOpenAIModel: () => Promise<string>
   setOpenAIModel: (model: string) => Promise<void>
   getAvailableModels: (apiKey: string) => Promise<string[]>
+  
+  // Relevance weights operations
+  getRelevanceWeights: () => Promise<RelevanceWeights>
+  setRelevanceWeights: (weights: RelevanceWeights) => Promise<void>
   
   // Debug mode
   getDebugMode: () => Promise<boolean>
