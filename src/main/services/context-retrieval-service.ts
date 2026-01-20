@@ -1,5 +1,6 @@
 import { VaultIndexer } from './vault-indexer'
 import { SettingsManager } from './settings-manager'
+import { TextCleaner } from '../../shared/utils/text-cleaner'
 import { Meeting } from '../../shared/types/meeting'
 import { ContextMatch, ContextRetrievalRequest, ContextRetrievalResult, ContextConfiguration } from '../../shared/types/context'
 import { VaultFile } from '../../shared/types/vault'
@@ -12,7 +13,7 @@ export class ContextRetrievalService {
     maxResults: 10,
     minRelevanceScore: 0.15, // Increased from 0.01 to 0.15
     includeSnippets: true,
-    snippetLength: 200,
+    snippetLength: 400,
     searchFields: ['title', 'content', 'tags', 'frontmatter']
   }
 
@@ -447,6 +448,9 @@ export class ContextRetrievalService {
       
       if (hasQueryTerm) {
         let snippet = sentence.trim()
+        
+        // Clean snippet of markdown and special characters
+        snippet = TextCleaner.cleanSnippet(snippet)
         
         // Truncate if too long
         if (snippet.length > maxLength) {

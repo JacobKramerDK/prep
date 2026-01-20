@@ -5,6 +5,7 @@ import chokidar from 'chokidar'
 import { VaultFile, VaultIndex, SearchResult } from '../../shared/types/vault'
 import { SettingsManager } from './settings-manager'
 import { VaultIndexer } from './vault-indexer'
+import { TextCleaner } from '../../shared/utils/text-cleaner'
 
 export class VaultManager {
   private vaultPath: string | null = null
@@ -260,16 +261,20 @@ export class VaultManager {
   }
 
   private createSnippet(text: string, position: number, queryLength: number): string {
-    const snippetLength = 100
+    const snippetLength = 200 // Increased from 100
     const start = Math.max(0, position - snippetLength / 2)
     const end = Math.min(text.length, position + queryLength + snippetLength / 2)
     
     let snippet = text.slice(start, end)
     
-    if (start > 0) snippet = '...' + snippet
-    if (end < text.length) snippet = snippet + '...'
+    // Clean the snippet of markdown and special characters
+    snippet = TextCleaner.cleanSnippet(snippet)
     
-    return snippet
+    // Only add ellipsis if we actually truncated meaningful content
+    if (start > 0 && snippet.length > 10) snippet = '...' + snippet
+    if (end < text.length && snippet.length > 10) snippet = snippet + '...'
+    
+    return snippet.trim()
   }
 
   private startFileWatching(vaultPath: string): void {

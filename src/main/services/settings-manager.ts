@@ -22,6 +22,7 @@ interface SettingsSchema {
   debugMode: boolean
   openaiApiKey: string | null
   openaiModel: string
+  promptTemplate: string | null
   googleCalendarRefreshToken: string | null
   googleCalendarTokenExpiry: string | null
   googleCalendarUserEmail: string | null
@@ -53,6 +54,7 @@ export class SettingsManager {
       },
       openaiApiKey: null,
       openaiModel: 'gpt-4o-mini',
+      promptTemplate: null,
       googleCalendarRefreshToken: null,
       googleCalendarTokenExpiry: null,
       googleCalendarUserEmail: null,
@@ -287,5 +289,18 @@ export class SettingsManager {
   setDebugMode(enabled: boolean): void {
     this.store.set('debugMode', enabled)
     Debug.setDebugMode(enabled)
+  }
+
+  // Prompt template methods
+  getPromptTemplate(): string | null {
+    return this.store.get('promptTemplate', null)
+  }
+
+  setPromptTemplate(template: string): void {
+    this.store.set('promptTemplate', template)
+  }
+
+  clearPromptTemplate(): void {
+    this.store.delete('promptTemplate')
   }
 }

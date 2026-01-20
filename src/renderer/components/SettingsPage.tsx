@@ -14,7 +14,9 @@ import {
   Settings as SettingsIcon,
   Info,
   Apple,
+  FileText,
 } from 'lucide-react'
+import { PromptTemplateEditor } from './PromptTemplateEditor'
 
 interface SettingsPageProps {
   onBack: () => void
@@ -188,6 +190,11 @@ export function SettingsPage({ onBack, vaultFileCount }: SettingsPageProps) {
       id: 'calendar',
       label: 'Calendar Import',
       icon: <CalendarIcon className="w-4 h-4" />,
+    },
+    {
+      id: 'prompts',
+      label: 'Prompt Templates',
+      icon: <FileText className="w-4 h-4" />,
     },
   ]
 
@@ -433,6 +440,23 @@ export function SettingsPage({ onBack, vaultFileCount }: SettingsPageProps) {
                   </ul>
                 </div>
               </div>
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'prompts' && (
+          <div className="space-y-6">
+            <div className="bg-surface border border-border rounded-xl p-6 shadow-sm">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="p-2 bg-brand-50 dark:bg-brand-900/20 rounded-lg">
+                  <FileText className="w-6 h-6 text-brand-600 dark:text-brand-400" />
+                </div>
+                <h2 className="text-xl font-semibold text-primary">Prompt Templates</h2>
+              </div>
+              <p className="text-secondary mb-6">
+                Customize the AI prompt used for generating meeting briefs. Use variables to insert dynamic content.
+              </p>
+              <PromptTemplateEditor />
             </div>
           </div>
         )}

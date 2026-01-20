@@ -69,6 +69,10 @@ export interface ElectronAPI {
   startAutoSync: () => Promise<boolean>
   getAutoSyncStatus: () => Promise<import('./calendar-sync').CalendarSyncStatus>
   performManualSync: () => Promise<import('./calendar-sync').CalendarSyncResult>
+  // Prompt template management
+  getPromptTemplate(): Promise<string | null>
+  setPromptTemplate(template: string): Promise<{ success: boolean }>
+  clearPromptTemplate(): Promise<{ success: boolean }>
 }
 
 declare global {

@@ -452,6 +452,35 @@ ipcMain.handle('settings:setDebugMode', async (_, enabled: boolean) => {
   settingsManager.setDebugMode(enabled)
 })
 
+ipcMain.handle('get-prompt-template', async () => {
+  try {
+    return settingsManager.getPromptTemplate()
+  } catch (error) {
+    console.error('Failed to get prompt template:', error)
+    throw error
+  }
+})
+
+ipcMain.handle('set-prompt-template', async (_, template: string) => {
+  try {
+    settingsManager.setPromptTemplate(template)
+    return { success: true }
+  } catch (error) {
+    console.error('Failed to set prompt template:', error)
+    throw error
+  }
+})
+
+ipcMain.handle('clear-prompt-template', async () => {
+  try {
+    settingsManager.clearPromptTemplate()
+    return { success: true }
+  } catch (error) {
+    console.error('Failed to clear prompt template:', error)
+    throw error
+  }
+})
+
 // Context retrieval IPC handlers
 ipcMain.handle('context:findRelevant', async (_, meetingId: string) => {
   try {

@@ -177,7 +177,11 @@ const electronAPI: ElectronAPI = {
       }
     }
     return result
-  }
+  },
+  // Prompt template management
+  getPromptTemplate: () => ipcRenderer.invoke('get-prompt-template'),
+  setPromptTemplate: (template: string) => ipcRenderer.invoke('set-prompt-template', template),
+  clearPromptTemplate: () => ipcRenderer.invoke('clear-prompt-template'),
 }
 
 contextBridge.exposeInMainWorld('electronAPI', electronAPI)

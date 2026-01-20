@@ -3,6 +3,7 @@ import { randomUUID } from 'crypto'
 import { BriefGenerationRequest, MeetingBrief, BriefGenerationStatus } from '../../shared/types/brief'
 import { Meeting } from '../../shared/types/meeting'
 import { Debug } from '../../shared/utils/debug'
+import { SettingsManager } from './settings-manager'
 
 export class OpenAIService {
   private client: OpenAI | null = null
@@ -174,29 +175,86 @@ export class OpenAIService {
   }
 
   private buildPrompt(request: BriefGenerationRequest, meeting: Meeting): string {
-    // Ensure dates are Date objects
-    const startDate = meeting.startDate instanceof Date ? meeting.startDate : new Date(meeting.startDate)
-    const endDate = meeting.endDate instanceof Date ? meeting.endDate : new Date(meeting.endDate)
+    // Get custom template or use default
+    const settingsManager = new SettingsManager()
+    const customTemplate = settingsManager.getPromptTemplate()
     
-    const sections = [
-      '# Meeting Brief Generation Request',
-      '',
-      '## Meeting Details',
-      `**Title:** ${meeting.title}`,
-      `**Date:** ${startDate.toLocaleDateString()}`,
-      `**Time:** ${startDate.toLocaleTimeString()} - ${endDate.toLocaleTimeString()}`,
-      meeting.location ? `**Location:** ${meeting.location}` : '',
-      meeting.description ? `**Description:** ${meeting.description}` : '',
-      '',
-      '## User Context',
-      request.userContext,
-      ''
-    ]
-
-    // Add relevant context from vault if available
+    // Clean meeting data to remove Zoom/Teams noise
+    const cleanedMeeting = this.cleanMeetingData(meeting)
+    
+    // Prepare meeting details
+    const startDate = cleanedMeeting.startDate instanceof Date ? cleanedMeeting.startDate : new Date(cleanedMeeting.startDate)
+    const endDate = cleanedMeeting.endDate instanceof Date ? cleanedMeeting.endDate : new Date(cleanedMeeting.endDate)
+    
+    // Build the prompt sections
+    const sections = []
+    
+    // 1. Custom prompt (or default instructions)
+    if (customTemplate) {
+      sections.push(customTemplate)
+    } else {
+      sections.push(
+        'Please generate a comprehensive meeting brief that includes:',
+        '1. **Executive Summary** - Brief overview of the meeting purpose and expected outcomes',
+        '2. **Key Discussion Points** - Main topics to be covered based on the context provided',
+        '3. **Preparation Checklist** - Specific items the user should prepare or review beforehand',
+        '4. **Questions to Consider** - Thoughtful questions to drive productive discussion',
+        '5. **Success Metrics** - How to measure if the meeting was successful',
+        '',
+        'Pay special attention to:',
+        '- **User-provided context**: Direct input from the user about meeting goals and expectations',
+        '- **Historical context**: Relevant information from past notes that may inform this meeting',
+        '- **Integration**: Connect historical insights with current meeting objectives',
+        '',
+        'Format the response in clear markdown with proper headings and bullet points. Keep it professional, actionable, and tailored to the specific meeting context provided.'
+      )
+    }
+    
+    sections.push('', '---', '', '## Meeting Details')
+    sections.push(`**Title:** ${cleanedMeeting.title}`)
+    sections.push(`**Date:** ${startDate.toLocaleDateString()}`)
+    sections.push(`**Time:** ${startDate.toLocaleTimeString()} - ${endDate.toLocaleTimeString()}`)
+    if (cleanedMeeting.location) sections.push(`**Location:** ${cleanedMeeting.location}`)
+    if (cleanedMeeting.description) sections.push(`**Description:** ${cleanedMeeting.description}`)
+    
+    // 2. User-provided context and inputs
+    const hasUserInputs = request.userContext || request.meetingPurpose || 
+                         (request.keyTopics && request.keyTopics.length > 0) ||
+                         (request.attendees && request.attendees.length > 0) ||
+                         request.additionalNotes
+    
+    if (hasUserInputs) {
+      sections.push('', '## User-Provided Context')
+      sections.push('The following context and details were provided by the user:')
+      sections.push('')
+      
+      if (request.userContext) {
+        sections.push(`**General Context:** ${request.userContext}`)
+      }
+      
+      if (request.meetingPurpose) {
+        sections.push(`**Meeting Purpose:** ${request.meetingPurpose}`)
+      }
+      
+      if (request.keyTopics && request.keyTopics.length > 0) {
+        sections.push('**Key Topics to Cover:**')
+        request.keyTopics.forEach(topic => sections.push(`- ${topic}`))
+      }
+      
+      if (request.attendees && request.attendees.length > 0) {
+        sections.push('**Expected Attendees:**')
+        request.attendees.forEach(attendee => sections.push(`- ${attendee}`))
+      }
+      
+      if (request.additionalNotes) {
+        sections.push(`**Additional Notes:** ${request.additionalNotes}`)
+      }
+    }
+    
+    // 3. Historical context from Obsidian vault
     if (request.includeContext && request.contextMatches && request.contextMatches.length > 0) {
-      sections.push('## Relevant Historical Context')
-      sections.push('The following information from your notes may be relevant to this meeting:')
+      sections.push('', '## Historical Context from Your Notes')
+      sections.push('The following information was automatically retrieved from your Obsidian vault based on meeting participants, topics, and timing:')
       sections.push('')
       
       request.contextMatches.forEach((match, index) => {
@@ -206,58 +264,21 @@ export class OpenAIService {
         
         if (match.snippets && match.snippets.length > 0) {
           sections.push('**Key Excerpts:**')
-          match.snippets.forEach(snippet => {
-            sections.push(`> ${snippet}`)
+          match.snippets.forEach((snippet: any) => {
+            const text = typeof snippet === 'string' ? snippet : (snippet.text || snippet.content || snippet.snippet || String(snippet))
+            sections.push(`> ${text}`)
           })
         }
-        
         sections.push('')
       })
     }
-
-    if (request.meetingPurpose) {
-      sections.push('## Meeting Purpose')
-      sections.push(request.meetingPurpose)
-      sections.push('')
-    }
-
-    if (request.keyTopics && request.keyTopics.length > 0) {
-      sections.push('## Key Topics to Cover')
-      request.keyTopics.forEach(topic => sections.push(`- ${topic}`))
-      sections.push('')
-    }
-
-    if (request.attendees && request.attendees.length > 0) {
-      sections.push('## Expected Attendees')
-      request.attendees.forEach(attendee => sections.push(`- ${attendee}`))
-      sections.push('')
-    }
-
-    if (request.additionalNotes) {
-      sections.push('## Additional Notes')
-      sections.push(request.additionalNotes)
-      sections.push('')
-    }
-
-    sections.push(
-      '## Instructions',
-      'Please generate a comprehensive meeting brief that includes:',
-      '1. **Executive Summary** - Brief overview of the meeting purpose and expected outcomes',
-      '2. **Key Discussion Points** - Main topics to be covered based on the context provided',
-      request.includeContext && request.contextMatches && request.contextMatches.length > 0 
-        ? '3. **Historical Context Integration** - How the relevant historical information relates to this meeting'
-        : '',
-      '3. **Preparation Checklist** - Specific items the user should prepare or review beforehand',
-      '4. **Questions to Consider** - Thoughtful questions to drive productive discussion',
-      '5. **Success Metrics** - How to measure if the meeting was successful',
-      '',
-      request.includeContext && request.contextMatches && request.contextMatches.length > 0
-        ? 'Pay special attention to the historical context provided and integrate it meaningfully into your recommendations. Reference specific past discussions, decisions, or action items that are relevant to this upcoming meeting.'
-        : '',
-      'Format the response in clear markdown with proper headings and bullet points. Keep it professional, actionable, and tailored to the specific meeting context provided.'
-    )
-
-    return sections.filter(line => line !== null && line !== '').join('\n')
+    
+    const finalPrompt = sections.filter(line => line !== null).join('\n')
+    
+    // Log the final prompt for debugging
+    Debug.log('PROMPT SENT TO LLM:', finalPrompt)
+    
+    return finalPrompt
   }
 
   async validateApiKey(apiKey: string): Promise<boolean> {
@@ -334,5 +355,55 @@ export class OpenAIService {
       // Return default models if API call fails
       return ['gpt-4o', 'gpt-4o-mini', 'gpt-4-turbo', 'gpt-4', 'gpt-3.5-turbo']
     }
+  }
+
+  private cleanMeetingData(meeting: Meeting): Meeting {
+    return {
+      ...meeting,
+      description: meeting.description ? this.cleanMeetingDescription(meeting.description) : meeting.description,
+      location: meeting.location ? this.cleanLocation(meeting.location) : meeting.location
+    }
+  }
+
+  private cleanMeetingDescription(description: string): string {
+    // If it contains Zoom meeting details, extract only the meaningful part at the beginning
+    if (description.includes('Zoom') || description.includes('Meeting')) {
+      // Look for the actual meeting purpose before Zoom details
+      const lines = description.split('\n')
+      const meaningfulLines = []
+      
+      for (const line of lines) {
+        const trimmed = line.trim()
+        // Stop at Zoom invitation indicators
+        if (trimmed.match(/Hi there|is inviting you|Join Zoom|Meeting URL|Password|Telephone/i)) {
+          break
+        }
+        // Skip code blocks and special characters
+        if (trimmed.length > 5 && !trimmed.match(/^\[|^<|trackunit|^```|^`|^#|^\*\*|^\>/i)) {
+          meaningfulLines.push(trimmed)
+        }
+      }
+      
+      return meaningfulLines.join(' ').substring(0, 150) // Increased from 100
+    }
+    
+    // For non-Zoom descriptions, clean special characters and markdown
+    return description
+      .replace(/\[.*?\]/g, '') // Remove [links]
+      .replace(/```[\s\S]*?```/g, '') // Remove code blocks
+      .replace(/`[^`]*`/g, '') // Remove inline code
+      .replace(/^\s*[#*>-]\s*/gm, '') // Remove markdown headers, bullets, quotes
+      .replace(/\*\*([^*]+)\*\*/g, '$1') // Remove bold formatting
+      .replace(/\s+/g, ' ') // Normalize whitespace
+      .trim()
+      .substring(0, 250) // Increased from 200
+  }
+
+  private cleanLocation(location: string): string {
+    // If it's a Zoom URL, ignore it completely
+    if (location.includes('zoom.us') || location.includes('http')) {
+      return ''
+    }
+    return location.trim()
   }
 }
