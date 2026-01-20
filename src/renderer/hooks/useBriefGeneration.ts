@@ -11,6 +11,7 @@ const MAX_CACHED_BRIEFS = 50 // Limit to prevent memory leaks
 
 interface UseBriefGenerationReturn extends UseBriefGenerationState {
   generateBrief: (request: BriefGenerationRequest) => Promise<MeetingBrief | null>
+  regenerateBrief: (request: BriefGenerationRequest) => Promise<MeetingBrief | null>
   clearError: () => void
   getBrief: (meetingId: string) => MeetingBrief | undefined
   hasBrief: (meetingId: string) => boolean
@@ -72,6 +73,21 @@ export const useBriefGeneration = (): UseBriefGenerationReturn => {
     }
   }, [])
 
+  const regenerateBrief = useCallback(async (request: BriefGenerationRequest): Promise<MeetingBrief | null> => {
+    // Clear existing brief from cache before regenerating
+    setState(prev => {
+      const newBriefs = new Map(prev.generatedBriefs)
+      newBriefs.delete(request.meetingId)
+      return {
+        ...prev,
+        generatedBriefs: newBriefs
+      }
+    })
+
+    // Use the same generation logic
+    return generateBrief(request)
+  }, [generateBrief])
+
   const clearError = useCallback(() => {
     setState(prev => ({
       ...prev,
@@ -90,6 +106,7 @@ export const useBriefGeneration = (): UseBriefGenerationReturn => {
   return {
     ...state,
     generateBrief,
+    regenerateBrief,
     clearError,
     getBrief,
     hasBrief

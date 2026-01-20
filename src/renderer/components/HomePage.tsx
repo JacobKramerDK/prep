@@ -35,11 +35,13 @@ export function HomePage({
 }: HomePageProps) {
   const [expandedMeetingId, setExpandedMeetingId] = useState<string | null>(null)
   const [viewingBriefForMeeting, setViewingBriefForMeeting] = useState<string | null>(null)
+  const [regeneratingMeetingId, setRegeneratingMeetingId] = useState<string | null>(null)
   
   const {
     isGenerating,
     error,
     generateBrief,
+    regenerateBrief,
     clearError,
     getBrief,
     hasBrief
@@ -51,6 +53,53 @@ export function HomePage({
       setExpandedMeetingId(null)
       setViewingBriefForMeeting(request.meetingId)
     }
+  }
+
+  const handleRegenerateBrief = async (meetingId: string) => {
+    const meeting = todaysMeetings.find(m => m.id === meetingId)
+    if (!meeting) return
+
+    setRegeneratingMeetingId(meetingId)
+    
+    const request: BriefGenerationRequest = {
+      meetingId: meeting.id,
+      userContext: `Meeting: ${meeting.title || 'Untitled Meeting'}
+Description: ${meeting.description || 'No description provided'}
+Attendees: ${meeting.attendees?.join(', ') || 'No attendees listed'}
+Time: ${meeting.startDate.toLocaleString()} - ${meeting.endDate.toLocaleString()}
+Location: ${meeting.location || 'No location specified'}`,
+      meetingPurpose: meeting.title || 'Meeting',
+      keyTopics: meeting.description ? [meeting.description] : [],
+      attendees: meeting.attendees || []
+    }
+
+    const brief = await regenerateBrief(request)
+    setRegeneratingMeetingId(null)
+    
+    if (brief) {
+      setViewingBriefForMeeting(meetingId)
+    }
+  }
+
+  const handleRegenerateFromDisplay = async () => {
+    if (!viewingBriefForMeeting) return
+    
+    const meeting = todaysMeetings.find(m => m.id === viewingBriefForMeeting)
+    if (!meeting) return
+
+    const request: BriefGenerationRequest = {
+      meetingId: meeting.id,
+      userContext: `Meeting: ${meeting.title || 'Untitled Meeting'}
+Description: ${meeting.description || 'No description provided'}
+Attendees: ${meeting.attendees?.join(', ') || 'No attendees listed'}
+Time: ${meeting.startDate.toLocaleString()} - ${meeting.endDate.toLocaleString()}
+Location: ${meeting.location || 'No location specified'}`,
+      meetingPurpose: meeting.title || 'Meeting',
+      keyTopics: meeting.description ? [meeting.description] : [],
+      attendees: meeting.attendees || []
+    }
+
+    await regenerateBrief(request)
   }
 
   const handleToggleExpanded = (meetingId: string) => {
@@ -194,14 +243,18 @@ export function HomePage({
             </div>
           ) : (
             <div className="grid gap-4">
-              {todaysMeetings.map((meeting) => (
+              {todaysMeetings
+                .sort((a, b) => a.startDate.getTime() - b.startDate.getTime())
+                .map((meeting) => (
                 <div key={meeting.id}>
                   <MeetingCard 
                     meeting={meeting} 
                     onGenerateBrief={() => handleToggleExpanded(meeting.id)}
                     onViewBrief={() => handleViewBrief(meeting.id)}
+                    onRegenerateBrief={() => handleRegenerateBrief(meeting.id)}
                     hasBrief={hasBrief(meeting.id)}
                     isGenerating={isGenerating && expandedMeetingId === meeting.id}
+                    isRegenerating={regeneratingMeetingId === meeting.id}
                   />
                   
                   {/* Inline Brief Generator */}
@@ -229,6 +282,8 @@ export function HomePage({
         <MeetingBriefDisplay
           brief={getBrief(viewingBriefForMeeting)!}
           onClose={handleCloseBriefDisplay}
+          onRegenerate={handleRegenerateFromDisplay}
+          isRegenerating={regeneratingMeetingId === viewingBriefForMeeting}
         />
       )}
     </div>

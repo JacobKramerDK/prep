@@ -11,6 +11,7 @@ import {
   FileText,
   File,
   Chrome,
+  RotateCcw,
 } from 'lucide-react'
 import type { Meeting } from '../../shared/types/meeting'
 
@@ -18,11 +19,13 @@ interface MeetingCardProps {
   meeting: Meeting
   onGenerateBrief?: () => void
   onViewBrief?: () => void
+  onRegenerateBrief?: () => void
   hasBrief?: boolean
   isGenerating?: boolean
+  isRegenerating?: boolean
 }
 
-export function MeetingCard({ meeting, onGenerateBrief, onViewBrief, hasBrief, isGenerating }: MeetingCardProps) {
+export function MeetingCard({ meeting, onGenerateBrief, onViewBrief, onRegenerateBrief, hasBrief, isGenerating, isRegenerating }: MeetingCardProps) {
   const [isExpanded, setIsExpanded] = useState(false)
 
   const formatTime = (date: Date): string => {
@@ -139,12 +142,30 @@ export function MeetingCard({ meeting, onGenerateBrief, onViewBrief, hasBrief, i
           </div>
 
           {hasBrief ? (
-            <button 
-              onClick={onViewBrief}
-              className="inline-flex items-center gap-2 px-4 py-2 bg-success hover:bg-success-dark text-white text-sm font-medium rounded-lg shadow-sm transition-all hover:shadow-md active:scale-95">
-              <FileText className="w-4 h-4" />
-              View Brief
-            </button>
+            <div className="flex items-center gap-2">
+              <button 
+                onClick={onViewBrief}
+                className="inline-flex items-center gap-2 px-4 py-2 bg-success hover:bg-success-dark text-white text-sm font-medium rounded-lg shadow-sm transition-all hover:shadow-md active:scale-95">
+                <FileText className="w-4 h-4" />
+                View Brief
+              </button>
+              <button 
+                onClick={onRegenerateBrief}
+                disabled={isRegenerating}
+                className="inline-flex items-center gap-2 px-3 py-2 bg-surface hover:bg-surface-hover disabled:opacity-50 disabled:cursor-not-allowed text-primary border border-border text-sm font-medium rounded-lg shadow-sm transition-all hover:shadow-md active:scale-95">
+                {isRegenerating ? (
+                  <>
+                    <div className="w-4 h-4 animate-spin rounded-full border-2 border-primary/30 border-t-primary"></div>
+                    Regenerating...
+                  </>
+                ) : (
+                  <>
+                    <RotateCcw className="w-4 h-4" />
+                    Regenerate
+                  </>
+                )}
+              </button>
+            </div>
           ) : (
             <button 
               onClick={onGenerateBrief}

@@ -1,14 +1,16 @@
 import React, { useState } from 'react'
 import ReactMarkdown from 'react-markdown'
-import { Check, Copy } from 'lucide-react'
+import { Check, Copy, RotateCcw } from 'lucide-react'
 import { MeetingBrief } from '../../shared/types/brief'
 
 interface Props {
   brief: MeetingBrief
   onClose: () => void
+  onRegenerate?: () => void
+  isRegenerating?: boolean
 }
 
-export const MeetingBriefDisplay: React.FC<Props> = ({ brief, onClose }) => {
+export const MeetingBriefDisplay: React.FC<Props> = ({ brief, onClose, onRegenerate, isRegenerating }) => {
   const [copied, setCopied] = useState(false)
 
   const handleCopyToClipboard = async () => {
@@ -80,71 +82,42 @@ export const MeetingBriefDisplay: React.FC<Props> = ({ brief, onClose }) => {
   }
 
   return (
-    <div style={{ 
-      position: 'fixed',
-      top: 0,
-      left: 0,
-      right: 0,
-      bottom: 0,
-      backgroundColor: 'rgba(0, 0, 0, 0.5)',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      padding: '16px',
-      zIndex: 1000
-    }}>
-      <div style={{
-        backgroundColor: 'white',
-        borderRadius: '8px',
-        boxShadow: '0 10px 25px rgba(0, 0, 0, 0.15)',
-        maxWidth: '900px',
-        width: '100%',
-        maxHeight: '90vh',
-        display: 'flex',
-        flexDirection: 'column'
-      }}>
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-[1000]">
+      <div className="bg-background rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] flex flex-col">
         {/* Header */}
-        <div style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          padding: '20px 24px',
-          borderBottom: '1px solid #e2e8f0'
-        }}>
+        <div className="flex justify-between items-center px-6 py-5 border-b border-border">
           <div>
-            <h2 style={{
-              margin: 0,
-              fontSize: '20px',
-              fontWeight: '600',
-              color: '#1f2937'
-            }}>
+            <h2 className="m-0 text-xl font-semibold text-primary">
               📄 Meeting Brief
             </h2>
-            <p style={{
-              margin: '4px 0 0 0',
-              fontSize: '14px',
-              color: '#6b7280'
-            }}>
+            <p className="m-0 mt-1 text-sm text-secondary">
               Generated {brief.generatedAt.toLocaleString()}
             </p>
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <div className="flex items-center gap-2">
+            {onRegenerate && (
+              <button
+                onClick={onRegenerate}
+                disabled={isRegenerating}
+                className="px-3 py-2 text-sm bg-brand-600 hover:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed text-white border border-border rounded-md cursor-pointer flex items-center gap-1.5 font-medium transition-all duration-200"
+                title="Regenerate brief"
+              >
+                {isRegenerating ? (
+                  <>
+                    <div className="w-4 h-4 animate-spin rounded-full border-2 border-white/30 border-t-white"></div>
+                    Regenerating...
+                  </>
+                ) : (
+                  <>
+                    <RotateCcw className="w-4 h-4" />
+                    Regenerate
+                  </>
+                )}
+              </button>
+            )}
             <button
               onClick={handleCopyToClipboard}
-              style={{
-                padding: '8px 12px',
-                fontSize: '14px',
-                backgroundColor: copied ? '#10b981' : '#f8fafc',
-                color: copied ? 'white' : '#374151',
-                border: '1px solid #e2e8f0',
-                borderRadius: '6px',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px',
-                fontWeight: '500',
-                transition: 'all 0.2s'
-              }}
+              className={`px-3 py-2 text-sm ${copied ? 'bg-success text-white' : 'bg-surface text-primary'} border border-border rounded-md cursor-pointer flex items-center gap-1.5 font-medium transition-all duration-200`}
               title="Copy to clipboard"
             >
               {copied ? (
@@ -161,19 +134,7 @@ export const MeetingBriefDisplay: React.FC<Props> = ({ brief, onClose }) => {
             </button>
             <button
               onClick={handlePrint}
-              style={{
-                padding: '8px 12px',
-                fontSize: '14px',
-                backgroundColor: '#f8fafc',
-                color: '#374151',
-                border: '1px solid #e2e8f0',
-                borderRadius: '6px',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px',
-                fontWeight: '500'
-              }}
+              className="px-3 py-2 text-sm bg-surface text-primary border border-border rounded-md cursor-pointer flex items-center gap-1.5 font-medium"
               title="Print brief"
             >
               <span>🖨️</span>
@@ -181,14 +142,7 @@ export const MeetingBriefDisplay: React.FC<Props> = ({ brief, onClose }) => {
             </button>
             <button
               onClick={onClose}
-              style={{
-                background: 'none',
-                border: 'none',
-                fontSize: '24px',
-                cursor: 'pointer',
-                color: '#9ca3af',
-                padding: '4px'
-              }}
+              className="bg-transparent border-none text-2xl cursor-pointer text-tertiary p-1"
             >
               ×
             </button>
@@ -196,33 +150,91 @@ export const MeetingBriefDisplay: React.FC<Props> = ({ brief, onClose }) => {
         </div>
 
         {/* Content */}
-        <div style={{
-          flex: 1,
-          overflow: 'auto',
-          padding: '24px'
-        }}>
-          <div style={{
-            fontSize: '14px',
-            lineHeight: '1.6',
-            color: '#374151'
-          }}>
-            <ReactMarkdown>{brief.content}</ReactMarkdown>
+        <div className="flex-1 overflow-auto p-6">
+          <div className="text-sm leading-relaxed text-primary">
+            <ReactMarkdown
+              components={{
+                h1: ({ children }) => (
+                  <h1 className="text-2xl font-bold mt-8 mb-4 text-primary border-b border-border pb-2 first:mt-0">
+                    {children}
+                  </h1>
+                ),
+                h2: ({ children }) => (
+                  <h2 className="text-xl font-semibold mt-6 mb-3 text-primary first:mt-0">
+                    {children}
+                  </h2>
+                ),
+                h3: ({ children }) => (
+                  <h3 className="text-lg font-semibold mt-5 mb-2 text-primary first:mt-0">
+                    {children}
+                  </h3>
+                ),
+                p: ({ children }) => (
+                  <p className="mb-4 leading-relaxed">
+                    {children}
+                  </p>
+                ),
+                ul: ({ children }) => (
+                  <ul className="mb-4 pl-6 space-y-1 list-disc">
+                    {children}
+                  </ul>
+                ),
+                ol: ({ children }) => (
+                  <ol className="mb-4 pl-6 space-y-1 list-decimal">
+                    {children}
+                  </ol>
+                ),
+                li: ({ children }) => (
+                  <li className="leading-relaxed">
+                    {children}
+                  </li>
+                ),
+                blockquote: ({ children }) => (
+                  <blockquote className="border-l-4 border-border pl-4 ml-0 mb-4 italic text-secondary">
+                    {children}
+                  </blockquote>
+                ),
+                code: ({ inline, children }) => (
+                  inline ? (
+                    <code className="bg-surface px-1.5 py-0.5 rounded text-sm font-mono">
+                      {children}
+                    </code>
+                  ) : (
+                    <code className="block bg-surface p-4 rounded-lg text-sm font-mono overflow-x-auto mb-4">
+                      {children}
+                    </code>
+                  )
+                ),
+                a: ({ href, children }) => (
+                  <a 
+                    href={href}
+                    className="text-brand-600 hover:text-brand-700 underline"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    {children}
+                  </a>
+                ),
+                strong: ({ children }) => (
+                  <strong className="font-semibold text-primary">
+                    {children}
+                  </strong>
+                ),
+                em: ({ children }) => (
+                  <em className="italic">
+                    {children}
+                  </em>
+                )
+              }}
+            >
+              {brief.content}
+            </ReactMarkdown>
           </div>
         </div>
 
         {/* Footer */}
-        <div style={{
-          borderTop: '1px solid #e2e8f0',
-          padding: '12px 24px',
-          backgroundColor: '#f8fafc'
-        }}>
-          <div style={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            fontSize: '12px',
-            color: '#6b7280'
-          }}>
+        <div className="border-t border-border p-3 bg-surface">
+          <div className="flex justify-between items-center text-xs text-secondary">
             <span>Meeting ID: {brief.meetingId}</span>
             <span>Brief ID: {brief.id}</span>
           </div>
