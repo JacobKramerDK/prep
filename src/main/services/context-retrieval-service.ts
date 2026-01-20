@@ -10,7 +10,7 @@ export class ContextRetrievalService {
   private defaultConfig: ContextConfiguration = {
     enabled: true,
     maxResults: 10,
-    minRelevanceScore: 0.3,
+    minRelevanceScore: 0.15, // Increased from 0.01 to 0.15
     includeSnippets: true,
     snippetLength: 200,
     searchFields: ['title', 'content', 'tags', 'frontmatter']
@@ -19,6 +19,12 @@ export class ContextRetrievalService {
   constructor(vaultIndexer?: VaultIndexer) {
     this.vaultIndexer = vaultIndexer || null
     this.settingsManager = new SettingsManager()
+  }
+
+  private debugLog(message: string, ...args: any[]): void {
+    if (this.settingsManager.getDebugMode()) {
+      console.log(message, ...args)
+    }
   }
 
   setVaultIndexer(vaultIndexer: VaultIndexer): void {
@@ -41,9 +47,15 @@ export class ContextRetrievalService {
 
       // Build search query from meeting data
       const searchQuery = this.buildSearchQuery(meeting)
+      if (this.settingsManager.getDebugMode()) {
+        console.log('🔍 Context search query:', searchQuery)
+      }
       
       // Get configuration
       const config = await this.getContextConfiguration()
+      if (this.settingsManager.getDebugMode()) {
+        console.log('⚙️ Context config:', { minRelevanceScore: config.minRelevanceScore, maxResults: config.maxResults })
+      }
       
       if (!config.enabled) {
         return {
@@ -56,12 +68,37 @@ export class ContextRetrievalService {
 
       // Search vault index
       const searchResults = await this.vaultIndexer.search(searchQuery, config.maxResults * 2) // Get more to filter
+      if (this.settingsManager.getDebugMode()) {
+        console.log('📊 Vault search results:', searchResults.length)
+      }
+      
+      // If no results with full query, try individual terms
+      let fallbackResults: any[] = []
+      if (searchResults.length === 0 && searchQuery.includes(' ')) {
+        if (this.settingsManager.getDebugMode()) {
+          console.log('🔄 Trying fallback search with individual terms...')
+        }
+        const terms = searchQuery.split(' ').filter(term => term.length > 2)
+        for (const term of terms.slice(0, 3)) { // Try first 3 terms
+          const termResults = await this.vaultIndexer.search(term, 5)
+          fallbackResults.push(...termResults)
+          if (fallbackResults.length >= 10) break
+        }
+        if (this.settingsManager.getDebugMode()) {
+          console.log('📊 Fallback search results:', fallbackResults.length)
+        }
+      }
+      
+      const allResults = searchResults.length > 0 ? searchResults : fallbackResults
       
       // Calculate relevance scores and create context matches
       const matches: ContextMatch[] = []
       
-      for (const result of searchResults) {
+      for (const result of allResults) {
         const relevanceScore = this.calculateRelevanceScore(meeting, result.file)
+        if (this.settingsManager.getDebugMode()) {
+          console.log(`📄 File: ${result.file.title}, Score: ${relevanceScore.toFixed(3)}, Threshold: ${config.minRelevanceScore}`)
+        }
         
         if (relevanceScore >= config.minRelevanceScore) {
           const contextMatch: ContextMatch = {
@@ -103,11 +140,20 @@ export class ContextRetrievalService {
     // Add meeting title
     if (meeting.title) {
       queryParts.push(meeting.title)
+      if (this.settingsManager.getDebugMode()) {
+        console.log('🏷️ Added title to query:', meeting.title)
+      }
     }
     
-    // Add meeting description
+    // Add meeting description (filtered)
     if (meeting.description) {
-      queryParts.push(meeting.description)
+      const cleanedDescription = this.cleanMeetingDescription(meeting.description)
+      if (cleanedDescription) {
+        queryParts.push(cleanedDescription)
+        if (this.settingsManager.getDebugMode()) {
+          console.log('📝 Added cleaned description to query:', cleanedDescription.substring(0, 100) + '...')
+        }
+      }
     }
     
     // Add attendees (extract names from email addresses)
@@ -155,12 +201,88 @@ export class ContextRetrievalService {
       })
     }
     
-    // Add location if available
+    // Add location if available (but clean it first)
     if (meeting.location) {
-      queryParts.push(meeting.location)
+      const cleanedLocation = this.cleanLocation(meeting.location)
+      if (cleanedLocation) {
+        queryParts.push(cleanedLocation)
+        if (this.settingsManager.getDebugMode()) {
+          console.log('📍 Added location to query:', cleanedLocation)
+        }
+      }
     }
     
-    return queryParts.join(' ')
+    const finalQuery = queryParts.join(' ')
+    
+    // Remove duplicate words from the query
+    const words = finalQuery.split(/\s+/)
+    const uniqueWords = [...new Set(words.map(word => word.toLowerCase()))]
+      .map(lowerWord => words.find(word => word.toLowerCase() === lowerWord))
+      .filter(word => word && word.length > 2) // Remove short words
+    
+    const deduplicatedQuery = uniqueWords.join(' ')
+    if (this.settingsManager.getDebugMode()) {
+      console.log('🔍 Final search query:', deduplicatedQuery)
+    }
+    return deduplicatedQuery
+  }
+
+  private cleanMeetingDescription(description: string): string {
+    // If it contains Zoom meeting details, extract only the meaningful part at the beginning
+    if (description.includes('Zoom') || description.includes('Meeting')) {
+      // Look for the actual meeting purpose before Zoom details
+      const lines = description.split('\n')
+      const meaningfulLines = []
+      
+      for (const line of lines) {
+        const trimmed = line.trim()
+        // Stop at Zoom invitation indicators
+        if (trimmed.match(/Hi there|is inviting you|Join Zoom|Meeting URL|Password|Telephone/i)) {
+          break
+        }
+        if (trimmed.length > 5 && !trimmed.match(/^\[|^<|trackunit/i)) {
+          meaningfulLines.push(trimmed)
+        }
+      }
+      
+      return meaningfulLines.join(' ').substring(0, 100)
+    }
+    
+    // For non-Zoom descriptions, just clean lightly
+    return description.replace(/\[.*?\]/g, '').replace(/\s+/g, ' ').trim().substring(0, 200)
+  }
+
+  private cleanLocation(location: string): string {
+    // If it's a Zoom URL, ignore it completely
+    if (location.includes('zoom.us') || location.includes('http')) {
+      return ''
+    }
+    return location.trim()
+  }
+
+  private getFileDate(file: VaultFile): Date | null {
+    // Priority order: frontmatter date fields, then file modification date
+    const frontmatter = file.frontmatter || {}
+    
+    // Common frontmatter date field names
+    const dateFields = ['date', 'created', 'updated', 'modified', 'timestamp']
+    
+    for (const field of dateFields) {
+      const dateValue = frontmatter[field]
+      if (dateValue) {
+        try {
+          const parsedDate = new Date(dateValue)
+          if (!isNaN(parsedDate.getTime())) {
+            return parsedDate
+          }
+        } catch (error) {
+          // Continue to next field if parsing fails
+        }
+      }
+    }
+    
+    // Fallback to file modification date
+    return file.modified || null
   }
 
   private calculateRelevanceScore(meeting: Meeting, file: VaultFile): number {
@@ -169,7 +291,25 @@ export class ContextRetrievalService {
       title: 0.4,
       content: 0.3,
       tags: 0.2,
-      attendees: 0.1
+      attendees: 0.1,
+      flexSearchBonus: 0.2, // Bonus for being found by FlexSearch
+      recencyBonus: 0.15 // Bonus for recent files
+    }
+    
+    // Give bonus points for being found by FlexSearch (it already did the heavy lifting)
+    score += weights.flexSearchBonus
+    
+    // Add recency bonus based on file modification date or frontmatter date
+    const fileDate = this.getFileDate(file)
+    if (fileDate) {
+      const daysSinceDate = (Date.now() - fileDate.getTime()) / (1000 * 60 * 60 * 24)
+      if (daysSinceDate <= 7) {
+        score += weights.recencyBonus // Full bonus for files within a week
+      } else if (daysSinceDate <= 30) {
+        score += weights.recencyBonus * 0.7 // 70% bonus for files within a month
+      } else if (daysSinceDate <= 90) {
+        score += weights.recencyBonus * 0.4 // 40% bonus for files within 3 months
+      }
     }
     
     const searchTerms = this.extractSearchTerms(meeting)

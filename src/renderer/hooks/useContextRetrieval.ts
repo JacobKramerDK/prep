@@ -12,6 +12,11 @@ interface UseContextRetrievalState {
 
 interface UseContextRetrievalReturn extends UseContextRetrievalState {
   findRelevantContext: (meetingId: string) => Promise<void>
+  findRelevantContextEnhanced: (meetingId: string, additionalContext?: {
+    meetingPurpose?: string
+    keyTopics?: string[]
+    additionalNotes?: string
+  }) => Promise<void>
   checkIndexStatus: () => Promise<void>
   clearContext: () => void
 }
@@ -30,6 +35,34 @@ export const useContextRetrieval = (): UseContextRetrievalReturn => {
     
     try {
       const resultIPC = await window.electronAPI.findRelevantContext(meetingId)
+      const result = contextRetrievalResultFromIPC(resultIPC)
+      
+      setState(prev => ({
+        ...prev,
+        matches: result.matches,
+        isLoading: false,
+        error: null
+      }))
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred'
+      setState(prev => ({
+        ...prev,
+        matches: [],
+        isLoading: false,
+        error: errorMessage
+      }))
+    }
+  }, [])
+
+  const findRelevantContextEnhanced = useCallback(async (meetingId: string, additionalContext?: {
+    meetingPurpose?: string
+    keyTopics?: string[]
+    additionalNotes?: string
+  }) => {
+    setState(prev => ({ ...prev, isLoading: true, error: null }))
+    
+    try {
+      const resultIPC = await window.electronAPI.findRelevantContextEnhanced(meetingId, additionalContext)
       const result = contextRetrievalResultFromIPC(resultIPC)
       
       setState(prev => ({
@@ -82,6 +115,7 @@ export const useContextRetrieval = (): UseContextRetrievalReturn => {
   return {
     ...state,
     findRelevantContext,
+    findRelevantContextEnhanced,
     checkIndexStatus,
     clearContext
   }

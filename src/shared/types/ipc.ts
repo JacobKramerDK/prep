@@ -39,6 +39,11 @@ export interface ElectronAPI {
   getBriefGenerationStatus: (meetingId: string) => Promise<BriefGenerationStatus>
   // Context retrieval operations
   findRelevantContext: (meetingId: string) => Promise<ContextRetrievalResultIPC>
+  findRelevantContextEnhanced: (meetingId: string, additionalContext?: {
+    meetingPurpose?: string
+    keyTopics?: string[]
+    additionalNotes?: string
+  }) => Promise<ContextRetrievalResultIPC>
   isContextIndexed: () => Promise<boolean>
   getContextIndexedFileCount: () => Promise<number>
   // Vault status operations

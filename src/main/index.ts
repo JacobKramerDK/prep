@@ -471,6 +471,39 @@ ipcMain.handle('context:findRelevant', async (_, meetingId: string) => {
   }
 })
 
+// Enhanced context retrieval with user input
+ipcMain.handle('context:findRelevantEnhanced', async (_, meetingId: string, additionalContext?: {
+  meetingPurpose?: string
+  keyTopics?: string[]
+  additionalNotes?: string
+}) => {
+  try {
+    const todaysMeetings = await meetingDetector.getTodaysMeetings()
+    const meeting = todaysMeetings.meetings.find(m => m.id === meetingId)
+    
+    if (!meeting) {
+      throw new Error('Meeting not found')
+    }
+    
+    // Create enhanced meeting object with user input
+    const enhancedMeeting = {
+      ...meeting,
+      description: [
+        meeting.description,
+        additionalContext?.meetingPurpose,
+        additionalContext?.keyTopics?.join(' '),
+        additionalContext?.additionalNotes
+      ].filter(Boolean).join(' ')
+    }
+    
+    const result = await contextRetrievalService.findRelevantContext(enhancedMeeting)
+    return contextRetrievalResultToIPC(result)
+  } catch (error) {
+    console.error('Enhanced context retrieval failed:', error)
+    throw new Error(`Enhanced context retrieval failed: ${error instanceof Error ? error.message : 'Unknown error'}`)
+  }
+})
+
 // Cleanup on app exit
 app.on('before-quit', () => {
   calendarSyncScheduler.dispose()

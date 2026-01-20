@@ -99,6 +99,27 @@ const electronAPI: ElectronAPI = {
     }
     return result
   },
+  findRelevantContextEnhanced: async (meetingId: string, additionalContext?: {
+    meetingPurpose?: string
+    keyTopics?: string[]
+    additionalNotes?: string
+  }) => {
+    const result = await ipcRenderer.invoke('context:findRelevantEnhanced', meetingId, additionalContext)
+    // Ensure dates are properly deserialized
+    if (result && result.matches) {
+      result.matches = result.matches.map((match: any) => ({
+        ...match,
+        file: {
+          ...match.file,
+          created: new Date(match.file.created),
+          modified: new Date(match.file.modified)
+        },
+        matchedAt: new Date(match.matchedAt)
+      }))
+      result.retrievedAt = new Date(result.retrievedAt)
+    }
+    return result
+  },
   isContextIndexed: () => ipcRenderer.invoke('context:isIndexed'),
   getContextIndexedFileCount: () => ipcRenderer.invoke('context:getIndexedFileCount'),
   // Vault status methods

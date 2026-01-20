@@ -38,6 +38,7 @@ export const BriefGenerator: React.FC<Props> = ({
     isIndexed,
     indexedFileCount,
     findRelevantContext,
+    findRelevantContextEnhanced,
     checkIndexStatus
   } = useContextRetrieval()
 
@@ -51,6 +52,27 @@ export const BriefGenerator: React.FC<Props> = ({
       findRelevantContext(meeting.id)
     }
   }, [formData.includeContext, isIndexed, meeting.id, findRelevantContext])
+
+  const handleRefreshContext = () => {
+    if (meeting.id && isIndexed) {
+      const additionalContext = {
+        meetingPurpose: formData.meetingPurpose || undefined,
+        keyTopics: formData.keyTopics ? formData.keyTopics.split(',').map(t => t.trim()).filter(t => t) : undefined,
+        additionalNotes: formData.additionalNotes || undefined
+      }
+      
+      // Use enhanced search if user has provided additional context
+      const hasAdditionalContext = additionalContext.meetingPurpose || 
+                                   (additionalContext.keyTopics && additionalContext.keyTopics.length > 0) || 
+                                   additionalContext.additionalNotes
+      
+      if (hasAdditionalContext) {
+        findRelevantContextEnhanced(meeting.id, additionalContext)
+      } else {
+        findRelevantContext(meeting.id)
+      }
+    }
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -155,9 +177,26 @@ export const BriefGenerator: React.FC<Props> = ({
                     <Brain className="w-4 h-4" />
                     Include relevant context from vault
                   </span>
-                  <span className="text-xs text-tertiary bg-surface-hover px-2 py-0.5 rounded">
-                    {indexedFileCount} files indexed
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-tertiary bg-surface-hover px-2 py-0.5 rounded">
+                      {indexedFileCount} files indexed
+                    </span>
+                    {formData.includeContext && isIndexed && (
+                      <button
+                        type="button"
+                        onClick={handleRefreshContext}
+                        disabled={isLoadingContext}
+                        className="text-xs px-2 py-1 bg-brand text-white rounded hover:bg-brand-600 disabled:opacity-50 flex items-center gap-1"
+                      >
+                        {isLoadingContext ? (
+                          <Loader2 className="w-3 h-3 animate-spin" />
+                        ) : (
+                          <Brain className="w-3 h-3" />
+                        )}
+                        Refresh
+                      </button>
+                    )}
+                  </div>
                 </label>
                 
                 {formData.includeContext && (
