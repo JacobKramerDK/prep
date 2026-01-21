@@ -116,7 +116,7 @@ Location: ${meeting.location || 'No location specified'}`,
   }
 
   return (
-    <div className="max-w-5xl mx-auto px-6 py-8 animate-fade-in">
+    <div className="max-w-full mx-auto px-6 py-8 animate-fade-in overflow-x-hidden break-words">
       {/* Header */}
       <div className="flex justify-between items-start mb-10">
         <div className="flex items-start gap-4">
@@ -202,80 +202,105 @@ Location: ${meeting.location || 'No location specified'}`,
       )}
 
       {/* Meetings List */}
-      {hasVault && (
-        <div className="space-y-6">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-brand-50 dark:bg-brand-900/20 rounded-lg shadow-sm">
-                <Calendar className="w-6 h-6 text-brand-600 dark:text-brand-400" />
-              </div>
-              <h2 className="text-2xl font-semibold text-primary">
-                Today's Meetings
-              </h2>
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-brand-50 dark:bg-brand-900/20 rounded-lg shadow-sm">
+              <Calendar className="w-6 h-6 text-brand-600 dark:text-brand-400" />
             </div>
-
-            <button 
-              onClick={onRefreshMeetings}
-              className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-secondary hover:text-primary bg-surface border border-border rounded-lg hover:bg-surface-hover hover:shadow-sm transition-all">
-              <RefreshCw className="w-4 h-4" />
-              Refresh
-            </button>
+            <h2 className="text-2xl font-semibold text-primary">
+              Today's Meetings
+            </h2>
           </div>
 
-          {meetingsLoading ? (
-            <div className="bg-surface border border-border rounded-xl p-8 text-center">
-              <div className="flex justify-center mb-4">
-                <div className="p-3 bg-brand-50 dark:bg-brand-900/20 rounded-lg">
-                  <Clock className="w-8 h-8 text-brand-600 dark:text-brand-400" />
-                </div>
-              </div>
-              <p className="text-secondary">Loading today's meetings...</p>
-            </div>
-          ) : todaysMeetings.length === 0 ? (
-            <div className="bg-surface border border-border rounded-xl p-8 text-center">
-              <div className="flex justify-center mb-4">
-                <div className="p-3 bg-surface-hover rounded-lg">
-                  <CalendarDays className="w-12 h-12 text-secondary" />
-                </div>
-              </div>
-              <p className="text-lg text-primary mb-2">No meetings scheduled for today</p>
-              <p className="text-sm text-secondary">Import your calendar to see today's meetings</p>
-            </div>
-          ) : (
-            <div className="grid gap-4">
-              {todaysMeetings
-                .sort((a, b) => a.startDate.getTime() - b.startDate.getTime())
-                .map((meeting) => (
-                <div key={meeting.id}>
-                  <MeetingCard 
-                    meeting={meeting} 
-                    onGenerateBrief={() => handleToggleExpanded(meeting.id)}
-                    onViewBrief={() => handleViewBrief(meeting.id)}
-                    onRegenerateBrief={() => handleRegenerateBrief(meeting.id)}
-                    hasBrief={hasBrief(meeting.id)}
-                    isGenerating={isGenerating && expandedMeetingId === meeting.id}
-                    isRegenerating={regeneratingMeetingId === meeting.id}
-                  />
-                  
-                  {/* Inline Brief Generator */}
-                  {expandedMeetingId === meeting.id && (
-                    <div className="mt-4">
-                      <BriefGenerator
-                        meeting={meeting}
-                        onGenerate={handleGenerateBrief}
-                        isGenerating={isGenerating}
-                        error={error}
-                        onClose={() => setExpandedMeetingId(null)}
-                        inline={true}
-                      />
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-          )}
+          <button 
+            onClick={onRefreshMeetings}
+            className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-secondary hover:text-primary bg-surface border border-border rounded-lg hover:bg-surface-hover hover:shadow-sm transition-all">
+            <RefreshCw className="w-4 h-4" />
+            Refresh
+          </button>
         </div>
-      )}
+
+        {meetingsLoading ? (
+          <div className="bg-surface border border-border rounded-xl p-8 text-center">
+            <div className="flex justify-center mb-4">
+              <div className="p-3 bg-brand-50 dark:bg-brand-900/20 rounded-lg">
+                <Clock className="w-8 h-8 text-brand-600 dark:text-brand-400" />
+              </div>
+            </div>
+            <p className="text-secondary">Loading today's meetings...</p>
+          </div>
+        ) : todaysMeetings.length === 0 ? (
+          <div className="bg-surface border border-border rounded-xl p-8 text-center">
+            <div className="flex justify-center mb-4">
+              <div className="p-3 bg-surface-hover rounded-lg">
+                <CalendarDays className="w-12 h-12 text-secondary" />
+              </div>
+            </div>
+            <p className="text-lg text-primary mb-2">No meetings scheduled for today</p>
+            <p className="text-sm text-secondary">Import your calendar to see today's meetings</p>
+          </div>
+        ) : (
+          <div className="grid gap-4">
+            {todaysMeetings
+              .sort((a, b) => a.startDate.getTime() - b.startDate.getTime())
+              .map((meeting) => (
+              <div key={meeting.id}>
+                <MeetingCard 
+                  meeting={meeting} 
+                  onGenerateBrief={() => handleToggleExpanded(meeting.id)}
+                  onViewBrief={() => handleViewBrief(meeting.id)}
+                  onRegenerateBrief={() => handleRegenerateBrief(meeting.id)}
+                  hasBrief={hasBrief(meeting.id)}
+                  isGenerating={isGenerating && expandedMeetingId === meeting.id}
+                  isRegenerating={regeneratingMeetingId === meeting.id}
+                />
+                
+                {/* Inline Brief Generator - only show if vault is connected */}
+                {hasVault && expandedMeetingId === meeting.id && (
+                  <div className="mt-4">
+                    <BriefGenerator
+                      meeting={meeting}
+                      onGenerate={handleGenerateBrief}
+                      isGenerating={isGenerating}
+                      error={error}
+                      onClose={() => setExpandedMeetingId(null)}
+                      inline={true}
+                    />
+                  </div>
+                )}
+                
+                {/* Show message if trying to generate brief without vault */}
+                {!hasVault && expandedMeetingId === meeting.id && (
+                  <div className="mt-4 p-4 bg-surface border border-border rounded-lg">
+                    <div className="flex items-center gap-3 mb-3">
+                      <BookOpen className="w-5 h-5 text-brand-600 dark:text-brand-400" />
+                      <span className="font-medium text-primary">Vault Required for AI Briefs</span>
+                    </div>
+                    <p className="text-sm text-secondary mb-4">
+                      Connect your Obsidian vault to generate AI-powered meeting briefs with relevant context from your notes.
+                    </p>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => onNavigate('settings')}
+                        className="px-4 py-2 bg-brand-600 hover:bg-brand-700 text-white text-sm font-medium rounded-lg transition-colors"
+                      >
+                        Connect Vault
+                      </button>
+                      <button
+                        onClick={() => setExpandedMeetingId(null)}
+                        className="px-4 py-2 bg-surface border border-border hover:bg-surface-hover text-secondary text-sm font-medium rounded-lg transition-colors"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
 
       {/* Brief Display Modal */}
       {viewingBriefForMeeting && (

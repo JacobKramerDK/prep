@@ -5,12 +5,12 @@
 **Total Time**: ~29 hours (Phase 1-4 Complete + Security Hardening)  
 
 ### Overall Progress
-- **Total Development Days**: 10
-- **Total Hours Logged**: 40h
-- **Total Commits**: 39
-- **Lines of Code Added**: 58068
-- **Lines of Code Removed**: 5258
-- **Files Modified**: 168+  
+- **Total Development Days**: 11
+- **Total Hours Logged**: 42h
+- **Total Commits**: 47
+- **Lines of Code Added**: 76537
+- **Lines of Code Removed**: 5465
+- **Files Modified**: 185+  
 
 ## Overview
 Building a desktop meeting preparation assistant that connects to Obsidian vaults and calendars to automatically surface relevant context and generate AI-powered meeting briefs. Using Kiro CLI extensively for AI-assisted development and modern Electron architecture.
@@ -2783,5 +2783,71 @@ All major features implemented with comprehensive security hardening:
 - **Focus**: Fine-tune context matching algorithms and scoring weights
 - **Testing**: Validate enhanced context retrieval with real vault data
 - **UI Polish**: Address any remaining design integration issues
+
+---
+## Day 16 (January 20, 2026) - Relevance Scoring Customization & Code Review Fixes [2h]
+
+### 📊 **Daily Metrics**
+- **Time Spent**: 2 hours
+- **Commits Made**: 5
+- **Lines Added**: 3,597
+- **Lines Removed**: 210
+- **Net Lines**: +3,387
+- **Files Modified**: 7
+
+### 🎯 **Accomplishments**
+- Improved Obsidian note matching logic with configurable relevance weights
+- Added customizable weights for relevance scoring (title, content, tags, attendees, search bonus, recency)
+- Fixed design issues on meeting briefs with better UI/UX
+- Added configurability to the prompt sent to the LLM for meeting brief generation
+- Completed comprehensive code review and fixed all medium-priority issues
+
+### 💻 **Technical Progress**
+**Commits Made Today:**
+- `a4e3c48` Fix code review issues: improve error handling, tooltip positioning, and extract constants
+- `b4f7f85` feat: improve meeting brief UI/UX with regeneration functionality
+- `dccd7a0` feat: Add customizable meeting brief prompts with code review fixes
+- `a3608d3` docs: add Day 10 devlog entry for January 19, 2026
+- `270d48d` feat: add enhanced context retrieval with user input and debug mode logging
+
+**Code Changes:**
+- **New Features**: RelevanceWeightSettings.tsx, RelevanceWeightSlider.tsx components
+- **Enhanced Services**: context-retrieval-service.ts with configurable weights
+- **Type Definitions**: relevance-weights.ts with default weight configuration
+- **UI Improvements**: Better tooltip positioning, extracted timeout constants
+- **Error Handling**: Enhanced logging for relevance weight loading failures
+
+### 🔧 **Work Breakdown**
+- **Relevance Scoring Enhancement**: 1.5h - Implemented configurable weights system
+- **Code Review & Fixes**: 0.5h - Fixed error handling, tooltip positioning, constants
+
+### 🚧 **Challenges & Solutions**
+- **Challenge**: Some issues with getting the design right for relevance weight settings
+- **Solution**: Iterative refinement of UI components with proper tooltip positioning
+- **Technical Issue**: Error handling in context retrieval could be more specific
+- **Resolution**: Added detailed error logging with specific error messages
+
+### 🧠 **Key Decisions**
+- **Architecture**: Made relevance scoring weights user-configurable rather than hardcoded
+- **UI Design**: Followed existing design patterns for settings components
+- **Error Strategy**: Enhanced logging without breaking existing fallback mechanisms
+- **Code Quality**: Extracted hardcoded constants for better maintainability
+
+### 📚 **Learnings & Insights**
+- The importance of ensuring the design is followed consistently across components
+- Configurable scoring weights allow users to customize context matching to their note-taking style
+- Proper error logging helps with debugging while maintaining graceful fallbacks
+- Code review processes catch important issues before they reach production
+
+### ⚡ **Kiro CLI Usage**
+- Used comprehensive code review capabilities to identify and fix technical issues
+- Applied systematic fix implementation for error handling and UI improvements
+- Leveraged automated testing to validate fixes don't introduce regressions
+
+### 📋 **Next Session Plan**
+- **Priority**: Windows compatibility improvements
+- **Focus**: Ensure application works properly on Windows platform
+- **Testing**: Cross-platform validation and compatibility fixes
+- **Deployment**: Prepare for multi-platform distribution
 
 ---

@@ -49,7 +49,6 @@ export function App() {
   }, [mounted])
 
   const loadTodaysMeetings = useCallback(async () => {
-    if (!hasVault) return
     setMeetingsLoading(true)
     try {
       const result = await window.electronAPI.getTodaysMeetings()
@@ -66,7 +65,7 @@ export function App() {
         setMeetingsLoading(false)
       }
     }
-  }, [hasVault, mounted])
+  }, [mounted])
 
   const handleRefreshMeetings = useCallback(() => {
     loadTodaysMeetings()
@@ -126,9 +125,8 @@ export function App() {
         setHasVault(vaultConfigured)
       }
       
-      if (vaultConfigured) {
-        await loadTodaysMeetings()
-      }
+      // Always load meetings regardless of vault configuration
+      await loadTodaysMeetings()
     }
 
     const timeoutId = setTimeout(checkVaultAndLoadMeetings, 100)
@@ -136,12 +134,12 @@ export function App() {
   }, [vaultPath, hasVault, mounted, loadTodaysMeetings])
 
   return (
-    <div className="min-h-screen bg-background text-primary selection:bg-brand-200 selection:text-brand-900 dark:selection:bg-brand-900 dark:selection:text-brand-100">
+    <div className="min-h-screen max-w-full overflow-x-hidden bg-background text-primary selection:bg-brand-200 selection:text-brand-900 dark:selection:bg-brand-900 dark:selection:text-brand-100">
       {/* Titlebar Drag Region (simulated for Electron) */}
       <div className="h-8 w-full fixed top-0 left-0 z-50 select-none app-region-drag" />
 
       {/* Main Content */}
-      <main className="pt-8 pb-12 min-h-screen">
+      <main className="pt-8 pb-12">
         {currentPage === 'home' ? (
           <HomePage 
             onNavigate={setCurrentPage}
