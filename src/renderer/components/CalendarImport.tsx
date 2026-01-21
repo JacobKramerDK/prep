@@ -3,16 +3,17 @@ import { CalendarEvent, CalendarImportResult } from '../../shared/types/calendar
 import { CalendarSelector } from './CalendarSelector'
 import { CalendarSelectionSettings } from '../../shared/types/calendar-selection'
 import { GoogleCalendarAuth } from './GoogleCalendarAuth'
+import { useOSDetection } from '../hooks/useOSDetection'
 
 interface CalendarImportProps {
   onEventsImported?: (events: CalendarEvent[]) => void
 }
 
 export const CalendarImport: React.FC<CalendarImportProps> = ({ onEventsImported }) => {
+  const osInfo = useOSDetection()
   const [events, setEvents] = useState<CalendarEvent[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [isAppleScriptSupported, setIsAppleScriptSupported] = useState(false)
   const [showCalendarSelector, setShowCalendarSelector] = useState(false)
   const [selectedCalendars, setSelectedCalendars] = useState<string[]>([])
   const [isGoogleConnected, setIsGoogleConnected] = useState(false)
@@ -41,14 +42,12 @@ export const CalendarImport: React.FC<CalendarImportProps> = ({ onEventsImported
   useEffect(() => {
     const initialize = async () => {
       try {
-        const [supported, existingEvents, calendarSettings, googleConnected] = await Promise.all([
-          window.electronAPI.isAppleScriptSupported(),
+        const [existingEvents, calendarSettings, googleConnected] = await Promise.all([
           window.electronAPI.getCalendarEvents(),
           window.electronAPI.getSelectedCalendars(),
           window.electronAPI.isGoogleCalendarConnected()
         ])
         
-        setIsAppleScriptSupported(supported)
         setIsGoogleConnected(googleConnected)
         
         // Filter for today's events only - this fixes the bug where yesterday's events were showing
@@ -208,11 +207,11 @@ export const CalendarImport: React.FC<CalendarImportProps> = ({ onEventsImported
         
         <div style={{ 
           display: 'grid',
-          gridTemplateColumns: isAppleScriptSupported ? '1fr 1fr' : '1fr',
+          gridTemplateColumns: osInfo.isMacOS ? '1fr 1fr' : '1fr',
           gap: '16px',
           marginBottom: '16px'
         }}>
-          {isAppleScriptSupported && (
+          {osInfo.isMacOS && (
             <>
               <div style={{ 
                 gridColumn: '1 / -1',

@@ -13,7 +13,9 @@
     "build:main": "tsc -p tsconfig.main.json",
     "check-swift": "swift --version || echo 'Install Xcode Command Line Tools: xcode-select --install'",
     "build:native": "cd native && ./build.sh",
+    "build:native:win": "native\\build.bat",
     "prebuild": "npm run check-swift && npm run build:native && npm run validate:binary",
+    "prebuild:win": "npm run build:native:win",
     "validate:binary": "test -f resources/bin/calendar-helper || (echo 'ERROR: Native binary not found after build' && exit 1)",
     "package": "npm run build && electron-builder",
     "test": "jest",
@@ -98,7 +100,8 @@
       "entitlementsInherit": "build/entitlements.mac.plist"
     },
     "win": {
-      "target": "nsis"
+      "target": "nsis",
+      "requestedExecutionLevel": "asInvoker"
     },
     "linux": {
       "target": "AppImage"

@@ -53,6 +53,7 @@ const electronAPI: ElectronAPI = {
   },
   clearCalendarEvents: () => ipcRenderer.invoke('calendar:clearEvents'),
   isAppleScriptSupported: () => ipcRenderer.invoke('calendar:isAppleScriptSupported'),
+  getPlatformInfo: () => ipcRenderer.invoke('platform:getPlatformInfo'),
   selectICSFile: () => ipcRenderer.invoke('calendar:selectICSFile'),
   discoverCalendars: () => ipcRenderer.invoke('calendar:discoverCalendars'),
   getSelectedCalendars: () => ipcRenderer.invoke('calendar:getSelectedCalendars'),

@@ -10,6 +10,7 @@ import { SettingsManager } from './settings-manager'
 import { SwiftCalendarManager } from './swift-calendar-manager'
 import { GoogleCalendarManager } from './google-calendar-manager'
 import { GoogleOAuthManager } from './google-oauth-manager'
+import { PlatformDetector } from './platform-detector'
 
 const execAsync = promisify(exec)
 
@@ -28,7 +29,7 @@ export class CalendarManager {
   private swiftCalendarManager: SwiftCalendarManager
   private googleOAuthManager: GoogleOAuthManager
   private googleCalendarManager: GoogleCalendarManager
-  private readonly isAppleScriptAvailable = process.platform === 'darwin'
+  private platformDetector: PlatformDetector
   private appleScriptPromise: Promise<CalendarImportResult> | null = null
   private isExtracting = false
   private lastExtraction: Date | null = null
@@ -41,6 +42,7 @@ export class CalendarManager {
     this.swiftCalendarManager = new SwiftCalendarManager()
     this.googleOAuthManager = new GoogleOAuthManager()
     this.googleCalendarManager = new GoogleCalendarManager(this.googleOAuthManager)
+    this.platformDetector = new PlatformDetector()
     if (process.env.NODE_ENV !== 'test') {
       process.on('exit', () => this.dispose())
       // Ensure cleanup on process termination
@@ -121,7 +123,7 @@ export class CalendarManager {
     }
 
     // AppleScript fallback
-    if (!this.isAppleScriptAvailable) {
+    if (!this.platformDetector.isMacOS()) {
       throw new CalendarError('AppleScript not available on this platform', 'PLATFORM_UNSUPPORTED')
     }
 
@@ -465,7 +467,7 @@ end tell`
   }
 
   private async checkAppleScriptPermissions(): Promise<boolean> {
-    if (process.platform !== 'darwin') return false
+    if (!this.platformDetector.isMacOS()) return false
     
     try {
       const { stdout } = await execAsync('osascript -e \'tell application "Calendar" to return "test"\'')
@@ -620,11 +622,11 @@ end tell`
   }
 
   isAppleScriptSupported(): boolean {
-    return this.isAppleScriptAvailable
+    return this.platformDetector.isMacOS()
   }
 
   async discoverCalendars(): Promise<CalendarDiscoveryResult> {
-    if (!this.isAppleScriptAvailable) {
+    if (!this.platformDetector.isMacOS()) {
       throw new CalendarError('AppleScript not supported on this platform', 'PLATFORM_UNSUPPORTED')
     }
 
@@ -930,7 +932,7 @@ end tell`
       const isGoogleConnected = await this.settingsManager.getGoogleCalendarConnected()
       
       // Check if Apple Calendar is available (macOS only)
-      const isAppleAvailable = this.isAppleScriptAvailable
+      const isAppleAvailable = this.platformDetector.isMacOS()
       
       return isGoogleConnected || isAppleAvailable
     } catch (error) {
@@ -961,7 +963,7 @@ end tell`
       }
 
       // Sync Apple Calendar if available (macOS only)
-      if (this.isAppleScriptAvailable) {
+      if (this.platformDetector.isMacOS()) {
         try {
           // Try Swift backend first, but fall back to AppleScript if it fails
           let appleEvents: CalendarEvent[] = []

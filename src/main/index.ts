@@ -8,6 +8,7 @@ import { SettingsManager } from './services/settings-manager'
 import { MeetingDetector } from './services/meeting-detector'
 import { OpenAIService } from './services/openai-service'
 import { ContextRetrievalService } from './services/context-retrieval-service'
+import { PlatformDetector } from './services/platform-detector'
 import { CalendarSelectionSettings } from '../shared/types/calendar-selection'
 import { BriefGenerationRequest, BriefGenerationStatus } from '../shared/types/brief'
 import { contextRetrievalResultToIPC } from '../shared/types/context'
@@ -19,6 +20,7 @@ import * as dotenv from 'dotenv'
 dotenv.config()
 
 const isDevelopment = process.env.NODE_ENV === 'development'
+const platformDetector = new PlatformDetector()
 const vaultManager = new VaultManager()
 const calendarManager = new CalendarManager()
 const calendarSyncScheduler = new CalendarSyncScheduler(calendarManager)
@@ -145,7 +147,7 @@ app.whenReady().then(async () => {
 
 // Quit when all windows are closed, except on macOS
 app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') {
+  if (!platformDetector.isMacOS()) {
     app.quit()
   }
 })
@@ -160,6 +162,11 @@ app.on('web-contents-created', (_, contents) => {
 // Basic IPC handler for testing
 ipcMain.handle('app:getVersion', () => {
   return app.getVersion()
+})
+
+// Platform detection IPC handler
+ipcMain.handle('platform:getPlatformInfo', () => {
+  return platformDetector.getPlatformInfo()
 })
 
 // Context and vault status IPC handlers (needed early for app initialization)

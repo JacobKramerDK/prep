@@ -6,9 +6,12 @@ import type { TodaysMeetingsResult } from './meeting'
 import type { BriefGenerationRequest, BriefGenerationResult, BriefGenerationStatus } from './brief'
 import type { ContextRetrievalResultIPC, ContextRetrievalRequest } from './context'
 import type { RelevanceWeights } from './relevance-weights'
+import type { PlatformInfo } from './platform'
 
 export interface ElectronAPI {
   getVersion: () => Promise<string>
+  // Platform detection
+  getPlatformInfo: () => Promise<PlatformInfo>
   // Vault operations
   selectVault: () => Promise<string>
   scanVault: (vaultPath: string) => Promise<VaultIndex>
