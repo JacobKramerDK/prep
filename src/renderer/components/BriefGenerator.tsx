@@ -24,10 +24,6 @@ export const BriefGenerator: React.FC<Props> = ({
 }) => {
   const [formData, setFormData] = useState({
     userContext: '',
-    meetingPurpose: '',
-    keyTopics: '',
-    attendees: '',
-    additionalNotes: '',
     includeContext: true
   })
 
@@ -55,22 +51,9 @@ export const BriefGenerator: React.FC<Props> = ({
 
   const handleRefreshContext = () => {
     if (meeting.id && isIndexed) {
-      const additionalContext = {
-        meetingPurpose: formData.meetingPurpose || undefined,
-        keyTopics: formData.keyTopics ? formData.keyTopics.split(',').map(t => t.trim()).filter(t => t) : undefined,
-        additionalNotes: formData.additionalNotes || undefined
-      }
+      const additionalContext = {}
       
-      // Use enhanced search if user has provided additional context
-      const hasAdditionalContext = additionalContext.meetingPurpose || 
-                                   (additionalContext.keyTopics && additionalContext.keyTopics.length > 0) || 
-                                   additionalContext.additionalNotes
-      
-      if (hasAdditionalContext) {
-        findRelevantContextEnhanced(meeting.id, additionalContext)
-      } else {
-        findRelevantContext(meeting.id)
-      }
+      findRelevantContext(meeting.id)
     }
   }
 
@@ -79,23 +62,29 @@ export const BriefGenerator: React.FC<Props> = ({
     
     const request: BriefGenerationRequest = {
       meetingId: meeting.id,
-      userContext: formData.userContext || 'Generate a comprehensive meeting brief',
-      meetingPurpose: formData.meetingPurpose,
-      keyTopics: formData.keyTopics ? formData.keyTopics.split(',').map(t => t.trim()).filter(t => t) : undefined,
-      attendees: formData.attendees ? formData.attendees.split(',').map(a => a.trim()).filter(a => a) : undefined,
-      additionalNotes: formData.additionalNotes,
-      includeContext: formData.includeContext
+      userContext: formData.userContext.trim() || '',
+      meetingPurpose: undefined,
+      keyTopics: undefined,
+      attendees: undefined,
+      additionalNotes: undefined,
+      includeContext: formData.includeContext,
+      contextMatches: formData.includeContext ? matches : undefined
     }
 
-    await onGenerate(request)
+    console.log('Submitting brief generation request:', request)
+    console.log('Meeting data:', meeting)
+    console.log('Form data:', formData)
+    
+    try {
+      await onGenerate(request)
+      console.log('Brief generation completed successfully')
+    } catch (error) {
+      console.error('Brief generation failed:', error)
+    }
   }
 
-  const handleInputChange = (field: keyof typeof formData, value: string) => {
-    if (field === 'includeContext') {
-      setFormData(prev => ({ ...prev, [field]: value === 'true' }))
-    } else {
-      setFormData(prev => ({ ...prev, [field]: value }))
-    }
+  const handleInputChange = (field: keyof typeof formData, value: string | boolean) => {
+    setFormData(prev => ({ ...prev, [field]: value }))
   }
 
   if (inline) {
@@ -110,9 +99,36 @@ export const BriefGenerator: React.FC<Props> = ({
 
         {error && (
           <div className="p-3 bg-danger-light/30 border border-danger/30 dark:bg-danger-dark/10 dark:border-danger-dark/30 rounded-lg mb-4">
-            <p className="text-sm text-danger-dark dark:text-danger-400 m-0">
-              {error}
-            </p>
+            <div className="flex items-start gap-2">
+              <div className="flex-shrink-0 mt-0.5">
+                <svg className="w-4 h-4 text-danger-dark dark:text-danger-400" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                </svg>
+              </div>
+              <div className="flex-1">
+                <p className="text-sm text-danger-dark dark:text-danger-400 m-0 font-medium">
+                  Brief Generation Failed
+                </p>
+                <p className="text-sm text-danger-dark dark:text-danger-400 m-0 mt-1">
+                  {error}
+                </p>
+                {error.includes('API key') && (
+                  <p className="text-xs text-danger-dark/80 dark:text-danger-400/80 m-0 mt-2">
+                    💡 Go to Settings → OpenAI to update your API key
+                  </p>
+                )}
+                {error.includes('quota') && (
+                  <p className="text-xs text-danger-dark/80 dark:text-danger-400/80 m-0 mt-2">
+                    💡 Check your OpenAI billing at platform.openai.com
+                  </p>
+                )}
+                {error.includes('model') && (
+                  <p className="text-xs text-danger-dark/80 dark:text-danger-400/80 m-0 mt-2">
+                    💡 Try selecting a different model in Settings
+                  </p>
+                )}
+              </div>
+            </div>
           </div>
         )}
 
@@ -120,46 +136,16 @@ export const BriefGenerator: React.FC<Props> = ({
           <div className="grid gap-3">
             <div>
               <label className="block text-sm font-medium text-primary mb-1">
-                Meeting Context <span className="text-tertiary font-normal">(Optional)</span>
+                Context <span className="text-tertiary font-normal">(Optional)</span>
               </label>
               <textarea
                 value={formData.userContext}
                 onChange={(e) => handleInputChange('userContext', e.target.value)}
-                placeholder="What's this meeting about? Your role? Key objectives?"
+                placeholder="Provide any relevant context for your meeting: purpose, key topics, attendees, objectives, or any other details that would help generate a comprehensive brief."
                 className="w-full p-2 border border-border rounded-lg text-sm bg-background text-primary placeholder-tertiary resize-vertical min-h-[80px] disabled:opacity-60"
                 disabled={isGenerating}
-                rows={3}
+                rows={4}
               />
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="block text-sm font-medium text-primary mb-1">
-                  Purpose <span className="text-tertiary font-normal">(Optional)</span>
-                </label>
-                <input
-                  type="text"
-                  value={formData.meetingPurpose}
-                  onChange={(e) => handleInputChange('meetingPurpose', e.target.value)}
-                  placeholder="e.g., Planning, Review, Decision"
-                  className="w-full p-2 border border-border rounded-lg text-sm bg-background text-primary placeholder-tertiary disabled:opacity-60"
-                  disabled={isGenerating}
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-primary mb-1">
-                  Key Topics <span className="text-tertiary font-normal">(Optional)</span>
-                </label>
-                <input
-                  type="text"
-                  value={formData.keyTopics}
-                  onChange={(e) => handleInputChange('keyTopics', e.target.value)}
-                  placeholder="e.g., Budget, Timeline, Resources"
-                  className="w-full p-2 border border-border rounded-lg text-sm bg-background text-primary placeholder-tertiary disabled:opacity-60"
-                  disabled={isGenerating}
-                />
-              </div>
             </div>
 
             {/* Context Integration Section */}
@@ -169,7 +155,7 @@ export const BriefGenerator: React.FC<Props> = ({
                   <input
                     type="checkbox"
                     checked={formData.includeContext}
-                    onChange={(e) => handleInputChange('includeContext', e.target.checked.toString())}
+                    onChange={(e) => handleInputChange('includeContext', e.target.checked)}
                     disabled={isGenerating}
                     className="w-4 h-4 cursor-pointer"
                   />
@@ -325,13 +311,60 @@ export const BriefGenerator: React.FC<Props> = ({
               borderRadius: '6px',
               marginBottom: '16px'
             }}>
-              <p style={{
-                margin: 0,
-                fontSize: '14px',
-                color: '#dc2626'
-              }}>
-                {error}
-              </p>
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px' }}>
+                <div style={{ flexShrink: 0, marginTop: '2px' }}>
+                  <svg style={{ width: '16px', height: '16px', color: '#dc2626' }} fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                  </svg>
+                </div>
+                <div style={{ flex: 1 }}>
+                  <p style={{
+                    margin: '0 0 4px 0',
+                    fontSize: '14px',
+                    fontWeight: '500',
+                    color: '#dc2626'
+                  }}>
+                    Brief Generation Failed
+                  </p>
+                  <p style={{
+                    margin: 0,
+                    fontSize: '14px',
+                    color: '#dc2626'
+                  }}>
+                    {error}
+                  </p>
+                  {error.includes('API key') && (
+                    <p style={{
+                      margin: '8px 0 0 0',
+                      fontSize: '12px',
+                      color: '#dc2626',
+                      opacity: 0.8
+                    }}>
+                      💡 Go to Settings → OpenAI to update your API key
+                    </p>
+                  )}
+                  {error.includes('quota') && (
+                    <p style={{
+                      margin: '8px 0 0 0',
+                      fontSize: '12px',
+                      color: '#dc2626',
+                      opacity: 0.8
+                    }}>
+                      💡 Check your OpenAI billing at platform.openai.com
+                    </p>
+                  )}
+                  {error.includes('model') && (
+                    <p style={{
+                      margin: '8px 0 0 0',
+                      fontSize: '12px',
+                      color: '#dc2626',
+                      opacity: 0.8
+                    }}>
+                      💡 Try selecting a different model in Settings
+                    </p>
+                  )}
+                </div>
+              </div>
             </div>
           )}
 

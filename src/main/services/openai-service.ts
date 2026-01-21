@@ -27,18 +27,26 @@ export class OpenAIService {
   }
 
   isConfigured(): boolean {
-    return this.client !== null && this.apiKey !== null
+    return this.client !== null && this.apiKey !== null && this.apiKey.trim() !== ''
   }
 
   private getModelCapabilities(model: string): { usesCompletionTokens: boolean } {
     // Models that use max_completion_tokens instead of max_tokens
     const completionTokenModels = [
-      'o1-preview', 'o1-mini', 'gpt-5', 'gpt-5-mini'
+      'o1-preview', 'o1-mini', 'gpt-5', 'gpt-5-mini', 'gpt-5-turbo'
     ]
     
     const usesCompletionTokens = completionTokenModels.some(m => 
-      model === m || model.startsWith(m + '-')
+      model === m || model.startsWith(m + '-') || model.startsWith(m + '_') || model.startsWith(m + '.')
     )
+    
+    Debug.log('Model capabilities check:', {
+      model,
+      usesCompletionTokens,
+      matchedModels: completionTokenModels.filter(m => 
+        model === m || model.startsWith(m + '-') || model.startsWith(m + '_') || model.startsWith(m + '.')
+      )
+    })
     
     return { usesCompletionTokens }
   }
@@ -66,17 +74,20 @@ export class OpenAIService {
 
   async generateMeetingBrief(request: BriefGenerationRequest, meeting: Meeting, model: string = 'gpt-4o-mini'): Promise<MeetingBrief> {
     if (!this.isConfigured()) {
-      throw new Error('OpenAI API key not configured')
+      throw new Error('OpenAI API key not configured. Please set your API key in settings.')
     }
 
     // Use cached validation
     try {
       const isValid = await this.isApiKeyValidCached()
       if (!isValid) {
-        throw new Error('Invalid OpenAI API key. Please check your API key in settings.')
+        throw new Error('Invalid OpenAI API key. Please verify your API key is correct and has sufficient credits.')
       }
     } catch (validationError) {
-      throw new Error('Failed to validate OpenAI API key. Please check your internet connection and API key.')
+      if (validationError instanceof Error && validationError.message.includes('Invalid OpenAI API key')) {
+        throw validationError
+      }
+      throw new Error('Failed to validate OpenAI API key. Please check your internet connection and try again.')
     }
 
     const prompt = this.buildPrompt(request, meeting)
@@ -121,7 +132,8 @@ export class OpenAIService {
         model: requestParams.model,
         messageCount: requestParams.messages.length,
         maxTokens: requestParams.max_tokens || requestParams.max_completion_tokens,
-        temperature: requestParams.temperature
+        temperature: requestParams.temperature,
+        usesCompletionTokens: modelCapabilities.usesCompletionTokens
       })
 
       const response = await this.client!.chat.completions.create(requestParams)
@@ -154,23 +166,16 @@ export class OpenAIService {
         stack: error instanceof Error ? error.stack : undefined,
         model: model,
         apiKeyConfigured: !!this.apiKey,
-        clientConfigured: !!this.client
+        clientConfigured: !!this.client,
+        errorType: error instanceof Error ? error.constructor.name : typeof error
       })
       
-      // Provide more specific error messages
+      // Provide more specific error messages based on error type and content
       if (error instanceof Error) {
-        if (error.message.includes('401')) {
-          throw new Error('Invalid OpenAI API key. Please check your API key in settings.')
-        } else if (error.message.includes('429')) {
-          throw new Error('OpenAI API rate limit exceeded. Please try again later.')
-        } else if (error.message.includes('insufficient_quota')) {
-          throw new Error('OpenAI API quota exceeded. Please check your billing.')
-        } else if (error.message.includes('model_not_found')) {
-          throw new Error(`Model "${model}" not found. Please select a different model.`)
-        }
+        throw new Error(this.classifyOpenAIError(error, model))
       }
       
-      throw new Error(`Failed to generate meeting brief: ${error instanceof Error ? error.message : 'Unknown error'}`)
+      throw new Error('Unknown error occurred while generating meeting brief. Please try again.')
     }
   }
 
@@ -355,6 +360,29 @@ export class OpenAIService {
       // Return default models if API call fails
       return ['gpt-4o', 'gpt-4o-mini', 'gpt-4-turbo', 'gpt-4', 'gpt-3.5-turbo']
     }
+  }
+
+  private classifyOpenAIError(error: Error, model: string): string {
+    const errorMessage = error.message.toLowerCase()
+    
+    if (errorMessage.includes('401') || errorMessage.includes('unauthorized')) {
+      return 'Invalid OpenAI API key. Please verify your API key is correct and active.'
+    } else if (errorMessage.includes('429') || errorMessage.includes('rate limit')) {
+      return 'OpenAI API rate limit exceeded. Please wait a moment and try again.'
+    } else if (errorMessage.includes('insufficient_quota') || errorMessage.includes('quota')) {
+      return 'OpenAI API quota exceeded. Please check your billing and usage limits.'
+    } else if (errorMessage.includes('model_not_found') || (errorMessage.includes('model') && errorMessage.includes('not found'))) {
+      return `Model "${model}" is not available. Please select a different model in settings.`
+    } else if (errorMessage.includes('max_tokens') || errorMessage.includes('max_completion_tokens')) {
+      return `Token limit error for model "${model}". This model may have different token requirements.`
+    } else if (errorMessage.includes('network') || errorMessage.includes('timeout') || errorMessage.includes('enotfound')) {
+      return 'Network error connecting to OpenAI. Please check your internet connection and try again.'
+    } else if (errorMessage.includes('api key')) {
+      return 'API key error. Please verify your OpenAI API key is valid and has sufficient credits.'
+    }
+    
+    // For other errors, provide the original message with context
+    return `OpenAI API error: ${error.message}`
   }
 
   private cleanMeetingData(meeting: Meeting): Meeting {

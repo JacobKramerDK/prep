@@ -40,8 +40,9 @@ describe('OpenAI Service Fixes', () => {
   })
 
   describe('API Key Validation with Fallback Models', () => {
-    it('should try multiple models for validation', async () => {
-      // First model fails, second succeeds
+    it('should try models.list first, then fallback models for validation', async () => {
+      // models.list fails, then fallback models are tried
+      mockClient.models.list.mockRejectedValueOnce(new Error('Models list not available'))
       mockClient.chat.completions.create
         .mockRejectedValueOnce(new Error('Model not available'))
         .mockResolvedValueOnce({ choices: [{ message: { content: 'test' } }] })
@@ -49,15 +50,18 @@ describe('OpenAI Service Fixes', () => {
       const result = await service.validateApiKey('sk-test-key')
       
       expect(result).toBe(true)
+      expect(mockClient.models.list).toHaveBeenCalledTimes(1)
       expect(mockClient.chat.completions.create).toHaveBeenCalledTimes(2)
     })
 
-    it('should return false if all models fail', async () => {
+    it('should return false if all validation methods fail', async () => {
+      mockClient.models.list.mockRejectedValue(new Error('Invalid key'))
       mockClient.chat.completions.create.mockRejectedValue(new Error('Invalid key'))
 
       const result = await service.validateApiKey('sk-invalid-key')
       
       expect(result).toBe(false)
+      expect(mockClient.models.list).toHaveBeenCalledTimes(1)
       expect(mockClient.chat.completions.create).toHaveBeenCalledTimes(3) // All 3 fallback models
     })
   })
@@ -88,7 +92,7 @@ describe('OpenAI Service Fixes', () => {
       await service.generateMeetingBrief(request, meeting, 'o1-preview')
 
       const callArgs = mockClient.chat.completions.create.mock.calls[0][0]
-      expect(callArgs.max_completion_tokens).toBe(2000)
+      expect(callArgs.max_completion_tokens).toBe(32000) // Updated to match our improved implementation
       expect(callArgs.max_tokens).toBeUndefined()
       expect(callArgs.temperature).toBeUndefined()
     })

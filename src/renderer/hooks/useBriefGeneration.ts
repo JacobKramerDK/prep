@@ -25,6 +25,8 @@ export const useBriefGeneration = (): UseBriefGenerationReturn => {
   })
 
   const generateBrief = useCallback(async (request: BriefGenerationRequest): Promise<MeetingBrief | null> => {
+    console.log('useBriefGeneration: Starting brief generation with request:', request)
+    
     setState(prev => ({
       ...prev,
       isGenerating: true,
@@ -32,7 +34,9 @@ export const useBriefGeneration = (): UseBriefGenerationReturn => {
     }))
 
     try {
+      console.log('useBriefGeneration: Calling electronAPI.generateMeetingBrief')
       const result: BriefGenerationResult = await window.electronAPI.generateMeetingBrief(request)
+      console.log('useBriefGeneration: Received result:', result)
       
       if (result.success && result.brief) {
         setState(prev => {
@@ -53,8 +57,10 @@ export const useBriefGeneration = (): UseBriefGenerationReturn => {
             generatedBriefs: newBriefs
           }
         })
+        console.log('useBriefGeneration: Brief generated successfully')
         return result.brief
       } else {
+        console.error('useBriefGeneration: Brief generation failed:', result.error)
         setState(prev => ({
           ...prev,
           isGenerating: false,
@@ -64,6 +70,7 @@ export const useBriefGeneration = (): UseBriefGenerationReturn => {
       }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred'
+      console.error('useBriefGeneration: Exception during brief generation:', error)
       setState(prev => ({
         ...prev,
         isGenerating: false,

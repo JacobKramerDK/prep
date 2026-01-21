@@ -33,10 +33,17 @@ const connectServices = () => {
   contextRetrievalService.setVaultIndexer(vaultIndexer)
 }
 
-// Initialize OpenAI service with stored API key
+// Initialize OpenAI service with stored API key or environment variable
 const initializeOpenAIService = async (): Promise<void> => {
   try {
-    const apiKey = await settingsManager.getOpenAIApiKey()
+    let apiKey = await settingsManager.getOpenAIApiKey()
+    
+    // Fallback to environment variable if no stored key
+    if (!apiKey && process.env.OPENAI_API_KEY) {
+      apiKey = process.env.OPENAI_API_KEY
+      console.log('Using OpenAI API key from environment variable')
+    }
+    
     if (apiKey) {
       openaiService = new OpenAIService(apiKey)
     }
@@ -350,7 +357,7 @@ ipcMain.handle('brief:generate', async (_, request: BriefGenerationRequest) => {
     if (!openaiService || !openaiService.isConfigured()) {
       return {
         success: false,
-        error: 'OpenAI API key not configured. Please set your API key in settings.'
+        error: 'OpenAI API key not configured. Please set your API key in settings to generate meeting briefs.'
       }
     }
 
@@ -361,7 +368,7 @@ ipcMain.handle('brief:generate', async (_, request: BriefGenerationRequest) => {
     if (!meeting) {
       return {
         success: false,
-        error: 'Meeting not found'
+        error: 'Meeting not found. Please refresh the meeting list and try again.'
       }
     }
 
@@ -386,6 +393,8 @@ ipcMain.handle('brief:generate', async (_, request: BriefGenerationRequest) => {
 
     // Get the selected model
     const selectedModel = await settingsManager.getOpenAIModel()
+    console.log('Generating brief with model:', selectedModel)
+    
     const brief = await openaiService.generateMeetingBrief(enhancedRequest, meeting, selectedModel)
     
     return {
@@ -394,9 +403,28 @@ ipcMain.handle('brief:generate', async (_, request: BriefGenerationRequest) => {
     }
   } catch (error) {
     console.error('Brief generation error:', error)
+    
+    // Provide user-friendly error messages
+    let errorMessage = 'Unknown error occurred while generating meeting brief.'
+    
+    if (error instanceof Error) {
+      errorMessage = error.message
+      
+      // Add helpful context for common issues
+      if (errorMessage.includes('API key')) {
+        errorMessage += ' You can update your API key in the settings.'
+      } else if (errorMessage.includes('quota') || errorMessage.includes('billing')) {
+        errorMessage += ' Please check your OpenAI account billing and usage.'
+      } else if (errorMessage.includes('rate limit')) {
+        errorMessage += ' Please wait a moment before trying again.'
+      } else if (errorMessage.includes('model')) {
+        errorMessage += ' You can change the model in settings.'
+      }
+    }
+    
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Unknown error occurred'
+      error: errorMessage
     }
   }
 })
