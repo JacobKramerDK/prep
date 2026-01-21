@@ -23,7 +23,13 @@ module.exports = {
     'text-success-dark',
     'text-success-400',
     'border-success',
-    'border-success-dark'
+    'border-success-dark',
+    'bg-warning-light',
+    'bg-warning-dark',
+    'text-warning-dark',
+    'text-warning-400',
+    'border-warning',
+    'border-warning-dark'
   ],
   darkMode: 'media',
   theme: {
@@ -66,6 +72,11 @@ module.exports = {
           light: '#d1fae5',
           DEFAULT: '#10b981',
           dark: '#059669',
+        },
+        warning: {
+          light: '#fef3c7',
+          DEFAULT: '#f59e0b',
+          dark: '#d97706',
         },
         danger: {
           light: '#fee2e2',

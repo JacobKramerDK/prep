@@ -15,6 +15,7 @@ export function App() {
   const [vaultIndexed, setVaultIndexed] = useState(false)
   const [vaultFileCount, setVaultFileCount] = useState(0)
   const [calendarError, setCalendarError] = useState<string | null>(null)
+  const [calendarConnectionStatus, setCalendarConnectionStatus] = useState<'checking' | 'connected' | 'disconnected'>('checking')
   const [mounted, setMounted] = useState(true)
 
   // Cleanup on unmount
@@ -44,6 +45,22 @@ export function App() {
         setVaultIndexed(false)
         setVaultFileCount(0)
         setVaultPath(null)
+      }
+    }
+  }, [mounted])
+
+  // Check calendar status on app start and when needed
+  const checkCalendarStatus = useCallback(async (): Promise<void> => {
+    try {
+      const isGoogleConnected = await window.electronAPI.isGoogleCalendarConnected()
+      
+      if (mounted) {
+        setCalendarConnectionStatus(isGoogleConnected ? 'connected' : 'disconnected')
+      }
+    } catch (error) {
+      console.error('Failed to check calendar status:', error)
+      if (mounted) {
+        setCalendarConnectionStatus('disconnected')
       }
     }
   }, [mounted])
@@ -114,7 +131,8 @@ export function App() {
     loadExistingEvents()
     performAutoSync()
     checkVaultStatus()
-  }, [checkVaultStatus])
+    checkCalendarStatus()
+  }, [checkVaultStatus, checkCalendarStatus])
 
   // Check if vault is configured and load meetings
   useEffect(() => {
@@ -134,7 +152,7 @@ export function App() {
   }, [vaultPath, hasVault, mounted, loadTodaysMeetings])
 
   return (
-    <div className="min-h-screen max-w-full overflow-x-hidden bg-background text-primary selection:bg-brand-200 selection:text-brand-900 dark:selection:bg-brand-900 dark:selection:text-brand-100">
+    <div className="min-h-screen max-w-full overflow-x-hidden bg-background text-primary selection:bg-brand-200 selection:text-brand-900 dark:selection:bg-brand-900 dark:selection:text-brand-100" data-testid="app">
       {/* Titlebar Drag Region (simulated for Electron) */}
       <div className="h-8 w-full fixed top-0 left-0 z-50 select-none app-region-drag" />
 
@@ -151,6 +169,7 @@ export function App() {
             vaultIndexed={vaultIndexed}
             vaultFileCount={vaultFileCount}
             calendarError={calendarError}
+            calendarConnectionStatus={calendarConnectionStatus}
             onRefreshMeetings={handleRefreshMeetings}
           />
         ) : (

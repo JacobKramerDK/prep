@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { Settings, RefreshCw, Calendar, Sparkles, BookOpen, Clock, CalendarDays, Link } from 'lucide-react'
+import { Settings, RefreshCw, Calendar, Sparkles, BookOpen, Clock, CalendarDays, Link, AlertCircle } from 'lucide-react'
 import { StatusCard } from './StatusCard'
 import { MeetingCard } from './MeetingCard'
 import { BriefGenerator } from './BriefGenerator'
@@ -7,6 +7,69 @@ import { MeetingBriefDisplay } from './MeetingBriefDisplay'
 import { useBriefGeneration } from '../hooks/useBriefGeneration'
 import type { Meeting } from '../../shared/types/meeting'
 import type { BriefGenerationRequest } from '../../shared/types/brief'
+
+// Calendar Status Card Component - moved outside to prevent re-creation on renders
+const CalendarStatusCard = ({ 
+  isConnected, 
+  status 
+}: { 
+  isConnected: boolean
+  status: 'checking' | 'connected' | 'disconnected'
+}) => {
+  if (status === 'checking') {
+    return (
+      <div className="bg-surface border border-border rounded-xl p-4 shadow-sm">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-lg bg-surface-hover border border-border flex items-center justify-center">
+            <Calendar className="w-5 h-5 text-secondary" />
+          </div>
+          <div>
+            <h3 className="text-sm font-semibold text-primary">Calendar</h3>
+            <p className="text-sm text-secondary">Checking connection...</p>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="bg-surface border border-border rounded-xl p-4 shadow-sm hover:shadow-md transition-all duration-200">
+      <div className="flex items-center justify-between gap-4">
+        <div className="flex items-center gap-3 min-w-0 flex-1">
+          <div className="flex-shrink-0">
+            <div className="w-10 h-10 rounded-lg bg-surface-hover border border-border flex items-center justify-center">
+              <Calendar className="w-5 h-5 text-secondary" />
+            </div>
+          </div>
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2 mb-1">
+              <h3 className="text-sm font-semibold text-primary">Calendar</h3>
+              <div className={`flex items-center gap-1.5 px-2 py-0.5 rounded-full ${
+                isConnected 
+                  ? 'bg-success-light/40 dark:bg-success-dark/20 border border-success/30 dark:border-success-dark/30'
+                  : 'bg-warning-light/40 dark:bg-warning-dark/20 border border-warning/30 dark:border-warning-dark/30'
+              }`}>
+                <div className={`w-1.5 h-1.5 rounded-full ${
+                  isConnected ? 'bg-success dark:bg-success-400' : 'bg-warning dark:bg-warning-400'
+                }`} />
+                <span className={`text-xs font-medium ${
+                  isConnected 
+                    ? 'text-success-dark dark:text-success-400'
+                    : 'text-warning-dark dark:text-warning-400'
+                }`}>
+                  {isConnected ? 'Connected' : 'Not Connected'}
+                </span>
+              </div>
+            </div>
+            <p className="text-sm text-secondary">
+              {isConnected ? 'Google Calendar integrated' : 'Connect calendar to sync meetings'}
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
 
 interface HomePageProps {
   onNavigate: (page: 'settings') => void
@@ -18,6 +81,7 @@ interface HomePageProps {
   vaultIndexed: boolean
   vaultFileCount: number
   calendarError: string | null
+  calendarConnectionStatus?: 'checking' | 'connected' | 'disconnected'
   onRefreshMeetings: () => void
 }
 
@@ -31,11 +95,18 @@ export function HomePage({
   vaultIndexed,
   vaultFileCount,
   calendarError,
+  calendarConnectionStatus = 'disconnected',
   onRefreshMeetings
 }: HomePageProps) {
   const [expandedMeetingId, setExpandedMeetingId] = useState<string | null>(null)
   const [viewingBriefForMeeting, setViewingBriefForMeeting] = useState<string | null>(null)
   const [regeneratingMeetingId, setRegeneratingMeetingId] = useState<string | null>(null)
+  
+  // Derive hasGoogleCalendar from calendarConnectionStatus
+  const hasGoogleCalendar = calendarConnectionStatus === 'connected'
+  
+  // Helper to determine if partial connection state should be shown
+  const shouldShowPartialConnectionState = (vaultPath && !hasGoogleCalendar) || (!vaultPath && hasGoogleCalendar)
   
   const {
     isGenerating,
@@ -163,41 +234,69 @@ Location: ${meeting.location || 'No location specified'}`,
 
       {/* Status Section */}
       <div className="space-y-4 mb-12">
-        {todaysMeetings.length > 0 && (
-          <div className="bg-success-light/30 border border-success/30 dark:bg-success-dark/10 dark:border-success-dark/30 rounded-lg p-3 flex items-center gap-3 text-sm font-medium text-success-dark dark:text-success-400">
-            <Calendar className="w-5 h-5" />
-            {todaysMeetings.length} meeting{todaysMeetings.length !== 1 ? 's' : ''} scheduled for today
-          </div>
-        )}
-
-        <StatusCard
-          isConnected={!!vaultPath}
-          path={vaultPath}
-          indexedCount={vaultIndexed ? vaultFileCount : 0}
-          isIndexed={vaultIndexed}
-        />
+        <div className="grid gap-4 md:grid-cols-2">
+          <StatusCard
+            isConnected={!!vaultPath}
+            path={vaultPath}
+            indexedCount={vaultIndexed ? vaultFileCount : 0}
+            isIndexed={vaultIndexed}
+          />
+          
+          <CalendarStatusCard
+            isConnected={hasGoogleCalendar}
+            status={calendarConnectionStatus}
+          />
+        </div>
       </div>
 
-      {/* No Vault Connected State */}
-      {!vaultPath && (
+      {/* Enhanced Empty State - show when no connections */}
+      {!vaultPath && !hasGoogleCalendar && (
         <div className="mb-12 p-8 bg-surface border border-border rounded-xl text-center">
           <div className="flex justify-center items-center gap-3 mb-4">
             <div className="p-3 bg-brand-50 dark:bg-brand-900/20 rounded-lg">
-              <BookOpen className="w-8 h-8 text-brand-600 dark:text-brand-400" />
+              <Link className="w-8 h-8 text-brand-600 dark:text-brand-400" />
             </div>
             <span className="text-xl font-semibold text-primary">
-              No Obsidian Vault Connected
+              Get Started with Prep
             </span>
           </div>
           <p className="text-secondary mb-6 max-w-md mx-auto">
-            Connect your Obsidian vault to generate AI-powered meeting briefs with relevant context from your notes.
+            Connect your Obsidian vault and calendar to generate AI-powered meeting briefs with relevant context from your notes.
           </p>
-          <button
-            onClick={() => onNavigate('settings')}
-            className="px-6 py-3 bg-brand-600 hover:bg-brand-700 text-white font-medium rounded-lg shadow-sm transition-colors"
-          >
-            Open Settings to Connect Vault
-          </button>
+          <div className="flex flex-col sm:flex-row gap-3 justify-center">
+            <button
+              onClick={() => onNavigate('settings')}
+              className="px-6 py-3 bg-brand-600 hover:bg-brand-700 text-white font-medium rounded-lg shadow-sm transition-colors"
+            >
+              Connect Vault & Calendar
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Partial Connection State - show when only one connection exists */}
+      {shouldShowPartialConnectionState && (
+        <div className="mb-12 p-6 bg-surface border border-border rounded-xl">
+          <div className="flex items-start gap-4">
+            <div className="p-2 bg-warning-light/40 dark:bg-warning-dark/20 rounded-lg">
+              <AlertCircle className="w-6 h-6 text-warning-dark dark:text-warning-400" />
+            </div>
+            <div className="flex-1">
+              <h3 className="text-lg font-semibold text-primary mb-2">
+                Complete Your Setup
+              </h3>
+              <p className="text-secondary mb-4">
+                {!vaultPath && hasGoogleCalendar && "Connect your Obsidian vault to generate AI briefs with context from your notes."}
+                {vaultPath && !hasGoogleCalendar && "Connect your calendar to automatically detect and prepare for meetings."}
+              </p>
+              <button
+                onClick={() => onNavigate('settings')}
+                className="px-4 py-2 bg-brand-600 hover:bg-brand-700 text-white text-sm font-medium rounded-lg transition-colors"
+              >
+                Complete Setup
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
