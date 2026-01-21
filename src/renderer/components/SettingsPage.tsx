@@ -18,6 +18,7 @@ import {
 } from 'lucide-react'
 import { PromptTemplateEditor } from './PromptTemplateEditor'
 import { RelevanceWeightSettings } from './RelevanceWeightSettings'
+import { AppleCalendarAuth } from './AppleCalendarAuth'
 import { useOSDetection } from '../hooks/useOSDetection'
 
 interface SettingsPageProps {
@@ -454,6 +455,37 @@ export function SettingsPage({ onBack, vaultFileCount }: SettingsPageProps) {
                   </ul>
                 </div>
               </div>
+
+              {isMacOS && (
+                <div className="border-t border-border pt-6">
+                  <h3 className="text-lg font-medium text-primary mb-4">
+                    Apple Calendar Integration
+                  </h3>
+                  <div className="bg-surface-hover rounded-lg p-6 border border-border">
+                    <p className="text-secondary mb-4">
+                      Connect your Apple Calendar to automatically import events
+                      for meeting preparation with calendar selection.
+                    </p>
+                    
+                    <AppleCalendarAuth />
+
+                    <ul className="space-y-2 text-sm text-secondary mt-6">
+                      <li className="flex items-start gap-2">
+                        <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-tertiary"></span>
+                        Prep will access your Apple Calendar events (read-only)
+                      </li>
+                      <li className="flex items-start gap-2">
+                        <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-tertiary"></span>
+                        Choose which calendars to sync
+                      </li>
+                      <li className="flex items-start gap-2">
+                        <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-tertiary"></span>
+                        Your data stays private and local
+                      </li>
+                    </ul>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         )}

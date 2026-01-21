@@ -159,6 +159,32 @@ const electronAPI: ElectronAPI = {
   isGoogleCalendarConnected: () => ipcRenderer.invoke('calendar:isGoogleConnected'),
   disconnectGoogleCalendar: () => ipcRenderer.invoke('calendar:disconnectGoogle'),
   getGoogleCalendarUserInfo: () => ipcRenderer.invoke('calendar:getGoogleUserInfo'),
+  // Apple Calendar methods
+  getAppleCalendarStatus: async () => {
+    const result = await ipcRenderer.invoke('calendar:getAppleCalendarStatus')
+    // Ensure dates are properly deserialized
+    if (result && result.lastPermissionCheck) {
+      result.lastPermissionCheck = new Date(result.lastPermissionCheck)
+    }
+    return result
+  },
+  getAppleCalendarPermissionState: () => ipcRenderer.invoke('calendar:getAppleCalendarPermissionState'),
+  isAppleCalendarAvailable: () => ipcRenderer.invoke('calendar:isAppleCalendarAvailable'),
+  updateAppleCalendarSelection: (selectedCalendarNames: string[]) => 
+    ipcRenderer.invoke('calendar:updateAppleCalendarSelection', selectedCalendarNames),
+  extractAppleCalendarEvents: async () => {
+    const result = await ipcRenderer.invoke('calendar:extractAppleCalendarEvents')
+    // Ensure dates are properly deserialized
+    if (result && result.events) {
+      result.events = result.events.map((event: any) => ({
+        ...event,
+        startDate: new Date(event.startDate),
+        endDate: new Date(event.endDate)
+      }))
+      result.importedAt = new Date(result.importedAt)
+    }
+    return result
+  },
   // Calendar sync methods
   startAutoSync: () => ipcRenderer.invoke('calendar:startAutoSync'),
   getAutoSyncStatus: async () => {

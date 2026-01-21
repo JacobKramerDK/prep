@@ -6,6 +6,7 @@ import { promisify } from 'util'
 import * as crypto from 'crypto'
 import { CalendarEvent, CalendarImportResult, CalendarError } from '../../shared/types/calendar'
 import { CalendarMetadata, CalendarDiscoveryResult } from '../../shared/types/calendar-selection'
+import { AppleCalendarStatus, AppleCalendarPermissionState } from '../../shared/types/apple-calendar'
 import { SettingsManager } from './settings-manager'
 import { SwiftCalendarManager } from './swift-calendar-manager'
 import { GoogleCalendarManager } from './google-calendar-manager'
@@ -1088,5 +1089,100 @@ end tell`
       const eventStart = new Date(event.startDate)
       return eventStart >= startOfDay && eventStart < endOfDay
     })
+  }
+
+  // Apple Calendar specific methods
+  private static readonly PERMISSION_CACHE_DURATION = 5 * 60 * 1000 // 5 minutes
+  private appleCalendarPermissionCache: {
+    state: AppleCalendarPermissionState
+    timestamp: Date
+  } | null = null
+
+  async getAppleCalendarStatus(): Promise<AppleCalendarStatus> {
+    if (!this.platformDetector.isMacOS()) {
+      return {
+        permissionState: 'denied',
+        selectedCalendarCount: 0,
+        totalCalendarCount: 0
+      }
+    }
+
+    const permissionState = await this.getAppleCalendarPermissionState()
+    const settings = await this.settingsManager.getCalendarSelection()
+    
+    let totalCalendarCount = 0
+    let discoveryError: CalendarError | undefined
+    
+    if (permissionState === 'granted') {
+      try {
+        const discovery = await this.discoverCalendars()
+        totalCalendarCount = discovery.totalCalendars
+      } catch (error) {
+        // Only catch discovery-specific errors, not permission errors
+        if (error instanceof CalendarError && error.code === 'DISCOVERY_FAILED') {
+          discoveryError = error
+        } else {
+          // Re-throw permission-related errors to avoid masking them
+          throw error
+        }
+      }
+    }
+
+    return {
+      permissionState,
+      selectedCalendarCount: settings.selectedCalendarUids.length,
+      totalCalendarCount,
+      lastPermissionCheck: new Date(),
+      error: discoveryError
+    }
+  }
+
+  async getAppleCalendarPermissionState(): Promise<AppleCalendarPermissionState> {
+    if (!this.platformDetector.isMacOS()) {
+      return 'denied'
+    }
+
+    // Check cache first
+    if (this.appleCalendarPermissionCache) {
+      const now = new Date()
+      const cacheAge = now.getTime() - this.appleCalendarPermissionCache.timestamp.getTime()
+      if (cacheAge < CalendarManager.PERMISSION_CACHE_DURATION) {
+        return this.appleCalendarPermissionCache.state
+      }
+    }
+
+    try {
+      await this.checkAppleScriptPermissions()
+      const state: AppleCalendarPermissionState = 'granted'
+      this.appleCalendarPermissionCache = { state, timestamp: new Date() }
+      return state
+    } catch (error) {
+      const state: AppleCalendarPermissionState = 'denied'
+      this.appleCalendarPermissionCache = { state, timestamp: new Date() }
+      return state
+    }
+  }
+
+  isAppleCalendarAvailable(): boolean {
+    return this.platformDetector.isMacOS()
+  }
+
+  async updateAppleCalendarSelection(selectedCalendarNames: string[]): Promise<void> {
+    const settings = await this.settingsManager.getCalendarSelection()
+    await this.settingsManager.updateCalendarSelection({
+      ...settings,
+      selectedCalendarUids: selectedCalendarNames
+    })
+  }
+
+  async extractAppleCalendarEvents(): Promise<CalendarImportResult> {
+    if (!this.platformDetector.isMacOS()) {
+      throw new CalendarError('Apple Calendar is only available on macOS', 'PLATFORM_UNSUPPORTED')
+    }
+
+    const settings = await this.settingsManager.getCalendarSelection()
+    const selectedCalendars = settings.selectedCalendarUids.length > 0 ? settings.selectedCalendarUids : undefined
+    
+    return await this.extractAppleScriptEvents(selectedCalendars)
   }
 }

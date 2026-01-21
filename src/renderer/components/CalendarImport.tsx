@@ -1,8 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react'
 import { CalendarEvent, CalendarImportResult } from '../../shared/types/calendar'
-import { CalendarSelector } from './CalendarSelector'
-import { CalendarSelectionSettings } from '../../shared/types/calendar-selection'
 import { GoogleCalendarAuth } from './GoogleCalendarAuth'
+import { AppleCalendarAuth } from './AppleCalendarAuth'
 import { useOSDetection } from '../hooks/useOSDetection'
 
 interface CalendarImportProps {
@@ -14,9 +13,8 @@ export const CalendarImport: React.FC<CalendarImportProps> = ({ onEventsImported
   const [events, setEvents] = useState<CalendarEvent[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [showCalendarSelector, setShowCalendarSelector] = useState(false)
-  const [selectedCalendars, setSelectedCalendars] = useState<string[]>([])
   const [isGoogleConnected, setIsGoogleConnected] = useState(false)
+  const [isAppleCalendarAvailable, setIsAppleCalendarAvailable] = useState(false)
 
   // Filter events for today's date (same logic as MeetingDetector)
   const filterTodaysEvents = useCallback((allEvents: CalendarEvent[]): CalendarEvent[] => {
@@ -42,20 +40,19 @@ export const CalendarImport: React.FC<CalendarImportProps> = ({ onEventsImported
   useEffect(() => {
     const initialize = async () => {
       try {
-        const [existingEvents, calendarSettings, googleConnected] = await Promise.all([
+        const [existingEvents, googleConnected, appleAvailable] = await Promise.all([
           window.electronAPI.getCalendarEvents(),
-          window.electronAPI.getSelectedCalendars(),
-          window.electronAPI.isGoogleCalendarConnected()
+          window.electronAPI.isGoogleCalendarConnected(),
+          window.electronAPI.isAppleCalendarAvailable()
         ])
         
         setIsGoogleConnected(googleConnected)
+        setIsAppleCalendarAvailable(appleAvailable)
         
         // Filter for today's events only - this fixes the bug where yesterday's events were showing
         const todaysEvents = filterTodaysEvents(existingEvents)
         setEvents(todaysEvents)
         // Don't call handleEventsImported during initialization - only when user actually imports
-        
-        setSelectedCalendars(calendarSettings.selectedCalendarUids)
       } catch (err) {
         console.warn('Failed to initialize calendar:', err)
       }
@@ -63,45 +60,6 @@ export const CalendarImport: React.FC<CalendarImportProps> = ({ onEventsImported
     
     initialize()
   }, [handleEventsImported, filterTodaysEvents])
-
-  const handleAppleScriptExtraction = async () => {
-    if (loading) {
-      setError(null) // Clear any previous errors
-      return // Prevent multiple concurrent calls
-    }
-    
-    setLoading(true)
-    setError(null)
-    
-    try {
-      // Pass selected calendars to extraction
-      const result: CalendarImportResult = await window.electronAPI.extractCalendarEvents(
-        selectedCalendars.length > 0 ? selectedCalendars : undefined
-      )
-      
-      // Filter the extracted events for today only
-      const todaysEvents = filterTodaysEvents(result.events)
-      setEvents(todaysEvents)
-      handleEventsImported(todaysEvents)
-    } catch (err: any) {
-      setError(err?.message || 'Failed to extract calendar events')
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const handleCalendarSelectionChange = async (selectedNames: string[]) => {
-    setSelectedCalendars(selectedNames)
-    
-    try {
-      await window.electronAPI.updateSelectedCalendars({
-        selectedCalendarUids: selectedNames
-      })
-    } catch (err) {
-      setError('Failed to save calendar selection. Please try again.')
-      console.warn('Failed to save calendar selection:', err)
-    }
-  }
 
   const handleICSImport = async () => {
     setLoading(true)
@@ -207,63 +165,10 @@ export const CalendarImport: React.FC<CalendarImportProps> = ({ onEventsImported
         
         <div style={{ 
           display: 'grid',
-          gridTemplateColumns: osInfo.isMacOS ? '1fr 1fr' : '1fr',
+          gridTemplateColumns: '1fr',
           gap: '16px',
           marginBottom: '16px'
         }}>
-          {osInfo.isMacOS && (
-            <>
-              <div style={{ 
-                gridColumn: '1 / -1',
-                marginBottom: '16px'
-              }}>
-                <button
-                  onClick={() => setShowCalendarSelector(!showCalendarSelector)}
-                  style={{
-                    padding: '12px 16px',
-                    fontSize: '14px',
-                    backgroundColor: '#f8fafc',
-                    color: '#374151',
-                    border: '1px solid #e2e8f0',
-                    borderRadius: '8px',
-                    cursor: 'pointer',
-                    width: '100%',
-                    textAlign: 'left'
-                  }}
-                >
-                  ⚙️ Select Calendars ({selectedCalendars.length} selected)
-                  <span style={{ float: 'right' }}>
-                    {showCalendarSelector ? '▲' : '▼'}
-                  </span>
-                </button>
-                
-                {showCalendarSelector && (
-                  <CalendarSelector
-                    selectedNames={selectedCalendars}
-                    onSelectionChange={handleCalendarSelectionChange}
-                  />
-                )}
-              </div>
-              
-              <button
-              onClick={handleAppleScriptExtraction}
-              disabled={loading}
-              style={{
-                padding: '16px',
-                fontSize: '16px',
-                backgroundColor: loading ? '#94a3b8' : '#059669',
-                color: 'white',
-                border: 'none',
-                borderRadius: '8px',
-                cursor: loading ? 'not-allowed' : 'pointer',
-                fontWeight: '500'
-              }}
-            >
-              {loading ? 'Extracting...' : '🍎 Extract from Apple Calendar'}
-            </button>
-            </>
-          )}
-          
           <button
             onClick={handleICSImport}
             disabled={loading}
@@ -322,6 +227,34 @@ export const CalendarImport: React.FC<CalendarImportProps> = ({ onEventsImported
               </button>
             )}
           </div>
+
+          {/* Apple Calendar Section */}
+          {isAppleCalendarAvailable && (
+            <div style={{ 
+              border: '1px solid #e5e7eb', 
+              borderRadius: '8px', 
+              padding: '16px',
+              backgroundColor: '#f9fafb'
+            }}>
+              <h3 style={{ 
+                margin: '0 0 12px 0', 
+                fontSize: '16px', 
+                fontWeight: '600',
+                color: '#374151'
+              }}>
+                Apple Calendar
+              </h3>
+              
+              <AppleCalendarAuth 
+                onError={(error) => setError(error)}
+                onEventsImported={(events) => {
+                  const todaysEvents = filterTodaysEvents(events)
+                  setEvents(todaysEvents)
+                  handleEventsImported(todaysEvents)
+                }}
+              />
+            </div>
+          )}
         </div>
         
         {events.length > 0 && (

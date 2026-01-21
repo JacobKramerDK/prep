@@ -15,7 +15,10 @@ export function App() {
   const [vaultIndexed, setVaultIndexed] = useState(false)
   const [vaultFileCount, setVaultFileCount] = useState(0)
   const [calendarError, setCalendarError] = useState<string | null>(null)
-  const [calendarConnectionStatus, setCalendarConnectionStatus] = useState<'checking' | 'connected' | 'disconnected'>('checking')
+  const [calendarConnectionStatus, setCalendarConnectionStatus] = useState<'checking' | 'connected' | 'partial' | 'disconnected'>('checking')
+  const [googleCalendarConnected, setGoogleCalendarConnected] = useState(false)
+  const [appleCalendarConnected, setAppleCalendarConnected] = useState(false)
+  const [appleCalendarAvailable, setAppleCalendarAvailable] = useState(false)
   const [mounted, setMounted] = useState(true)
 
   // Cleanup on unmount
@@ -52,14 +55,45 @@ export function App() {
   // Check calendar status on app start and when needed
   const checkCalendarStatus = useCallback(async (): Promise<void> => {
     try {
-      const isGoogleConnected = await window.electronAPI.isGoogleCalendarConnected()
+      const [isGoogleConnected, isAppleAvailable] = await Promise.all([
+        window.electronAPI.isGoogleCalendarConnected(),
+        window.electronAPI.isAppleCalendarAvailable()
+      ])
+      
+      let isAppleConnected = false
+      if (isAppleAvailable) {
+        try {
+          const appleStatus = await window.electronAPI.getAppleCalendarStatus()
+          isAppleConnected = appleStatus.permissionState === 'granted' && appleStatus.selectedCalendarCount > 0
+        } catch (error) {
+          console.warn('Failed to check Apple Calendar status:', error)
+          isAppleConnected = false
+        }
+      }
       
       if (mounted) {
-        setCalendarConnectionStatus(isGoogleConnected ? 'connected' : 'disconnected')
+        setGoogleCalendarConnected(isGoogleConnected)
+        setAppleCalendarConnected(isAppleConnected)
+        setAppleCalendarAvailable(isAppleAvailable)
+        
+        // Determine combined status
+        const hasAnyConnection = isGoogleConnected || isAppleConnected
+        const hasBothConnections = isGoogleConnected && (isAppleConnected || !isAppleAvailable)
+        
+        if (hasBothConnections) {
+          setCalendarConnectionStatus('connected')
+        } else if (hasAnyConnection) {
+          setCalendarConnectionStatus('partial')
+        } else {
+          setCalendarConnectionStatus('disconnected')
+        }
       }
     } catch (error) {
       console.error('Failed to check calendar status:', error)
       if (mounted) {
+        setGoogleCalendarConnected(false)
+        setAppleCalendarConnected(false)
+        setAppleCalendarAvailable(false)
         setCalendarConnectionStatus('disconnected')
       }
     }
@@ -87,6 +121,10 @@ export function App() {
   const handleRefreshMeetings = useCallback(() => {
     loadTodaysMeetings()
   }, [loadTodaysMeetings])
+
+  const refreshCalendarStatus = useCallback(() => {
+    checkCalendarStatus()
+  }, [checkCalendarStatus])
 
   useEffect(() => {
     const getVersion = async (): Promise<void> => {
@@ -170,13 +208,19 @@ export function App() {
             vaultFileCount={vaultFileCount}
             calendarError={calendarError}
             calendarConnectionStatus={calendarConnectionStatus}
+            googleCalendarConnected={googleCalendarConnected}
+            appleCalendarConnected={appleCalendarConnected}
+            appleCalendarAvailable={appleCalendarAvailable}
             onRefreshMeetings={handleRefreshMeetings}
           />
         ) : (
           <SettingsPage 
             onBack={() => {
               setCurrentPage('home')
-              setTimeout(() => checkVaultStatus(), 100)
+              setTimeout(() => {
+                checkVaultStatus()
+                refreshCalendarStatus()
+              }, 100)
             }}
             vaultFileCount={vaultFileCount}
           />

@@ -13,6 +13,7 @@ import { CalendarSelectionSettings } from '../shared/types/calendar-selection'
 import { BriefGenerationRequest, BriefGenerationStatus } from '../shared/types/brief'
 import { contextRetrievalResultToIPC } from '../shared/types/context'
 import { calendarSyncStatusToIPC, calendarSyncResultToIPC } from '../shared/types/calendar-sync'
+import { appleCalendarStatusToIPC } from '../shared/types/apple-calendar'
 import { RelevanceWeights } from '../shared/types/relevance-weights'
 
 // Load environment variables
@@ -288,6 +289,28 @@ ipcMain.handle('calendar:getSelectedCalendars', async () => {
 
 ipcMain.handle('calendar:updateSelectedCalendars', async (_, settings: Partial<CalendarSelectionSettings>) => {
   return await settingsManager.updateCalendarSelection(settings)
+})
+
+// Apple Calendar IPC handlers
+ipcMain.handle('calendar:getAppleCalendarStatus', async () => {
+  const status = await calendarManager.getAppleCalendarStatus()
+  return appleCalendarStatusToIPC(status)
+})
+
+ipcMain.handle('calendar:getAppleCalendarPermissionState', async () => {
+  return await calendarManager.getAppleCalendarPermissionState()
+})
+
+ipcMain.handle('calendar:isAppleCalendarAvailable', async () => {
+  return calendarManager.isAppleCalendarAvailable()
+})
+
+ipcMain.handle('calendar:updateAppleCalendarSelection', async (_, selectedCalendarNames: string[]) => {
+  return await calendarManager.updateAppleCalendarSelection(selectedCalendarNames)
+})
+
+ipcMain.handle('calendar:extractAppleCalendarEvents', async () => {
+  return await calendarManager.extractAppleCalendarEvents()
 })
 
 // Calendar sync scheduler IPC handlers

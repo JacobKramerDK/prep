@@ -70,54 +70,22 @@ export const CalendarSelector: React.FC<CalendarSelectorProps> = ({
   }
 
   return (
-    <div style={{
-      backgroundColor: 'white',
-      padding: '20px',
-      borderRadius: '8px',
-      border: '1px solid #e2e8f0',
-      marginTop: '16px'
-    }}>
-      <div style={{ 
-        display: 'flex', 
-        justifyContent: 'space-between', 
-        alignItems: 'center',
-        marginBottom: '16px'
-      }}>
-        <h3 style={{ 
-          fontSize: '18px',
-          fontWeight: '600',
-          color: '#334155',
-          margin: 0
-        }}>
+    <div className="bg-surface border border-border rounded-lg mt-4 p-5 shadow-sm">
+      <div className="flex justify-between items-center mb-4">
+        <h3 className="text-lg font-semibold text-primary m-0">
           Select Calendars ({selectedNames.length} selected)
         </h3>
         
-        <div style={{ display: 'flex', gap: '8px' }}>
+        <div className="flex gap-2">
           <button
             onClick={handleSelectAll}
-            style={{
-              padding: '6px 12px',
-              fontSize: '14px',
-              backgroundColor: '#059669',
-              color: 'white',
-              border: 'none',
-              borderRadius: '6px',
-              cursor: 'pointer'
-            }}
+            className="px-3 py-1.5 text-sm font-medium text-brand-600 bg-brand-50 border border-brand-200 rounded-md hover:bg-brand-100 transition-colors focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2"
           >
             Select All
           </button>
           <button
             onClick={handleSelectNone}
-            style={{
-              padding: '6px 12px',
-              fontSize: '14px',
-              backgroundColor: '#6b7280',
-              color: 'white',
-              border: 'none',
-              borderRadius: '6px',
-              cursor: 'pointer'
-            }}
+            className="px-3 py-1.5 text-sm font-medium text-secondary bg-surface-hover border border-border rounded-md hover:bg-surface transition-colors focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2"
           >
             Select None
           </button>
@@ -129,78 +97,54 @@ export const CalendarSelector: React.FC<CalendarSelectorProps> = ({
         placeholder="Search calendars..."
         value={searchTerm}
         onChange={(e) => setSearchTerm(e.target.value)}
-        style={{
-          width: '100%',
-          padding: '8px 12px',
-          fontSize: '14px',
-          border: '1px solid #d1d5db',
-          borderRadius: '6px',
-          marginBottom: '16px'
-        }}
+        className="w-full px-3 py-2 text-sm bg-surface border border-border rounded-md mb-4 placeholder-tertiary focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500"
       />
 
       {loading && (
-        <div style={{ textAlign: 'center', padding: '20px', color: '#6b7280' }}>
+        <div className="text-center py-5 text-secondary">
           Loading calendars...
         </div>
       )}
 
       {error && (
-        <div style={{
-          padding: '12px',
-          backgroundColor: '#fef2f2',
-          border: '1px solid #fecaca',
-          borderRadius: '6px',
-          color: '#dc2626',
-          marginBottom: '16px'
-        }}>
+        <div className="p-3 bg-danger-light/30 border border-danger/30 rounded-md text-danger-dark mb-4">
           <strong>Error:</strong> {error}
         </div>
       )}
 
       {!loading && !error && (
-        <div style={{ 
-          maxHeight: '300px', 
-          overflowY: 'auto',
-          display: 'grid',
-          gap: '8px'
-        }}>
-          {filteredCalendars.map((calendar) => (
-            <label
-              key={calendar.name}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                padding: '12px',
-                backgroundColor: selectedNames.includes(calendar.name) ? '#f0fdf4' : '#f9fafb',
-                border: `1px solid ${selectedNames.includes(calendar.name) ? '#bbf7d0' : '#e5e7eb'}`,
-                borderRadius: '6px',
-                cursor: 'pointer'
-              }}
-            >
-              <input
-                type="checkbox"
-                checked={selectedNames.includes(calendar.name)}
-                onChange={() => handleCalendarToggle(calendar.name)}
-                style={{ marginRight: '12px' }}
-              />
-              <div style={{ flex: 1 }}>
-                <div style={{ 
-                  fontWeight: '500',
-                  color: '#374151',
-                  marginBottom: '4px'
-                }}>
-                  {calendar.name}
+        <div className="max-h-80 overflow-y-auto space-y-2">
+          {filteredCalendars.length === 0 ? (
+            <div className="text-center py-5 text-secondary">
+              {searchTerm ? 'No calendars match your search.' : 'No calendars found.'}
+            </div>
+          ) : (
+            filteredCalendars.map((calendar) => (
+              <label
+                key={calendar.name}
+                className={`flex items-center p-3 rounded-md cursor-pointer transition-colors ${
+                  selectedNames.includes(calendar.name) 
+                    ? 'bg-success-light/30 border border-success/30' 
+                    : 'bg-surface-hover border border-border hover:bg-surface'
+                }`}
+              >
+                <input
+                  type="checkbox"
+                  checked={selectedNames.includes(calendar.name)}
+                  onChange={() => handleCalendarToggle(calendar.name)}
+                  className="mr-3 h-4 w-4 text-brand-600 focus:ring-brand-500 border-border rounded"
+                />
+                <div className="flex-1">
+                  <div className="font-medium text-primary mb-1">
+                    {calendar.name}
+                  </div>
+                  <div className="text-xs text-secondary">
+                    {calendar.type} • {calendar.isVisible ? 'Visible' : 'Hidden'}
+                  </div>
                 </div>
-                <div style={{ 
-                  fontSize: '12px',
-                  color: '#6b7280'
-                }}>
-                  {calendar.type} • {calendar.isVisible ? 'Visible' : 'Hidden'}
-                </div>
-              </div>
-            </label>
-          ))}
+              </label>
+            ))
+          )}
         </div>
       )}
     </div>

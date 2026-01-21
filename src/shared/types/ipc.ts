@@ -2,6 +2,7 @@ import type { VaultIndex, SearchResult } from './vault'
 import type { CalendarEvent, CalendarImportResult } from './calendar'
 import type { CalendarDiscoveryResult, CalendarSelectionSettings } from './calendar-selection'
 import type { CalendarSyncStatusIPC, CalendarSyncResultIPC } from './calendar-sync'
+import type { AppleCalendarStatusIPC, AppleCalendarPermissionState } from './apple-calendar'
 import type { TodaysMeetingsResult } from './meeting'
 import type { BriefGenerationRequest, BriefGenerationResult, BriefGenerationStatus } from './brief'
 import type { ContextRetrievalResultIPC, ContextRetrievalRequest } from './context'
@@ -73,6 +74,12 @@ export interface ElectronAPI {
   isGoogleCalendarConnected: () => Promise<boolean>
   disconnectGoogleCalendar: () => Promise<void>
   getGoogleCalendarUserInfo: () => Promise<{ email: string; name?: string } | null>
+  // Apple Calendar operations
+  getAppleCalendarStatus: () => Promise<AppleCalendarStatusIPC>
+  getAppleCalendarPermissionState: () => Promise<AppleCalendarPermissionState>
+  isAppleCalendarAvailable: () => Promise<boolean>
+  updateAppleCalendarSelection: (selectedCalendarNames: string[]) => Promise<void>
+  extractAppleCalendarEvents: () => Promise<CalendarImportResult>
   // Calendar sync operations
   startAutoSync: () => Promise<boolean>
   getAutoSyncStatus: () => Promise<import('./calendar-sync').CalendarSyncStatus>

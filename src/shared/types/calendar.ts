@@ -1,4 +1,4 @@
-export type CalendarSource = 'applescript' | 'ics' | 'swift' | 'google' | 'automatic-sync'
+export type CalendarSource = 'applescript' | 'ics' | 'swift' | 'google' | 'apple' | 'automatic-sync'
 
 export interface CalendarEvent {
   id: string

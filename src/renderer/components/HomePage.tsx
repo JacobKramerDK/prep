@@ -10,11 +10,15 @@ import type { BriefGenerationRequest } from '../../shared/types/brief'
 
 // Calendar Status Card Component - moved outside to prevent re-creation on renders
 const CalendarStatusCard = ({ 
-  isConnected, 
+  googleConnected,
+  appleConnected,
+  appleAvailable,
   status 
 }: { 
-  isConnected: boolean
-  status: 'checking' | 'connected' | 'disconnected'
+  googleConnected: boolean
+  appleConnected: boolean
+  appleAvailable: boolean
+  status: 'checking' | 'connected' | 'partial' | 'disconnected'
 }) => {
   if (status === 'checking') {
     return (
@@ -32,6 +36,38 @@ const CalendarStatusCard = ({
     )
   }
 
+  const isFullyConnected = status === 'connected'
+  const isPartiallyConnected = status === 'partial'
+  const isConnected = isFullyConnected || isPartiallyConnected
+
+  const getStatusText = () => {
+    if (isFullyConnected) return 'Connected'
+    if (isPartiallyConnected) return 'Partially Connected'
+    return 'Not Connected'
+  }
+
+  const getStatusColor = () => {
+    if (isFullyConnected) return 'success'
+    if (isPartiallyConnected) return 'warning'
+    return 'warning'
+  }
+
+  const getDescription = () => {
+    const connectedSources = []
+    if (googleConnected) connectedSources.push('Google Calendar')
+    if (appleConnected) connectedSources.push('Apple Calendar')
+    
+    if (connectedSources.length === 0) {
+      return 'Connect calendar to sync meetings'
+    } else if (connectedSources.length === 1) {
+      return `${connectedSources[0]} integrated`
+    } else {
+      return `${connectedSources.join(' & ')} integrated`
+    }
+  }
+
+  const statusColor = getStatusColor()
+
   return (
     <div className="bg-surface border border-border rounded-xl p-4 shadow-sm hover:shadow-md transition-all duration-200">
       <div className="flex items-center justify-between gap-4">
@@ -45,24 +81,24 @@ const CalendarStatusCard = ({
             <div className="flex items-center gap-2 mb-1">
               <h3 className="text-sm font-semibold text-primary">Calendar</h3>
               <div className={`flex items-center gap-1.5 px-2 py-0.5 rounded-full ${
-                isConnected 
+                statusColor === 'success'
                   ? 'bg-success-light/40 dark:bg-success-dark/20 border border-success/30 dark:border-success-dark/30'
                   : 'bg-warning-light/40 dark:bg-warning-dark/20 border border-warning/30 dark:border-warning-dark/30'
               }`}>
                 <div className={`w-1.5 h-1.5 rounded-full ${
-                  isConnected ? 'bg-success dark:bg-success-400' : 'bg-warning dark:bg-warning-400'
+                  statusColor === 'success' ? 'bg-success dark:bg-success-400' : 'bg-warning dark:bg-warning-400'
                 }`} />
                 <span className={`text-xs font-medium ${
-                  isConnected 
+                  statusColor === 'success'
                     ? 'text-success-dark dark:text-success-400'
                     : 'text-warning-dark dark:text-warning-400'
                 }`}>
-                  {isConnected ? 'Connected' : 'Not Connected'}
+                  {getStatusText()}
                 </span>
               </div>
             </div>
             <p className="text-sm text-secondary">
-              {isConnected ? 'Google Calendar integrated' : 'Connect calendar to sync meetings'}
+              {getDescription()}
             </p>
           </div>
         </div>
@@ -81,7 +117,10 @@ interface HomePageProps {
   vaultIndexed: boolean
   vaultFileCount: number
   calendarError: string | null
-  calendarConnectionStatus?: 'checking' | 'connected' | 'disconnected'
+  calendarConnectionStatus?: 'checking' | 'connected' | 'partial' | 'disconnected'
+  googleCalendarConnected?: boolean
+  appleCalendarConnected?: boolean
+  appleCalendarAvailable?: boolean
   onRefreshMeetings: () => void
 }
 
@@ -96,6 +135,9 @@ export function HomePage({
   vaultFileCount,
   calendarError,
   calendarConnectionStatus = 'disconnected',
+  googleCalendarConnected = false,
+  appleCalendarConnected = false,
+  appleCalendarAvailable = false,
   onRefreshMeetings
 }: HomePageProps) {
   const [expandedMeetingId, setExpandedMeetingId] = useState<string | null>(null)
@@ -103,10 +145,12 @@ export function HomePage({
   const [regeneratingMeetingId, setRegeneratingMeetingId] = useState<string | null>(null)
   
   // Derive hasGoogleCalendar from calendarConnectionStatus
-  const hasGoogleCalendar = calendarConnectionStatus === 'connected'
+  const hasGoogleCalendar = googleCalendarConnected
+  const hasAppleCalendar = appleCalendarConnected
+  const hasAnyCalendar = hasGoogleCalendar || hasAppleCalendar
   
   // Helper to determine if partial connection state should be shown
-  const shouldShowPartialConnectionState = (vaultPath && !hasGoogleCalendar) || (!vaultPath && hasGoogleCalendar)
+  const shouldShowPartialConnectionState = (vaultPath && !hasAnyCalendar) || (!vaultPath && hasAnyCalendar)
   
   const {
     isGenerating,
@@ -243,14 +287,16 @@ Location: ${meeting.location || 'No location specified'}`,
           />
           
           <CalendarStatusCard
-            isConnected={hasGoogleCalendar}
+            googleConnected={googleCalendarConnected}
+            appleConnected={appleCalendarConnected}
+            appleAvailable={appleCalendarAvailable}
             status={calendarConnectionStatus}
           />
         </div>
       </div>
 
       {/* Enhanced Empty State - show when no connections */}
-      {!vaultPath && !hasGoogleCalendar && (
+      {!vaultPath && !hasAnyCalendar && (
         <div className="mb-12 p-8 bg-surface border border-border rounded-xl text-center">
           <div className="flex justify-center items-center gap-3 mb-4">
             <div className="p-3 bg-brand-50 dark:bg-brand-900/20 rounded-lg">
@@ -286,8 +332,8 @@ Location: ${meeting.location || 'No location specified'}`,
                 Complete Your Setup
               </h3>
               <p className="text-secondary mb-4">
-                {!vaultPath && hasGoogleCalendar && "Connect your Obsidian vault to generate AI briefs with context from your notes."}
-                {vaultPath && !hasGoogleCalendar && "Connect your calendar to automatically detect and prepare for meetings."}
+                {!vaultPath && hasAnyCalendar && "Connect your Obsidian vault to generate AI briefs with context from your notes."}
+                {vaultPath && !hasAnyCalendar && "Connect your calendar to automatically detect and prepare for meetings."}
               </p>
               <button
                 onClick={() => onNavigate('settings')}
