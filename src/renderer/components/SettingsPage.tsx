@@ -15,6 +15,7 @@ import {
   Info,
   Apple,
   FileText,
+  FolderOpen,
 } from 'lucide-react'
 import { PromptTemplateEditor } from './PromptTemplateEditor'
 import { RelevanceWeightSettings } from './RelevanceWeightSettings'
@@ -37,22 +38,26 @@ export function SettingsPage({ onBack, vaultFileCount }: SettingsPageProps) {
   const [validationResult, setValidationResult] = useState<'valid' | 'invalid' | null>(null)
   const [isSaving, setIsSaving] = useState(false)
   const [saveMessage, setSaveMessage] = useState<string | null>(null)
+  const [briefFolder, setBriefFolder] = useState<string | null>(null)
 
   useEffect(() => {
     const loadSettings = async () => {
       try {
-        const [savedApiKey, savedModel] = await Promise.all([
+        const results = await Promise.allSettled([
           window.electronAPI.getOpenAIApiKey(),
-          window.electronAPI.getOpenAIModel()
+          window.electronAPI.getOpenAIModel(),
+          window.electronAPI.getObsidianBriefFolder()
         ])
         
-        if (savedApiKey) {
-          setApiKey(savedApiKey)
+        const [apiKeyResult, modelResult, briefFolderResult] = results
+        
+        if (apiKeyResult.status === 'fulfilled' && apiKeyResult.value) {
+          setApiKey(apiKeyResult.value)
           // Auto-load models if we have a valid API key
-          if (savedApiKey.startsWith('sk-') && savedApiKey.length >= 20) {
+          if (apiKeyResult.value.startsWith('sk-') && apiKeyResult.value.length >= 20) {
             setIsLoadingModels(true)
             try {
-              const models = await window.electronAPI.getAvailableModels(savedApiKey)
+              const models = await window.electronAPI.getAvailableModels(apiKeyResult.value)
               if (models && models.length > 0) {
                 setAvailableModels(models)
               }
@@ -64,7 +69,14 @@ export function SettingsPage({ onBack, vaultFileCount }: SettingsPageProps) {
             }
           }
         }
-        if (savedModel) setSelectedModel(savedModel)
+        
+        if (modelResult.status === 'fulfilled' && modelResult.value) {
+          setSelectedModel(modelResult.value)
+        }
+        
+        if (briefFolderResult.status === 'fulfilled' && briefFolderResult.value) {
+          setBriefFolder(briefFolderResult.value)
+        }
       } catch (error) {
         console.error('Failed to load settings:', error)
       }
@@ -176,6 +188,18 @@ export function SettingsPage({ onBack, vaultFileCount }: SettingsPageProps) {
       }
     } catch (error) {
       console.error('Failed to import ICS file:', error)
+    }
+  }
+
+  const handleSelectBriefFolder = async () => {
+    try {
+      const folderPath = await window.electronAPI.selectObsidianBriefFolder()
+      if (folderPath) {
+        await window.electronAPI.setObsidianBriefFolder(folderPath)
+        setBriefFolder(folderPath)
+      }
+    } catch (error) {
+      console.error('Failed to select brief folder:', error)
     }
   }
 
@@ -424,6 +448,42 @@ export function SettingsPage({ onBack, vaultFileCount }: SettingsPageProps) {
               className="px-6 py-3 bg-brand-600 hover:bg-brand-700 text-white font-medium rounded-lg shadow-sm transition-colors">
               Select Different Vault
             </button>
+
+            {/* Brief Folder Configuration */}
+            <div className="mt-8 pt-8 border-t border-border">
+              <div className="mb-6">
+                <h3 className="text-lg font-semibold text-primary mb-2">
+                  Meeting Brief Storage
+                </h3>
+                <p className="text-sm text-secondary">
+                  Configure where to save AI-generated meeting briefs in your Obsidian vault.
+                </p>
+              </div>
+
+              <div className="bg-surface-hover rounded-xl border border-border p-6">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="w-8 h-8 rounded-lg bg-brand-50 dark:bg-brand-900/20 flex items-center justify-center">
+                    <FolderOpen className="w-4 h-4 text-brand-600 dark:text-brand-400" />
+                  </div>
+                  <div className="flex-1">
+                    <h4 className="font-medium text-primary">Brief Folder</h4>
+                    <p className="text-sm text-secondary">
+                      {briefFolder ? briefFolder : 'No folder selected'}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex justify-center">
+                  <button
+                    onClick={handleSelectBriefFolder}
+                    className="px-4 py-2 bg-surface text-primary border border-border rounded-lg hover:bg-surface-hover transition-colors flex items-center gap-2"
+                  >
+                    <FolderOpen className="w-4 h-4" />
+                    {briefFolder ? 'Change Folder' : 'Select Folder'}
+                  </button>
+                </div>
+              </div>
+            </div>
           </div>
         )}
 

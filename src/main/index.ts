@@ -601,6 +601,133 @@ ipcMain.handle('context:findRelevantEnhanced', async (_, meetingId: string, addi
   }
 })
 
+// Obsidian brief saving IPC handlers
+ipcMain.handle('obsidian:selectBriefFolder', async () => {
+  const result = await dialog.showOpenDialog({
+    properties: ['openDirectory'],
+    title: 'Select Obsidian Brief Folder'
+  })
+  
+  if (result.canceled || result.filePaths.length === 0) {
+    throw new Error('No directory selected')
+  }
+  
+  return result.filePaths[0]
+})
+
+ipcMain.handle('obsidian:getBriefFolder', async () => {
+  return settingsManager.getObsidianBriefFolder()
+})
+
+ipcMain.handle('obsidian:setBriefFolder', async (_, folderPath: string | null) => {
+  return settingsManager.setObsidianBriefFolder(folderPath)
+})
+
+ipcMain.handle('obsidian:saveBrief', async (_, briefContent: string, meetingTitle: string, meetingId: string) => {
+  try {
+    const briefFolder = settingsManager.getObsidianBriefFolder()
+    if (!briefFolder) {
+      throw new Error('No Obsidian brief folder configured')
+    }
+
+    // Validate and normalize the folder path to prevent path traversal
+    const normalizedFolder = path.resolve(briefFolder)
+    
+    // Basic security check: ensure the path doesn't contain obvious traversal patterns
+    if (briefFolder.includes('..') || briefFolder.includes('~')) {
+      throw new Error('Invalid folder path: path traversal detected')
+    }
+
+    // Generate filename with date and sanitized title
+    const dateStr = new Date().toISOString().split('T')[0]
+    const sanitizedTitle = sanitizeFileName(meetingTitle || 'Untitled Meeting', platformDetector.isWindows())
+    let fileName = `${dateStr} - Meeting Brief - ${sanitizedTitle}.md`
+    
+    // Handle filename conflicts by appending counter
+    let filePath = path.join(normalizedFolder, fileName)
+    let counter = 2
+    while (await fileExists(filePath)) {
+      const baseName = `${dateStr} - Meeting Brief - ${sanitizedTitle} (${counter})`
+      fileName = `${baseName}.md`
+      filePath = path.join(normalizedFolder, fileName)
+      counter++
+    }
+
+    // Create Obsidian-compatible markdown content with frontmatter
+    const frontmatter = [
+      '---',
+      `title: "${escapeYamlString(meetingTitle || 'Untitled Meeting')}"`,
+      `date: ${new Date().toISOString()}`,
+      `meeting-id: ${escapeYamlString(meetingId)}`,
+      `type: meeting-brief`,
+      `generated-by: prep-app`,
+      '---',
+      ''
+    ].join('\n')
+
+    const fullContent = frontmatter + briefContent
+
+    // Ensure directory exists and write file
+    await fs.mkdir(normalizedFolder, { recursive: true })
+    await fs.writeFile(filePath, fullContent, 'utf8')
+
+    return { success: true, filePath }
+  } catch (error) {
+    console.error('Failed to save brief to Obsidian:', error)
+    return { 
+      success: false, 
+      error: error instanceof Error ? error.message : 'Unknown error' 
+    }
+  }
+})
+
+// Helper functions for file operations
+namespace ObsidianBriefUtils {
+  /** Maximum filename length for cross-platform compatibility */
+  const MAX_FILENAME_LENGTH = 200
+
+  /**
+   * Sanitizes a filename for cross-platform compatibility
+   * @param name The original filename
+   * @param isWindows Whether running on Windows (more restrictive rules)
+   * @returns Sanitized filename safe for filesystem
+   */
+  export function sanitizeFileName(name: string, isWindows: boolean): string {
+    if (isWindows) {
+      // Windows has more restrictive filename rules
+      return name.replace(/[<>:"/\\|?*]/g, '_').trim().substring(0, MAX_FILENAME_LENGTH)
+    }
+    // macOS/Linux - less restrictive but still safe
+    return name.replace(/[/\\:]/g, '_').trim().substring(0, MAX_FILENAME_LENGTH)
+  }
+
+  /**
+   * Checks if a file exists at the given path
+   * @param filePath Path to check
+   * @returns Promise resolving to true if file exists
+   */
+  export async function fileExists(filePath: string): Promise<boolean> {
+    try {
+      await fs.access(filePath)
+      return true
+    } catch {
+      return false
+    }
+  }
+
+  /**
+   * Escapes special characters in strings for YAML frontmatter
+   * @param str String to escape
+   * @returns YAML-safe string
+   */
+  export function escapeYamlString(str: string): string {
+    return str.replace(/"/g, '\\"').replace(/\\/g, '\\\\')
+  }
+}
+
+// Use the utility functions
+const { sanitizeFileName, fileExists, escapeYamlString } = ObsidianBriefUtils
+
 // Cleanup on app exit
 app.on('before-quit', () => {
   calendarSyncScheduler.dispose()

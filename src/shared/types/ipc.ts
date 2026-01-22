@@ -8,6 +8,7 @@ import type { BriefGenerationRequest, BriefGenerationResult, BriefGenerationStat
 import type { ContextRetrievalResultIPC, ContextRetrievalRequest } from './context'
 import type { RelevanceWeights } from './relevance-weights'
 import type { PlatformInfo } from './platform'
+import type { ObsidianBriefSettings } from './obsidian-settings'
 
 export interface ElectronAPI {
   getVersion: () => Promise<string>
@@ -88,6 +89,11 @@ export interface ElectronAPI {
   getPromptTemplate(): Promise<string | null>
   setPromptTemplate(template: string): Promise<{ success: boolean }>
   clearPromptTemplate(): Promise<{ success: boolean }>
+  // Obsidian brief saving operations
+  selectObsidianBriefFolder: () => Promise<string>
+  getObsidianBriefFolder: () => Promise<string | null>
+  setObsidianBriefFolder: (folderPath: string | null) => Promise<void>
+  saveBriefToObsidian: (briefContent: string, meetingTitle: string, meetingId: string) => Promise<{ success: boolean; filePath?: string; error?: string }>
 }
 
 declare global {

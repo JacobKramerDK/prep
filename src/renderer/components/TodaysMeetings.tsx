@@ -360,6 +360,7 @@ export const TodaysMeetings: React.FC<Props> = ({ meetings, isLoading, onRefresh
       {viewingBriefForMeeting && (
         <MeetingBriefDisplay
           brief={getBrief(viewingBriefForMeeting)!}
+          meetingTitle={meetings.find(m => m.id === viewingBriefForMeeting)?.title}
           onClose={handleCloseBriefDisplay}
         />
       )}

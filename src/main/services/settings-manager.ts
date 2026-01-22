@@ -7,6 +7,7 @@ import * as fs from 'fs'
 import { CalendarEvent } from '../../shared/types/calendar'
 import { CalendarSelectionSettings } from '../../shared/types/calendar-selection'
 import { RelevanceWeights, DEFAULT_RELEVANCE_WEIGHTS } from '../../shared/types/relevance-weights'
+import { ObsidianBriefSettings } from '../../shared/types/obsidian-settings'
 import { Debug } from '../../shared/utils/debug'
 
 // API key validation constants
@@ -33,6 +34,7 @@ interface SettingsSchema {
     autoScan: boolean
     maxSearchResults: number
   }
+  obsidianBriefFolder: string | null
 }
 
 export class SettingsManager {
@@ -66,7 +68,8 @@ export class SettingsManager {
       preferences: {
         autoScan: true,
         maxSearchResults: 50
-      }
+      },
+      obsidianBriefFolder: null
     }
 
     const storeConfig: any = {
@@ -313,5 +316,14 @@ export class SettingsManager {
 
   clearPromptTemplate(): void {
     this.store.delete('promptTemplate')
+  }
+
+  // Obsidian brief folder methods
+  getObsidianBriefFolder(): string | null {
+    return this.store.get('obsidianBriefFolder', null)
+  }
+
+  setObsidianBriefFolder(folderPath: string | null): void {
+    this.store.set('obsidianBriefFolder', folderPath)
   }
 }

@@ -214,6 +214,12 @@ const electronAPI: ElectronAPI = {
   getPromptTemplate: () => ipcRenderer.invoke('get-prompt-template'),
   setPromptTemplate: (template: string) => ipcRenderer.invoke('set-prompt-template', template),
   clearPromptTemplate: () => ipcRenderer.invoke('clear-prompt-template'),
+  // Obsidian brief saving operations
+  selectObsidianBriefFolder: () => ipcRenderer.invoke('obsidian:selectBriefFolder'),
+  getObsidianBriefFolder: () => ipcRenderer.invoke('obsidian:getBriefFolder'),
+  setObsidianBriefFolder: (folderPath: string | null) => ipcRenderer.invoke('obsidian:setBriefFolder', folderPath),
+  saveBriefToObsidian: (briefContent: string, meetingTitle: string, meetingId: string) => 
+    ipcRenderer.invoke('obsidian:saveBrief', briefContent, meetingTitle, meetingId),
 }
 
 contextBridge.exposeInMainWorld('electronAPI', electronAPI)

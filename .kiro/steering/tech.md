@@ -29,7 +29,7 @@
 - **Package Manager**: npm or yarn for dependency management
 - **TypeScript**: v5+ for type safety across main and renderer processes
 - **Electron**: Latest stable version for desktop framework
-- **React**: v18+ with hooks and modern patterns
+- **React**: v18+ with hooks and modern patterns using Tailwind v4 for styling
 - **Development Server**: Hot reload for renderer process, nodemon for main process
 - **IDE Setup**: VS Code with TypeScript, React, and Electron extensions
 

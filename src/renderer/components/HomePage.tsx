@@ -452,6 +452,7 @@ Location: ${meeting.location || 'No location specified'}`,
       {viewingBriefForMeeting && (
         <MeetingBriefDisplay
           brief={getBrief(viewingBriefForMeeting)!}
+          meetingTitle={todaysMeetings.find(m => m.id === viewingBriefForMeeting)?.title}
           onClose={handleCloseBriefDisplay}
           onRegenerate={handleRegenerateFromDisplay}
           isRegenerating={regeneratingMeetingId === viewingBriefForMeeting}
