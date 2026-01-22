@@ -9,6 +9,7 @@ import type { ContextRetrievalResultIPC, ContextRetrievalRequest } from './conte
 import type { RelevanceWeights } from './relevance-weights'
 import type { PlatformInfo } from './platform'
 import type { ObsidianBriefSettings } from './obsidian-settings'
+import type { VaultIndexingStatus, VaultIndexingProgress } from './vault-status'
 
 export interface ElectronAPI {
   getVersion: () => Promise<string>
@@ -54,6 +55,8 @@ export interface ElectronAPI {
   getContextIndexedFileCount: () => Promise<number>
   // Vault status operations
   getVaultPath: () => Promise<string | null>
+  getVaultIndexingStatus: () => Promise<VaultIndexingStatus>
+  onVaultIndexingProgress: (callback: (progress: VaultIndexingProgress) => void) => () => void
   // Settings operations
   getOpenAIApiKey: () => Promise<string | null>
   setOpenAIApiKey: (apiKey: string | null) => Promise<void>
@@ -92,7 +95,7 @@ export interface ElectronAPI {
   setPromptTemplate(template: string): Promise<{ success: boolean }>
   clearPromptTemplate(): Promise<{ success: boolean }>
   // Obsidian brief saving operations
-  selectObsidianBriefFolder: () => Promise<string>
+  selectObsidianBriefFolder: () => Promise<string | null>
   getObsidianBriefFolder: () => Promise<string | null>
   setObsidianBriefFolder: (folderPath: string | null) => Promise<void>
   saveBriefToObsidian: (briefContent: string, meetingTitle: string, meetingId: string) => Promise<{ success: boolean; filePath?: string; error?: string }>

@@ -126,6 +126,12 @@ const electronAPI: ElectronAPI = {
   getContextIndexedFileCount: () => ipcRenderer.invoke('context:getIndexedFileCount'),
   // Vault status methods
   getVaultPath: () => ipcRenderer.invoke('vault:getPath'),
+  getVaultIndexingStatus: () => ipcRenderer.invoke('vault:getIndexingStatus'),
+  onVaultIndexingProgress: (callback: (progress: any) => void) => {
+    const handler = (_: any, data: any) => callback(data)
+    ipcRenderer.on('vault:indexing-progress', handler)
+    return () => ipcRenderer.removeListener('vault:indexing-progress', handler)
+  },
   // Add settings methods
   getOpenAIApiKey: () => ipcRenderer.invoke('settings:getOpenAIApiKey'),
   setOpenAIApiKey: (apiKey: string | null) => ipcRenderer.invoke('settings:setOpenAIApiKey', apiKey),

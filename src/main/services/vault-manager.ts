@@ -2,6 +2,7 @@ import * as fs from 'fs/promises'
 import * as path from 'path'
 import matter from 'gray-matter'
 import chokidar from 'chokidar'
+import { BrowserWindow } from 'electron'
 import { VaultFile, VaultIndex, SearchResult } from '../../shared/types/vault'
 import { SettingsManager } from './settings-manager'
 import { VaultIndexer } from './vault-indexer'
@@ -46,6 +47,14 @@ export class VaultManager {
     try {
       Debug.log('[VAULT-MANAGER] Starting vault scan for path:', vaultPath)
       
+      // Emit scanning start progress
+      const webContents = BrowserWindow.getFocusedWindow()?.webContents
+      webContents?.send('vault:indexing-progress', {
+        stage: 'scanning',
+        current: 0,
+        total: 0
+      })
+      
       // Validate vault path
       const stats = await fs.stat(vaultPath)
       if (!stats.isDirectory()) {
@@ -59,6 +68,14 @@ export class VaultManager {
       // Scan for markdown files
       const files = await this.scanDirectory(vaultPath)
       Debug.log(`[VAULT-MANAGER] Found ${files.length} markdown files in vault`)
+      
+      // Emit files found progress
+      webContents?.send('vault:indexing-progress', {
+        stage: 'scanning',
+        current: files.length,
+        total: files.length
+      })
+      
       const vaultFiles: VaultFile[] = []
       const errors: Array<{ filePath: string; error: string }> = []
 
@@ -84,12 +101,33 @@ export class VaultManager {
       this.index = index
       await this.settingsManager.setLastVaultScan(new Date())
 
+      // Emit indexing start progress
+      webContents?.send('vault:indexing-progress', {
+        stage: 'indexing',
+        current: 0,
+        total: vaultFiles.length
+      })
+
       // Index files for context retrieval (safe re-indexing)
       try {
         await this.vaultIndexer.indexFiles(vaultFiles)
         Debug.log('[VAULT-MANAGER] Successfully indexed vault files for context retrieval')
+        
+        // Emit indexing complete progress
+        webContents?.send('vault:indexing-progress', {
+          stage: 'complete',
+          current: vaultFiles.length,
+          total: vaultFiles.length
+        })
       } catch (indexError) {
         console.warn('Context indexing failed, but vault scan completed:', indexError)
+        // Emit error progress
+        webContents?.send('vault:indexing-progress', {
+          stage: 'error',
+          current: 0,
+          total: 0,
+          error: indexError instanceof Error ? indexError.message : 'Context indexing failed'
+        })
         // Don't fail the entire vault scan if indexing fails
       }
 
@@ -101,6 +139,16 @@ export class VaultManager {
       return index
     } catch (error) {
       Debug.error('[VAULT-MANAGER] Vault scan failed:', error instanceof Error ? error.message : 'Unknown error')
+      
+      // Emit error progress
+      const webContents = BrowserWindow.getFocusedWindow()?.webContents
+      webContents?.send('vault:indexing-progress', {
+        stage: 'error',
+        current: 0,
+        total: 0,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      })
+      
       throw new Error(`Failed to scan vault: ${error instanceof Error ? error.message : 'Unknown error'}`)
     }
   }

@@ -1,5 +1,6 @@
 import { app, BrowserWindow, ipcMain, dialog, shell } from 'electron'
 import path from 'path'
+import os from 'os'
 import * as fs from 'fs/promises'
 import { VaultManager } from './services/vault-manager'
 import { CalendarManager } from './services/calendar-manager'
@@ -16,6 +17,7 @@ import { contextRetrievalResultToIPC } from '../shared/types/context'
 import { calendarSyncStatusToIPC, calendarSyncResultToIPC } from '../shared/types/calendar-sync'
 import { appleCalendarStatusToIPC } from '../shared/types/apple-calendar'
 import { RelevanceWeights } from '../shared/types/relevance-weights'
+import { VaultIndexingStatus } from '../shared/types/vault-status'
 
 // Load environment variables
 import * as dotenv from 'dotenv'
@@ -30,6 +32,9 @@ const meetingDetector = new MeetingDetector(calendarManager)
 const settingsManager = new SettingsManager()
 const contextRetrievalService = new ContextRetrievalService()
 let openaiService: OpenAIService | null = null
+
+// Add global indexing status tracking
+let currentIndexingStatus: VaultIndexingStatus = { isIndexing: false }
 
 // Initialize debug mode from settings
 const debugMode = settingsManager.getDebugMode()
@@ -74,6 +79,7 @@ const initializeServices = async (): Promise<void> => {
 // Load and index existing vault if one was previously configured
 const loadExistingVault = async (): Promise<void> => {
   try {
+    currentIndexingStatus = { isIndexing: true }
     const vaultPath = await settingsManager.getVaultPath()
     if (vaultPath) {
       console.log(`Loading existing vault: ${vaultPath}`)
@@ -84,19 +90,23 @@ const loadExistingVault = async (): Promise<void> => {
         if (!stats.isDirectory()) {
           console.warn(`Stored vault path is not a directory: ${vaultPath}`)
           await settingsManager.setVaultPath(null) // Clear invalid path
+          currentIndexingStatus = { isIndexing: false }
           return
         }
       } catch (error) {
         console.warn(`Stored vault path no longer exists: ${vaultPath}`)
         await settingsManager.setVaultPath(null) // Clear invalid path
+        currentIndexingStatus = { isIndexing: false }
         return
       }
       
       await vaultManager.scanVault(vaultPath)
       console.log(`Vault loaded and indexed successfully`)
     }
+    currentIndexingStatus = { isIndexing: false }
   } catch (error) {
     console.warn('Failed to load existing vault on startup:', error instanceof Error ? error.message : 'Unknown error')
+    currentIndexingStatus = { isIndexing: false }
     // Don't fail app startup if vault loading fails - user can reconfigure
   }
 }
@@ -210,11 +220,21 @@ ipcMain.handle('vault:getPath', async () => {
   return await settingsManager.getVaultPath()
 })
 
+ipcMain.handle('vault:getIndexingStatus', async () => {
+  return currentIndexingStatus
+})
+
 // Vault IPC handlers
 ipcMain.handle('vault:select', async () => {
+  // Start in typical Obsidian vault locations
+  const defaultPath = process.platform === 'darwin' 
+    ? path.join(os.homedir(), 'Documents')
+    : os.homedir()
+    
   const result = await dialog.showOpenDialog({
     properties: ['openDirectory'],
-    title: 'Select Obsidian Vault Directory'
+    title: 'Select Obsidian Vault Directory',
+    defaultPath
   })
   
   if (result.canceled || result.filePaths.length === 0) {
@@ -640,13 +660,20 @@ ipcMain.handle('context:findRelevantEnhanced', async (_, meetingId: string, addi
 
 // Obsidian brief saving IPC handlers
 ipcMain.handle('obsidian:selectBriefFolder', async () => {
+  // Start in current vault directory if available, otherwise Documents
+  const currentVaultPath = await settingsManager.getVaultPath()
+  const defaultPath = currentVaultPath || (process.platform === 'darwin' 
+    ? path.join(os.homedir(), 'Documents')
+    : os.homedir())
+    
   const result = await dialog.showOpenDialog({
     properties: ['openDirectory'],
-    title: 'Select Obsidian Brief Folder'
+    title: 'Select Obsidian Brief Folder',
+    defaultPath
   })
   
   if (result.canceled || result.filePaths.length === 0) {
-    throw new Error('No directory selected')
+    return null
   }
   
   return result.filePaths[0]

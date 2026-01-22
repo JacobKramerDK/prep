@@ -3,6 +3,7 @@ import { HomePage } from './components/HomePage'
 import { SettingsPage } from './components/SettingsPage'
 import { LoadingScreen } from './components/LoadingScreen'
 import type { Meeting } from '../shared/types/meeting'
+import type { VaultIndexingStatus, VaultIndexingProgress } from '../shared/types/vault-status'
 
 type Page = 'home' | 'settings'
 
@@ -22,6 +23,8 @@ export function App() {
   const [appleCalendarAvailable, setAppleCalendarAvailable] = useState(false)
   const [mounted, setMounted] = useState(true)
   const [isInitializing, setIsInitializing] = useState(true)
+  const [vaultIndexingStatus, setVaultIndexingStatus] = useState<VaultIndexingStatus>({ isIndexing: false })
+  const [vaultIndexingProgress, setVaultIndexingProgress] = useState<VaultIndexingProgress | null>(null)
 
   // Cleanup on unmount
   useEffect(() => {
@@ -189,6 +192,44 @@ export function App() {
 
     initializeApp()
   }, [checkVaultStatus, checkCalendarStatus, mounted])
+
+  // Add progress event listener
+  useEffect(() => {
+    const cleanup = window.electronAPI.onVaultIndexingProgress((progress) => {
+      if (mounted) {
+        setVaultIndexingProgress(progress)
+        
+        // Update indexing status based on progress
+        if (progress.stage === 'complete') {
+          setVaultIndexingStatus({ isIndexing: false })
+          // Refresh vault status after completion
+          checkVaultStatus()
+        } else if (progress.stage === 'error') {
+          setVaultIndexingStatus({ isIndexing: false })
+        } else {
+          setVaultIndexingStatus({ isIndexing: true, progress })
+        }
+      }
+    })
+    
+    return cleanup
+  }, [mounted, checkVaultStatus])
+  
+  // Check indexing status on mount
+  useEffect(() => {
+    const checkIndexingStatus = async () => {
+      try {
+        const status = await window.electronAPI.getVaultIndexingStatus()
+        if (mounted) {
+          setVaultIndexingStatus(status)
+        }
+      } catch (error) {
+        console.error('Failed to check indexing status:', error)
+      }
+    }
+    
+    checkIndexingStatus()
+  }, [mounted])
 
   // Check if vault is configured and load meetings
   useEffect(() => {

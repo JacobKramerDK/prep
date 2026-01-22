@@ -18,6 +18,8 @@ import {
   FolderOpen,
   Bug,
 } from 'lucide-react'
+import type { VaultIndexingProgress } from '../../shared/types/vault-status'
+import { VaultIndexingLoader } from './VaultIndexingLoader'
 import { PromptTemplateEditor } from './PromptTemplateEditor'
 import { RelevanceWeightSettings } from './RelevanceWeightSettings'
 import { AppleCalendarAuth } from './AppleCalendarAuth'
@@ -43,6 +45,8 @@ export function SettingsPage({ onBack, vaultFileCount }: SettingsPageProps) {
   const [debugMode, setDebugMode] = useState(false)
   const [debugLogPath, setDebugLogPath] = useState<string | null>(null)
   const [debugError, setDebugError] = useState<string | null>(null)
+  const [vaultLoading, setVaultLoading] = useState(false)
+  const [vaultIndexingProgress, setVaultIndexingProgress] = useState<VaultIndexingProgress | null>(null)
 
   useEffect(() => {
     const loadSettings = async () => {
@@ -101,6 +105,19 @@ export function SettingsPage({ onBack, vaultFileCount }: SettingsPageProps) {
       }
     }
     loadSettings()
+  }, [])
+
+  // Add progress listener
+  useEffect(() => {
+    const cleanup = window.electronAPI.onVaultIndexingProgress((progress) => {
+      setVaultIndexingProgress(progress)
+      
+      if (progress.stage === 'complete' || progress.stage === 'error') {
+        setVaultLoading(false)
+      }
+    })
+    
+    return cleanup
   }, [])
 
   const handleValidateKey = async () => {
@@ -173,13 +190,20 @@ export function SettingsPage({ onBack, vaultFileCount }: SettingsPageProps) {
   }
 
   const handleSelectVault = async () => {
+    setVaultLoading(true)
+    setVaultIndexingProgress(null)
+    
     try {
       const vaultPath = await window.electronAPI.selectVault()
       if (vaultPath) {
         await window.electronAPI.scanVault(vaultPath)
+        // Loading state will be cleared by progress event listener
+      } else {
+        setVaultLoading(false)
       }
     } catch (error) {
       console.error('Failed to select vault:', error)
+      setVaultLoading(false)
     }
   }
 
@@ -488,9 +512,17 @@ export function SettingsPage({ onBack, vaultFileCount }: SettingsPageProps) {
 
             <button 
               onClick={handleSelectVault}
-              className="px-6 py-3 bg-brand-600 hover:bg-brand-700 text-white font-medium rounded-lg shadow-sm transition-colors">
-              Select Different Vault
+              disabled={vaultLoading}
+              className="px-6 py-3 bg-brand-600 hover:bg-brand-700 disabled:bg-gray-400 text-white font-medium rounded-lg shadow-sm transition-colors">
+              {vaultLoading ? 'Scanning Vault...' : 'Select Different Vault'}
             </button>
+
+            {/* Show VaultIndexingLoader when loading */}
+            {vaultLoading && (
+              <div className="mt-6">
+                <VaultIndexingLoader progress={vaultIndexingProgress} />
+              </div>
+            )}
 
             {/* Brief Folder Configuration */}
             <div className="mt-8 pt-8 border-t border-border">

@@ -2,6 +2,7 @@ import * as FlexSearch from 'flexsearch'
 import { unified } from 'unified'
 import remarkParse from 'remark-parse'
 import remarkFrontmatter from 'remark-frontmatter'
+import { BrowserWindow } from 'electron'
 import { VaultFile } from '../../shared/types/vault'
 import { Debug } from '../../shared/utils/debug'
 
@@ -56,9 +57,21 @@ export class VaultIndexer {
     if (process.env.NODE_ENV === 'development') {
       const startTime = Date.now()
       
-      for (const file of files) {
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i]
         try {
           await this.indexFile(file)
+          
+          // Emit progress every 10 files or on last file
+          if (i % 10 === 0 || i === files.length - 1) {
+            const webContents = BrowserWindow.getFocusedWindow()?.webContents
+            webContents?.send('vault:indexing-progress', {
+              stage: 'indexing',
+              current: i + 1,
+              total: files.length,
+              currentFile: file.path
+            })
+          }
         } catch (error) {
           console.error(`Failed to index file ${file.path}:`, error)
         }
@@ -68,9 +81,21 @@ export class VaultIndexer {
       Debug.log(`[VAULT-INDEXER] Indexed ${files.length} files in ${indexTime}ms (${(indexTime / files.length).toFixed(1)}ms/file)`)
     } else {
       // Production: index without timing
-      for (const file of files) {
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i]
         try {
           await this.indexFile(file)
+          
+          // Emit progress every 10 files or on last file
+          if (i % 10 === 0 || i === files.length - 1) {
+            const webContents = BrowserWindow.getFocusedWindow()?.webContents
+            webContents?.send('vault:indexing-progress', {
+              stage: 'indexing',
+              current: i + 1,
+              total: files.length,
+              currentFile: file.path
+            })
+          }
         } catch (error) {
           console.error(`Failed to index file ${file.path}:`, error)
         }

@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import type { VaultIndex } from '../../shared/types/vault'
+import type { VaultIndexingProgress } from '../../shared/types/vault-status'
+import { VaultIndexingLoader } from './VaultIndexingLoader'
 
 interface VaultSelectorProps {
   onVaultSelected: (vaultIndex: VaultIndex) => void
@@ -10,6 +12,7 @@ export const VaultSelector: React.FC<VaultSelectorProps> = ({ onVaultSelected, o
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [statusLoading, setStatusLoading] = useState(false)
+  const [indexingProgress, setIndexingProgress] = useState<VaultIndexingProgress | null>(null)
   const [indexStatus, setIndexStatus] = useState<{
     isIndexed: boolean
     fileCount: number
@@ -18,6 +21,23 @@ export const VaultSelector: React.FC<VaultSelectorProps> = ({ onVaultSelected, o
   // Check indexing status on component mount
   useEffect(() => {
     checkIndexStatus()
+  }, [])
+
+  // Add progress listener
+  useEffect(() => {
+    const cleanup = window.electronAPI.onVaultIndexingProgress((progress) => {
+      setIndexingProgress(progress)
+      
+      if (progress.stage === 'complete') {
+        setLoading(false)
+        checkIndexStatus()
+      } else if (progress.stage === 'error') {
+        setLoading(false)
+        setError(progress.error || 'Vault indexing failed')
+      }
+    })
+    
+    return cleanup
   }, [])
 
   const checkIndexStatus = async () => {
@@ -131,6 +151,10 @@ export const VaultSelector: React.FC<VaultSelectorProps> = ({ onVaultSelected, o
       >
         {loading ? 'Scanning Vault...' : indexStatus.isIndexed ? 'Select Different Vault' : 'Select Obsidian Vault'}
       </button>
+      
+      {/* Show VaultIndexingLoader when loading */}
+      {loading && <VaultIndexingLoader progress={indexingProgress} />}
+      
       {error && (
         <p style={{ 
           color: '#dc2626', 
