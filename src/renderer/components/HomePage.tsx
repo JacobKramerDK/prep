@@ -231,7 +231,7 @@ Location: ${meeting.location || 'No location specified'}`,
   }
 
   return (
-    <div className="max-w-full mx-auto px-6 py-8 animate-fade-in overflow-x-hidden break-words">
+    <div className="max-w-full mx-auto px-6 py-8 animate-fade-in overflow-x-hidden break-words" data-testid="main-content">
       {/* Header */}
       <div className="flex justify-between items-start mb-10">
         <div className="flex items-start gap-4">
@@ -261,6 +261,7 @@ Location: ${meeting.location || 'No location specified'}`,
         <button
           onClick={() => onNavigate('settings')}
           className="flex items-center gap-2 px-4 py-2 bg-surface border border-border rounded-lg shadow-sm hover:bg-surface-hover hover:shadow-md transition-all text-sm font-medium text-secondary hover:text-primary"
+          data-testid="settings-button"
         >
           <Settings className="w-4 h-4" />
           Settings

@@ -21,6 +21,10 @@
     "test": "jest",
     "test:coverage": "jest --coverage",
     "test:e2e": "playwright test",
+    "test:e2e:stable": "playwright test --config=playwright.config.ts --project=electron-stable",
+    "test:e2e:integration": "playwright test --config=playwright.config.ts --project=electron-integration",
+    "test:e2e:ui": "playwright test --ui",
+    "test:helpers": "jest tests/helpers",
     "postinstall": "electron-builder install-app-deps"
   },
   "keywords": [

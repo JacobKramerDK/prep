@@ -21,9 +21,12 @@ prep/
 │       ├── types/          # Common TypeScript interfaces
 │       └── constants/      # Shared constants
 ├── tests/
-│   ├── unit/              # Unit tests
-│   ├── integration/       # Integration tests
-│   └── e2e/              # End-to-end tests
+│   ├── e2e-stable/        # Stable, isolated E2E tests (recommended)
+│   ├── helpers/           # Test utilities and factories
+│   ├── config/           # Test environment configuration
+│   ├── unit/             # Legacy unit tests (flaky, avoid)
+│   ├── integration/      # Legacy integration tests
+│   └── e2e/             # Legacy E2E tests (flaky, avoid)
 ├── build/                 # Build configuration
 ├── dist/                  # Compiled output
 ├── assets/               # Static assets (icons, images)

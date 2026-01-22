@@ -58,12 +58,20 @@ Provide a concise summary covering:
 - Languages and versions
 - Frameworks and major libraries
 - Build tools and package managers
-- Testing frameworks
+- Testing frameworks and setup
+
+### Testing Infrastructure
+- **Stable E2E Tests**: `tests/e2e-stable/` - Reliable, isolated tests using `npm run test:e2e:stable`
+- **Helper Utilities**: `tests/helpers/` - Test utilities and factories using `npm run test:helpers`
+- **Test Isolation**: Each test gets fresh Electron app instance to prevent state pollution
+- **Mocked Dependencies**: External APIs (OpenAI, Calendar) are mocked to eliminate network dependencies
+- **Data Test IDs**: UI components use `data-testid` attributes for reliable test selectors
+- **Legacy Tests**: `tests/unit/`, `tests/e2e/` - Older tests with known flaky behavior, avoid using `npm test`
 
 ### Core Principles
 - Code style and conventions observed
 - Documentation standards
-- Testing approach
+- Testing approach: Use stable test suite for validation, avoid flaky legacy tests
 
 ### Current State
 - Active branch (if git repository)

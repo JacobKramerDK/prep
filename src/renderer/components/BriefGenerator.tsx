@@ -98,7 +98,7 @@ export const BriefGenerator: React.FC<Props> = ({
         </div>
 
         {error && (
-          <div className="p-3 bg-danger-light/30 border border-danger/30 dark:bg-danger-dark/10 dark:border-danger-dark/30 rounded-lg mb-4">
+          <div className="p-3 bg-danger-light/30 border border-danger/30 dark:bg-danger-dark/10 dark:border-danger-dark/30 rounded-lg mb-4" data-testid="brief-error">
             <div className="flex items-start gap-2">
               <div className="flex-shrink-0 mt-0.5">
                 <svg className="w-4 h-4 text-danger-dark dark:text-danger-400" fill="currentColor" viewBox="0 0 20 20">
@@ -145,6 +145,7 @@ export const BriefGenerator: React.FC<Props> = ({
                 className="w-full p-2 border border-border rounded-lg text-sm bg-background text-primary placeholder-tertiary resize-vertical min-h-[80px] disabled:opacity-60"
                 disabled={isGenerating}
                 rows={4}
+                data-testid="context-textarea"
               />
             </div>
 
@@ -219,11 +220,12 @@ export const BriefGenerator: React.FC<Props> = ({
                 type="submit"
                 disabled={isGenerating}
                 className="px-5 py-2 text-sm font-medium text-white bg-brand-600 hover:bg-brand-700 disabled:bg-secondary rounded-lg transition-colors disabled:cursor-not-allowed flex items-center gap-2"
+                data-testid="generate-button"
               >
                 {isGenerating ? (
                   <>
                     <Loader2 className="w-4 h-4 animate-spin" />
-                    Generating...
+                    <span data-testid="brief-loading">Generating...</span>
                   </>
                 ) : (
                   <>

@@ -208,12 +208,13 @@ export function SettingsPage({ onBack, vaultFileCount }: SettingsPageProps) {
   ]
 
   return (
-    <div className="max-w-4xl mx-auto px-6 py-8 animate-fade-in">
+    <div className="max-w-4xl mx-auto px-6 py-8 animate-fade-in" data-testid="settings-container">
       {/* Header */}
       <div className="mb-8">
         <button
           onClick={onBack}
           className="group flex items-center gap-2 text-sm font-medium text-secondary hover:text-primary mb-6 transition-colors"
+          data-testid="back-button"
         >
           <div className="p-1.5 rounded-md bg-surface border border-border group-hover:bg-surface-hover transition-colors">
             <ArrowLeft className="w-4 h-4" />
@@ -293,16 +294,18 @@ export function SettingsPage({ onBack, vaultFileCount }: SettingsPageProps) {
                     onChange={(e) => setApiKey(e.target.value)}
                     className="flex-1 h-11 px-4 rounded-lg border border-border bg-background text-primary focus:ring-2 focus:ring-brand-500 focus:border-transparent transition-all font-mono text-sm"
                     placeholder="sk-..."
+                    data-testid="api-key-input"
                   />
                   <button 
                     onClick={handleValidateKey}
                     disabled={isValidating}
-                    className="h-11 px-6 font-medium text-white bg-brand-600 hover:bg-brand-700 disabled:opacity-50 rounded-lg transition-colors shadow-sm">
+                    className="h-11 px-6 font-medium text-white bg-brand-600 hover:bg-brand-700 disabled:opacity-50 rounded-lg transition-colors shadow-sm"
+                    data-testid="validate-button">
                     {isValidating ? 'Validating...' : 'Validate'}
                   </button>
                 </div>
                 {validationResult && (
-                  <div className={`mt-2 text-sm ${validationResult === 'valid' ? 'text-success-dark' : 'text-danger'}`}>
+                  <div className={`mt-2 text-sm ${validationResult === 'valid' ? 'text-success-dark' : 'text-danger'}`} data-testid="api-validation-result">
                     {validationResult === 'valid' ? '✓ API key is valid' : '✗ Invalid API key'}
                   </div>
                 )}
@@ -317,6 +320,7 @@ export function SettingsPage({ onBack, vaultFileCount }: SettingsPageProps) {
                   onChange={(e) => setSelectedModel(e.target.value)}
                   disabled={isLoadingModels}
                   className="w-full h-11 px-4 rounded-lg border border-border bg-background text-primary focus:ring-2 focus:ring-brand-500 focus:border-transparent transition-all appearance-none disabled:opacity-50"
+                  data-testid="model-select"
                 >
                   {isLoadingModels ? (
                     <option>Loading models...</option>
@@ -347,13 +351,15 @@ export function SettingsPage({ onBack, vaultFileCount }: SettingsPageProps) {
                 <button 
                   onClick={handleSaveSettings}
                   disabled={isSaving}
-                  className="flex items-center gap-2 px-6 py-2.5 bg-success hover:bg-success-dark disabled:opacity-50 text-white font-medium rounded-lg shadow-sm transition-colors">
+                  className="flex items-center gap-2 px-6 py-2.5 bg-success hover:bg-success-dark disabled:opacity-50 text-white font-medium rounded-lg shadow-sm transition-colors"
+                  data-testid="save-settings-button">
                   <Save className="w-4 h-4" />
                   {isSaving ? 'Saving...' : 'Save Settings'}
                 </button>
                 <button 
                   onClick={handleClearKey}
-                  className="flex items-center gap-2 px-6 py-2.5 bg-danger hover:bg-danger-dark text-white font-medium rounded-lg shadow-sm transition-colors">
+                  className="flex items-center gap-2 px-6 py-2.5 bg-danger hover:bg-danger-dark text-white font-medium rounded-lg shadow-sm transition-colors"
+                  data-testid="clear-key-button">
                   <Trash2 className="w-4 h-4" />
                   Clear Key
                 </button>

@@ -42,12 +42,12 @@
 - **Documentation**: JSDoc comments for complex functions and APIs
 
 ## Testing Strategy
-- **Unit Testing**: Jest for utility functions and business logic
-- **Component Testing**: React Testing Library for UI components
-- **Integration Testing**: Test main-renderer IPC communication
-- **E2E Testing**: Playwright for full application workflows (configured via MCP server)
-- **API Testing**: Mock OpenAI/Whisper responses for offline testing
-- **Performance Testing**: Large vault handling and search performance benchmarks
+- **Stable E2E Testing**: Playwright tests in `tests/e2e-stable/` with proper test isolation and mocked dependencies
+- **Helper Utilities Testing**: Jest tests for test utilities and factories in `tests/helpers/`
+- **Test Isolation**: Each test gets fresh Electron app instance to prevent state pollution
+- **Mocked Dependencies**: External APIs (OpenAI, Calendar) mocked to eliminate network dependencies
+- **Reliable Selectors**: UI components use `data-testid` attributes for stable test selection
+- **Legacy Tests**: Older tests in `tests/unit/` and `tests/e2e/` have known flaky behavior and should be avoided
 
 ## Deployment Process
 - **Build Pipeline**: TypeScript compilation, React bundling, Electron packaging

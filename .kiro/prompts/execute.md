@@ -48,11 +48,25 @@ After completing implementation tasks:
 
 ### 4. Run Validation Commands
 
-Execute ALL validation commands from the plan in order:
+Execute ALL validation commands from the plan in order. Use the stable test suite for reliable validation:
 
 ```bash
-# Run each command exactly as specified in plan
+# Level 1: Syntax & Build Verification
+npm run build
+
+# Level 2: Helper Utilities Testing
+npm run test:helpers
+
+# Level 3: Stable E2E Testing
+npm run test:e2e:stable
+
+# Level 4: Specific Feature Testing (if applicable)
+npm run test:e2e:stable -- --grep "feature-pattern"
+
+# Run any additional commands specified in the plan
 ```
+
+**Important**: Use the stable test suite (`test:e2e:stable`) instead of legacy tests (`npm test`) to avoid flaky tests and production setting interference.
 
 If any command fails:
 - Fix the issue
