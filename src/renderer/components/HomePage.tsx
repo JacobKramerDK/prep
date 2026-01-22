@@ -121,6 +121,7 @@ interface HomePageProps {
   googleCalendarConnected?: boolean
   appleCalendarConnected?: boolean
   appleCalendarAvailable?: boolean
+  isInitializing?: boolean
   onRefreshMeetings: () => void
 }
 
@@ -138,6 +139,7 @@ export function HomePage({
   googleCalendarConnected = false,
   appleCalendarConnected = false,
   appleCalendarAvailable = false,
+  isInitializing = false,
   onRefreshMeetings
 }: HomePageProps) {
   const [expandedMeetingId, setExpandedMeetingId] = useState<string | null>(null)
@@ -285,6 +287,7 @@ Location: ${meeting.location || 'No location specified'}`,
             path={vaultPath}
             indexedCount={vaultIndexed ? vaultFileCount : 0}
             isIndexed={vaultIndexed}
+            isInitializing={isInitializing}
           />
           
           <CalendarStatusCard

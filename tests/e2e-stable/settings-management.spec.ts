@@ -25,7 +25,7 @@ test.describe('Settings Management - Stable Tests', () => {
 
     try {
       const page = await app.firstWindow()
-      await RobustWaitPatterns.waitForElectronAPI(page)
+      await RobustWaitPatterns.waitForAppInitialization(page)
       
       // Navigate to Settings using data-testid (will be added in component updates)
       const settingsButton = page.locator('[data-testid="settings-button"], button:has-text("Settings")')
@@ -51,7 +51,7 @@ test.describe('Settings Management - Stable Tests', () => {
 
     try {
       const page = await app.firstWindow()
-      await RobustWaitPatterns.waitForElectronAPI(page)
+      await RobustWaitPatterns.waitForAppInitialization(page)
       
       // Navigate to Settings -> AI Configuration
       await page.click('button:has-text("Settings")')
@@ -91,7 +91,7 @@ test.describe('Settings Management - Stable Tests', () => {
 
     try {
       const page = await app.firstWindow()
-      await RobustWaitPatterns.waitForElectronAPI(page)
+      await RobustWaitPatterns.waitForAppInitialization(page)
       
       // Navigate to AI Configuration
       await page.click('button:has-text("Settings")')
@@ -129,7 +129,7 @@ test.describe('Settings Management - Stable Tests', () => {
 
     try {
       const page = await app.firstWindow()
-      await RobustWaitPatterns.waitForElectronAPI(page)
+      await RobustWaitPatterns.waitForAppInitialization(page)
       
       // Navigate to AI Configuration
       await page.click('button:has-text("Settings")')
@@ -164,7 +164,7 @@ test.describe('Settings Management - Stable Tests', () => {
 
     try {
       const page = await app.firstWindow()
-      await RobustWaitPatterns.waitForElectronAPI(page)
+      await RobustWaitPatterns.waitForAppInitialization(page)
       
       // Navigate to AI Configuration
       await page.click('button:has-text("Settings")')

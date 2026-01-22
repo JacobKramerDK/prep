@@ -95,9 +95,18 @@ const loadExistingVault = async (): Promise<void> => {
 }
 
 const createWindow = (): void => {
+  // Use PNG for better cross-platform compatibility
+  const iconPath = path.join(process.cwd(), 'build', 'icon.png')
+
+  if (settingsManager.getDebugMode()) {
+    console.log('Icon path:', iconPath)
+    console.log('Icon exists:', require('fs').existsSync(iconPath))
+  }
+
   const mainWindow = new BrowserWindow({
     width: 1200,
     height: 800,
+    icon: iconPath,
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
@@ -105,6 +114,17 @@ const createWindow = (): void => {
     },
     show: true // Show immediately
   })
+
+  // Try to set dock icon on macOS with error handling
+  if (process.platform === 'darwin' && require('fs').existsSync(iconPath)) {
+    try {
+      app.dock?.setIcon(iconPath)
+    } catch (error) {
+      if (settingsManager.getDebugMode()) {
+        console.log('Could not set dock icon:', error instanceof Error ? error.message : error)
+      }
+    }
+  }
 
   // Load the app
   if (isDevelopment) {

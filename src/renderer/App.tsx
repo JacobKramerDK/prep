@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react'
 import { HomePage } from './components/HomePage'
 import { SettingsPage } from './components/SettingsPage'
+import { LoadingScreen } from './components/LoadingScreen'
 import type { Meeting } from '../shared/types/meeting'
 
 type Page = 'home' | 'settings'
@@ -20,6 +21,7 @@ export function App() {
   const [appleCalendarConnected, setAppleCalendarConnected] = useState(false)
   const [appleCalendarAvailable, setAppleCalendarAvailable] = useState(false)
   const [mounted, setMounted] = useState(true)
+  const [isInitializing, setIsInitializing] = useState(true)
 
   // Cleanup on unmount
   useEffect(() => {
@@ -165,12 +167,28 @@ export function App() {
       }
     }
 
-    getVersion()
-    loadExistingEvents()
-    performAutoSync()
-    checkVaultStatus()
-    checkCalendarStatus()
-  }, [checkVaultStatus, checkCalendarStatus])
+    const initializeApp = async (): Promise<void> => {
+      try {
+        // Run all initialization tasks in parallel
+        await Promise.all([
+          getVersion(),
+          loadExistingEvents(),
+          performAutoSync(),
+          checkVaultStatus(),
+          checkCalendarStatus()
+        ])
+      } catch (error) {
+        console.error('App initialization failed:', error)
+      } finally {
+        // Set initialization complete after all tasks finish
+        if (mounted) {
+          setIsInitializing(false)
+        }
+      }
+    }
+
+    initializeApp()
+  }, [checkVaultStatus, checkCalendarStatus, mounted])
 
   // Check if vault is configured and load meetings
   useEffect(() => {
@@ -191,41 +209,49 @@ export function App() {
 
   return (
     <div className="min-h-screen max-w-full overflow-x-hidden bg-background text-primary selection:bg-brand-200 selection:text-brand-900 dark:selection:bg-brand-900 dark:selection:text-brand-100" data-testid="app">
-      {/* Titlebar Drag Region (simulated for Electron) */}
-      <div className="h-8 w-full fixed top-0 left-0 z-50 select-none app-region-drag" />
+      {/* Show loading screen during initialization */}
+      {isInitializing ? (
+        <LoadingScreen />
+      ) : (
+        <>
+          {/* Titlebar Drag Region (simulated for Electron) */}
+          <div className="h-8 w-full fixed top-0 left-0 z-50 select-none app-region-drag" />
 
-      {/* Main Content */}
-      <main className="pt-8 pb-12">
-        {currentPage === 'home' ? (
-          <HomePage 
-            onNavigate={setCurrentPage}
-            version={version}
-            todaysMeetings={todaysMeetings}
-            meetingsLoading={meetingsLoading}
-            hasVault={hasVault}
-            vaultPath={vaultPath}
-            vaultIndexed={vaultIndexed}
-            vaultFileCount={vaultFileCount}
-            calendarError={calendarError}
-            calendarConnectionStatus={calendarConnectionStatus}
-            googleCalendarConnected={googleCalendarConnected}
-            appleCalendarConnected={appleCalendarConnected}
-            appleCalendarAvailable={appleCalendarAvailable}
-            onRefreshMeetings={handleRefreshMeetings}
-          />
-        ) : (
-          <SettingsPage 
-            onBack={() => {
-              setCurrentPage('home')
-              setTimeout(() => {
-                checkVaultStatus()
-                refreshCalendarStatus()
-              }, 100)
-            }}
-            vaultFileCount={vaultFileCount}
-          />
-        )}
-      </main>
+          {/* Main Content */}
+          <main className="pt-8 pb-12">
+            {currentPage === 'home' ? (
+              <HomePage 
+                onNavigate={setCurrentPage}
+                version={version}
+                todaysMeetings={todaysMeetings}
+                meetingsLoading={meetingsLoading}
+                hasVault={hasVault}
+                vaultPath={vaultPath}
+                vaultIndexed={vaultIndexed}
+                vaultFileCount={vaultFileCount}
+                calendarError={calendarError}
+                calendarConnectionStatus={calendarConnectionStatus}
+                googleCalendarConnected={googleCalendarConnected}
+                appleCalendarConnected={appleCalendarConnected}
+                appleCalendarAvailable={appleCalendarAvailable}
+                isInitializing={isInitializing}
+                onRefreshMeetings={handleRefreshMeetings}
+              />
+            ) : (
+              <SettingsPage 
+                onBack={() => {
+                  setCurrentPage('home')
+                  setTimeout(() => {
+                    checkVaultStatus()
+                    refreshCalendarStatus()
+                  }, 100)
+                }}
+                vaultFileCount={vaultFileCount}
+              />
+            )}
+          </main>
+        </>
+      )}
     </div>
   )
 }

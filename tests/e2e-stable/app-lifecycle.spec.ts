@@ -29,8 +29,8 @@ test.describe('App Lifecycle - Stable Tests', () => {
       const page = await app.firstWindow()
       expect(page).toBeTruthy()
       
-      // Wait for app to be ready
-      await RobustWaitPatterns.waitForElectronAPI(page)
+      // Wait for app to be ready (including loading screen)
+      await RobustWaitPatterns.waitForAppInitialization(page)
       
       // Verify window is visible
       await expect(page).toHaveTitle(/Prep/)
@@ -48,7 +48,7 @@ test.describe('App Lifecycle - Stable Tests', () => {
 
     try {
       const page = await app.firstWindow()
-      await RobustWaitPatterns.waitForElectronAPI(page)
+      await RobustWaitPatterns.waitForAppInitialization(page)
       
       // Check for main navigation elements
       const settingsButton = page.locator('[data-testid="settings-button"], button:has-text("Settings")')
@@ -71,7 +71,7 @@ test.describe('App Lifecycle - Stable Tests', () => {
 
     try {
       const page = await app.firstWindow()
-      await RobustWaitPatterns.waitForElectronAPI(page)
+      await RobustWaitPatterns.waitForAppInitialization(page)
       
       // Get initial viewport size
       const initialViewport = page.viewportSize()
@@ -102,7 +102,7 @@ test.describe('App Lifecycle - Stable Tests', () => {
 
     try {
       const page = await app.firstWindow()
-      await RobustWaitPatterns.waitForElectronAPI(page)
+      await RobustWaitPatterns.waitForAppInitialization(page)
       
       // Navigate to Settings
       const settingsButton = page.locator('[data-testid="settings-button"], button:has-text("Settings")')
@@ -137,7 +137,7 @@ test.describe('App Lifecycle - Stable Tests', () => {
 
     try {
       const page = await app.firstWindow()
-      await RobustWaitPatterns.waitForElectronAPI(page)
+      await RobustWaitPatterns.waitForAppInitialization(page)
       
       // Verify app is running
       expect(await page.title()).toBeTruthy()
@@ -161,7 +161,7 @@ test.describe('App Lifecycle - Stable Tests', () => {
 
     try {
       const page = await app.firstWindow()
-      await RobustWaitPatterns.waitForElectronAPI(page)
+      await RobustWaitPatterns.waitForAppInitialization(page)
       
       // Test different viewport sizes
       const viewports = [
@@ -195,7 +195,7 @@ test.describe('App Lifecycle - Stable Tests', () => {
 
     try {
       const page = await app.firstWindow()
-      await RobustWaitPatterns.waitForElectronAPI(page)
+      await RobustWaitPatterns.waitForAppInitialization(page)
       
       // Test Tab navigation
       await page.keyboard.press('Tab')
@@ -226,7 +226,7 @@ test.describe('App Lifecycle - Stable Tests', () => {
       const page = await app.firstWindow()
       
       // Should load successfully even with network disabled
-      await RobustWaitPatterns.waitForElectronAPI(page)
+      await RobustWaitPatterns.waitForAppInitialization(page)
       
       // Verify core functionality works
       const settingsButton = page.locator('[data-testid="settings-button"], button:has-text("Settings")')

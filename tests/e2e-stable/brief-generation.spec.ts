@@ -24,7 +24,7 @@ test.describe('Brief Generation - Stable Tests', () => {
 
     try {
       const page = await app.firstWindow()
-      await RobustWaitPatterns.waitForElectronAPI(page)
+      await RobustWaitPatterns.waitForAppInitialization(page)
       
       // Look for brief generation form
       const contextTextarea = page.locator('[data-testid="context-textarea"], textarea[placeholder*="context"]')
@@ -46,7 +46,7 @@ test.describe('Brief Generation - Stable Tests', () => {
 
     try {
       const page = await app.firstWindow()
-      await RobustWaitPatterns.waitForElectronAPI(page)
+      await RobustWaitPatterns.waitForAppInitialization(page)
       
       // Fill the form with test data
       const contextTextarea = page.locator('[data-testid="context-textarea"], textarea[placeholder*="context"]')
@@ -83,7 +83,7 @@ test.describe('Brief Generation - Stable Tests', () => {
 
     try {
       const page = await app.firstWindow()
-      await RobustWaitPatterns.waitForElectronAPI(page)
+      await RobustWaitPatterns.waitForAppInitialization(page)
       
       const contextTextarea = page.locator('[data-testid="context-textarea"], textarea[placeholder*="context"]')
       const generateButton = page.locator('[data-testid="generate-button"], button:has-text("Generate")')
@@ -108,7 +108,7 @@ test.describe('Brief Generation - Stable Tests', () => {
 
     try {
       const page = await app.firstWindow()
-      await RobustWaitPatterns.waitForElectronAPI(page)
+      await RobustWaitPatterns.waitForAppInitialization(page)
       
       const generateButton = page.locator('[data-testid="generate-button"], button:has-text("Generate")')
       
@@ -140,7 +140,7 @@ test.describe('Brief Generation - Stable Tests', () => {
 
     try {
       const page = await app.firstWindow()
-      await RobustWaitPatterns.waitForElectronAPI(page)
+      await RobustWaitPatterns.waitForAppInitialization(page)
       
       const contextTextarea = page.locator('[data-testid="context-textarea"], textarea[placeholder*="context"]')
       const generateButton = page.locator('[data-testid="generate-button"], button:has-text("Generate")')
@@ -174,7 +174,7 @@ test.describe('Brief Generation - Stable Tests', () => {
 
     try {
       const page = await app.firstWindow()
-      await RobustWaitPatterns.waitForElectronAPI(page)
+      await RobustWaitPatterns.waitForAppInitialization(page)
       
       const contextTextarea = page.locator('[data-testid="context-textarea"], textarea[placeholder*="context"]')
       const generateButton = page.locator('[data-testid="generate-button"], button:has-text("Generate")')

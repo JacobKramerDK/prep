@@ -16,6 +16,44 @@ export class RobustWaitPatterns {
     }, { timeout })
   }
 
+  static async waitForAppInitialization(page: Page, options: WaitOptions = {}): Promise<void> {
+    const { timeout = 15000 } = options
+    
+    // First wait for Electron API
+    await this.waitForElectronAPI(page, options)
+    
+    // Then wait for loading screen to disappear (if present)
+    try {
+      // Wait for loading screen to disappear using a simpler approach
+      await page.waitForFunction(() => {
+        // Check if we're still in loading state
+        const loadingElements = document.querySelectorAll('[data-testid="loading-screen"], .loading-screen')
+        const prepTitle = document.querySelector('h1')
+        const loadingText = document.querySelector('p')
+        
+        // If we find loading elements, wait for them to disappear
+        if (loadingElements.length > 0) {
+          return false
+        }
+        
+        // If we find "Prep" title with "Loading" text, wait for it to change
+        if (prepTitle && loadingText && 
+            prepTitle.textContent?.includes('Prep') && 
+            loadingText.textContent?.includes('Loading')) {
+          return false
+        }
+        
+        return true
+      }, { timeout })
+    } catch (error) {
+      // Loading screen might not be present or might disappear quickly
+      console.log('Loading screen handling:', error)
+    }
+    
+    // Finally wait for main content to be available
+    await page.waitForSelector('[data-testid="main-content"], main, .main-container', { timeout: 5000 })
+  }
+
   static async waitForAPIValidation(page: Page, options: WaitOptions = {}): Promise<void> {
     const { timeout = 15000 } = options
     

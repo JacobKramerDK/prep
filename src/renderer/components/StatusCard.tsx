@@ -6,6 +6,7 @@ interface StatusCardProps {
   path?: string | null
   indexedCount?: number
   isIndexed?: boolean
+  isInitializing?: boolean
   onAction?: () => void
 }
 
@@ -14,10 +15,28 @@ export function StatusCard({
   path,
   indexedCount = 0,
   isIndexed = false,
+  isInitializing = false,
   onAction,
 }: StatusCardProps) {
   // Extract just the vault name from the full path
   const vaultName = path ? path.split('/').pop() || path : ''
+
+  // Show loading state during initialization
+  if (isInitializing) {
+    return (
+      <div className="bg-surface border border-border rounded-xl p-4 shadow-sm">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-lg bg-surface-hover border border-border flex items-center justify-center">
+            <Database className="w-5 h-5 text-secondary" />
+          </div>
+          <div>
+            <h3 className="text-sm font-semibold text-primary">Obsidian Vault</h3>
+            <p className="text-sm text-secondary">Checking connection...</p>
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   if (!isConnected || !path) {
     return (
