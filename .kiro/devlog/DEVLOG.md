@@ -5,12 +5,12 @@
 **Total Time**: ~29 hours (Phase 1-4 Complete + Security Hardening)  
 
 ### Overall Progress
-- **Total Development Days**: 11
-- **Total Hours Logged**: 42h
-- **Total Commits**: 47
-- **Lines of Code Added**: 76537
-- **Lines of Code Removed**: 5465
-- **Files Modified**: 185+  
+- **Total Development Days**: 12
+- **Total Hours Logged**: 45h
+- **Total Commits**: 49
+- **Lines of Code Added**: 65898
+- **Lines of Code Removed**: 6072
+- **Files Modified**: 200+  
 
 ## Overview
 Building a desktop meeting preparation assistant that connects to Obsidian vaults and calendars to automatically surface relevant context and generate AI-powered meeting briefs. Using Kiro CLI extensively for AI-assisted development and modern Electron architecture.
@@ -2849,5 +2849,82 @@ All major features implemented with comprehensive security hardening:
 - **Focus**: Ensure application works properly on Windows platform
 - **Testing**: Cross-platform validation and compatibility fixes
 - **Deployment**: Prepare for multi-platform distribution
+
+---
+
+---
+
+## Day 17 (January 21, 2026) - Apple Calendar Integration & Windows Support [3h]
+
+### 📊 **Daily Metrics**
+- **Time Spent**: 3 hours (Windows support, Apple Calendar integration, GPT model improvements)
+- **Commits Made**: 7 commits
+- **Lines Added**: 6,269
+- **Lines Removed**: 734
+- **Net Lines**: +5,535
+- **Files Modified**: 15+ files
+
+### 🎯 **Accomplishments**
+- ✅ **Apple Calendar Integration**: Complete authentication, permission management, and calendar selection
+- ✅ **Windows Support**: Basic cross-platform compatibility implemented
+- ✅ **Streamlined Design**: Improved UI/UX for calendar integration
+- ✅ **GPT Model Support**: Better support for customizing GPT models
+- ✅ **Code Quality**: Fixed code review issues with improved error handling
+
+### 💻 **Technical Progress**
+**Commits Made Today:**
+- `c752e45` - Apple Calendar integration with improved error handling
+- `235e76a` - Fix code review issues  
+- `f75ccf4` - Improve error handling and GPT-5 support
+- `e277558` - Add calendar status display to main page
+- `35c62e5` - Fix calendar display and horizontal overflow issues
+- `a4e3c48` - Fix code review issues: improve error handling, tooltip positioning, and extract constants
+- `b4f7f85` - Improve meeting brief UI/UX with regeneration functionality
+
+**Code Changes:**
+- Added comprehensive Apple Calendar authentication system
+- Implemented permission state management with caching
+- Created new AppleCalendarAuth.tsx component (256 lines)
+- Enhanced calendar-manager.ts with Apple Calendar methods
+- Updated IPC handlers for Apple Calendar operations
+- Improved error handling to distinguish permission vs discovery failures
+
+### 🔧 **Work Breakdown**
+- **Apple Calendar Integration**: 1.5h - Authentication, permission management, UI components
+- **Windows Support**: 0.5h - Cross-platform compatibility fixes
+- **Code Review & Quality**: 0.5h - Error handling improvements, constant extraction
+- **GPT Model Support**: 0.5h - Enhanced model customization and error handling
+
+### 🚧 **Challenges & Solutions**
+**Major Challenge**: Consistent error when making improvements to meeting brief prompt
+- **Root Cause**: E2E test was erasing the OpenAI API key, not the design changes
+- **Solution**: Identified the test issue after extensive debugging
+- **Learning**: Always check test environment state when debugging "mysterious" errors
+- **Time Lost**: Significant frustration before discovering the real issue
+
+### 🧠 **Key Decisions**
+- **Skip Microsoft Calendar API**: Decided against implementing due to time constraints and testing complexity
+- **Focus on Apple Calendar**: Prioritized robust Apple Calendar integration over multiple calendar sources
+- **Error Handling Strategy**: Implemented distinction between permission and discovery failures
+- **Code Quality**: Converted magic numbers to constants and improved error messaging
+
+### 📚 **Learnings & Insights**
+- **Debugging Strategy**: Test environment can mask real issues - always verify test state
+- **Apple Calendar Permissions**: macOS permission system requires careful state management
+- **Error Handling**: Distinguishing between different error types improves user experience
+- **Time Management**: Sometimes it's better to skip features to ensure quality of implemented ones
+
+### ⚡ **Kiro CLI Usage**
+- Used `@code-review` for systematic quality assessment
+- Applied `@fix-bugs` workflow for addressing review issues
+- Leveraged code intelligence for refactoring and error handling improvements
+- Used structured prompts for Apple Calendar integration planning
+
+### 📋 **Next Session Plan**
+- **Priority 1**: Fix flaking E2E tests that are causing debugging confusion
+- **Priority 2**: Stabilize test suite to prevent API key erasure issues
+- **Priority 3**: Polish Apple Calendar integration based on user feedback
+- **Priority 4**: Final testing and validation of Windows support
+- **Priority 5**: Prepare for hackathon submission with stable, tested features
 
 ---

@@ -258,6 +258,29 @@ export function SettingsPage({ onBack, vaultFileCount }: SettingsPageProps) {
               anyone except OpenAI.
             </p>
 
+            <div className="mb-6 p-6 bg-surface-hover rounded-xl border border-border">
+              <div className="flex items-center gap-3 mb-3">
+                <div className="w-8 h-8 rounded-lg bg-brand-50 dark:bg-brand-900/20 flex items-center justify-center">
+                  <Info className="w-4 h-4 text-brand-600 dark:text-brand-400" />
+                </div>
+                <h3 className="font-semibold text-primary">API Configuration</h3>
+              </div>
+              <ul className="space-y-2 text-sm text-secondary ml-1">
+                <li className="flex items-center gap-2">
+                  <span className="w-1 h-1 rounded-full bg-tertiary"></span>
+                  Your API key is stored securely on your local machine
+                </li>
+                <li className="flex items-center gap-2">
+                  <span className="w-1 h-1 rounded-full bg-tertiary"></span>
+                  Choose the right model for your needs - GPT-4 Turbo is recommended
+                </li>
+                <li className="flex items-center gap-2">
+                  <span className="w-1 h-1 rounded-full bg-tertiary"></span>
+                  Brief generation requires an active internet connection
+                </li>
+              </ul>
+            </div>
+
             <div className="space-y-6 max-w-2xl">
               <div>
                 <label className="block text-sm font-medium text-primary mb-2">
@@ -358,6 +381,29 @@ export function SettingsPage({ onBack, vaultFileCount }: SettingsPageProps) {
               searching your notes for context.
             </p>
 
+            <div className="mb-6 p-6 bg-surface-hover rounded-xl border border-border">
+              <div className="flex items-center gap-3 mb-3">
+                <div className="w-8 h-8 rounded-lg bg-brand-50 dark:bg-brand-900/20 flex items-center justify-center">
+                  <Info className="w-4 h-4 text-brand-600 dark:text-brand-400" />
+                </div>
+                <h3 className="font-semibold text-primary">Vault Integration</h3>
+              </div>
+              <ul className="space-y-2 text-sm text-secondary ml-1">
+                <li className="flex items-center gap-2">
+                  <span className="w-1 h-1 rounded-full bg-tertiary"></span>
+                  Connect to your existing Obsidian vault directory
+                </li>
+                <li className="flex items-center gap-2">
+                  <span className="w-1 h-1 rounded-full bg-tertiary"></span>
+                  All files are indexed locally for fast searching
+                </li>
+                <li className="flex items-center gap-2">
+                  <span className="w-1 h-1 rounded-full bg-tertiary"></span>
+                  Your notes remain private and stored on your device
+                </li>
+              </ul>
+            </div>
+
             <div className="w-full max-w-md mb-8">
               <div className="bg-success-light/30 border border-success/30 dark:bg-success-dark/10 dark:border-success-dark/30 rounded-lg p-4 flex items-center justify-center gap-3">
                 <Check className="w-5 h-5 text-success dark:text-success-400" />
@@ -385,6 +431,31 @@ export function SettingsPage({ onBack, vaultFileCount }: SettingsPageProps) {
                 <h2 className="text-xl font-semibold text-primary">
                   Import Options
                 </h2>
+              </div>
+
+              <div className="mb-6 p-6 bg-surface-hover rounded-xl border border-border">
+                <div className="flex items-center gap-3 mb-3">
+                  <div className="w-8 h-8 rounded-lg bg-brand-50 dark:bg-brand-900/20 flex items-center justify-center">
+                    <Info className="w-4 h-4 text-brand-600 dark:text-brand-400" />
+                  </div>
+                  <h3 className="font-semibold text-primary">Import Methods</h3>
+                </div>
+                <ul className="space-y-2 text-sm text-secondary ml-1">
+                  <li className="flex items-center gap-2">
+                    <span className="w-1 h-1 rounded-full bg-tertiary"></span>
+                    Choose from multiple calendar sources and formats
+                  </li>
+                  {isMacOS && (
+                    <li className="flex items-center gap-2">
+                      <span className="w-1 h-1 rounded-full bg-tertiary"></span>
+                      Apple Calendar integration available on macOS
+                    </li>
+                  )}
+                  <li className="flex items-center gap-2">
+                    <span className="w-1 h-1 rounded-full bg-tertiary"></span>
+                    All calendar data stays private and syncs locally
+                  </li>
+                </ul>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
@@ -502,34 +573,33 @@ export function SettingsPage({ onBack, vaultFileCount }: SettingsPageProps) {
               <p className="text-secondary mb-6">
                 Customize the AI prompt used for generating meeting briefs. Use variables to insert dynamic content.
               </p>
+
+              <div className="mb-6 p-6 bg-surface-hover rounded-xl border border-border">
+                <div className="flex items-center gap-3 mb-3">
+                  <div className="w-8 h-8 rounded-lg bg-brand-50 dark:bg-brand-900/20 flex items-center justify-center">
+                    <Info className="w-4 h-4 text-brand-600 dark:text-brand-400" />
+                  </div>
+                  <h3 className="font-semibold text-primary">Template Customization</h3>
+                </div>
+                <ul className="space-y-2 text-sm text-secondary ml-1">
+                  <li className="flex items-center gap-2">
+                    <span className="w-1 h-1 rounded-full bg-tertiary"></span>
+                    Use variables like {'{meetingTitle}'} and {'{attendees}'} for dynamic content
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <span className="w-1 h-1 rounded-full bg-tertiary"></span>
+                    Customize the AI's tone and focus for your meeting style
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <span className="w-1 h-1 rounded-full bg-tertiary"></span>
+                    Changes directly impact the quality of generated briefs
+                  </li>
+                </ul>
+              </div>
               <PromptTemplateEditor />
             </div>
           </div>
         )}
-      </div>
-
-      {/* Info Footer */}
-      <div className="mt-12 p-6 bg-surface-hover rounded-xl border border-border">
-        <div className="flex items-center gap-3 mb-3">
-          <div className="w-8 h-8 rounded-lg bg-brand-50 dark:bg-brand-900/20 flex items-center justify-center">
-            <Info className="w-4 h-4 text-brand-600 dark:text-brand-400" />
-          </div>
-          <h3 className="font-semibold text-primary">How it works</h3>
-        </div>
-        <ul className="space-y-2 text-sm text-secondary ml-1">
-          <li className="flex items-center gap-2">
-            <span className="w-1 h-1 rounded-full bg-tertiary"></span>
-            Your API key is stored securely on your local machine
-          </li>
-          <li className="flex items-center gap-2">
-            <span className="w-1 h-1 rounded-full bg-tertiary"></span>
-            It's never shared with anyone except OpenAI for generating briefs
-          </li>
-          <li className="flex items-center gap-2">
-            <span className="w-1 h-1 rounded-full bg-tertiary"></span>
-            Brief generation requires an active internet connection
-          </li>
-        </ul>
       </div>
     </div>
   )

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import { Save, RotateCcw, Settings } from 'lucide-react'
+import { Save, RotateCcw, Settings, Info } from 'lucide-react'
 import { RelevanceWeightSlider } from './RelevanceWeightSlider'
 import { RelevanceWeights, DEFAULT_RELEVANCE_WEIGHTS } from '../../shared/types/relevance-weights'
 
@@ -97,6 +97,29 @@ export function RelevanceWeightSettings() {
         Customize how the AI prioritizes different aspects of your notes when finding relevant context for meetings. 
         Adjust the weights to match your note-taking style and preferences.
       </p>
+
+      <div className="mb-6 p-6 bg-surface-hover rounded-xl border border-border">
+        <div className="flex items-center gap-3 mb-3">
+          <div className="w-8 h-8 rounded-lg bg-brand-50 dark:bg-brand-900/20 flex items-center justify-center">
+            <Info className="w-4 h-4 text-brand-600 dark:text-brand-400" />
+          </div>
+          <h3 className="font-semibold text-primary">Relevance Scoring</h3>
+        </div>
+        <ul className="space-y-2 text-sm text-secondary ml-1">
+          <li className="flex items-center gap-2">
+            <span className="w-1 h-1 rounded-full bg-tertiary"></span>
+            Higher weights give more importance to specific matching criteria
+          </li>
+          <li className="flex items-center gap-2">
+            <span className="w-1 h-1 rounded-full bg-tertiary"></span>
+            Adjust based on how you organize and tag your notes
+          </li>
+          <li className="flex items-center gap-2">
+            <span className="w-1 h-1 rounded-full bg-tertiary"></span>
+            Changes take effect immediately for new meeting preparations
+          </li>
+        </ul>
+      </div>
 
       <div className="space-y-6 max-w-2xl">
         {weightConfigs.map(({ key, label, description }) => (
