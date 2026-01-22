@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, dialog } from 'electron'
+import { app, BrowserWindow, ipcMain, dialog, shell } from 'electron'
 import path from 'path'
 import * as fs from 'fs/promises'
 import { VaultManager } from './services/vault-manager'
@@ -9,6 +9,7 @@ import { MeetingDetector } from './services/meeting-detector'
 import { OpenAIService } from './services/openai-service'
 import { ContextRetrievalService } from './services/context-retrieval-service'
 import { PlatformDetector } from './services/platform-detector'
+import { Debug } from '../shared/utils/debug'
 import { CalendarSelectionSettings } from '../shared/types/calendar-selection'
 import { BriefGenerationRequest, BriefGenerationStatus } from '../shared/types/brief'
 import { contextRetrievalResultToIPC } from '../shared/types/context'
@@ -29,6 +30,12 @@ const meetingDetector = new MeetingDetector(calendarManager)
 const settingsManager = new SettingsManager()
 const contextRetrievalService = new ContextRetrievalService()
 let openaiService: OpenAIService | null = null
+
+// Initialize debug mode from settings
+const debugMode = settingsManager.getDebugMode()
+if (debugMode) {
+  settingsManager.setDebugMode(true) // This will initialize file logging
+}
 
 // Connect the context retrieval service to use the vault manager's indexer
 const connectServices = () => {
@@ -540,6 +547,16 @@ ipcMain.handle('settings:setDebugMode', async (_, enabled: boolean) => {
   settingsManager.setDebugMode(enabled)
 })
 
+ipcMain.handle('settings:getDebugLogPath', async () => {
+  return settingsManager.getDebugLogPath()
+})
+
+ipcMain.handle('settings:openDebugLogFolder', async () => {
+  const logPath = settingsManager.getDebugLogPath()
+  const logDir = path.dirname(logPath)
+  shell.openPath(logDir)
+})
+
 ipcMain.handle('get-prompt-template', async () => {
   try {
     return settingsManager.getPromptTemplate()
@@ -645,17 +662,28 @@ ipcMain.handle('obsidian:setBriefFolder', async (_, folderPath: string | null) =
 
 ipcMain.handle('obsidian:saveBrief', async (_, briefContent: string, meetingTitle: string, meetingId: string) => {
   try {
+    Debug.log('[OBSIDIAN-SAVE] Starting brief save to Obsidian folder')
     const briefFolder = settingsManager.getObsidianBriefFolder()
     if (!briefFolder) {
       throw new Error('No Obsidian brief folder configured')
     }
 
+    Debug.log('[OBSIDIAN-SAVE] Using brief folder:', briefFolder)
+
     // Validate and normalize the folder path to prevent path traversal
     const normalizedFolder = path.resolve(briefFolder)
     
-    // Basic security check: ensure the path doesn't contain obvious traversal patterns
-    if (briefFolder.includes('..') || briefFolder.includes('~')) {
-      throw new Error('Invalid folder path: path traversal detected')
+    // Security validation: ensure the resolved path doesn't escape expected boundaries
+    // Get user data directory as the safe boundary
+    const userDataPath = app.getPath('userData')
+    const normalizedUserData = path.normalize(userDataPath)
+    
+    // Allow paths within user data directory or absolute paths that don't contain traversal
+    const isWithinUserData = normalizedFolder.startsWith(normalizedUserData)
+    const containsTraversal = briefFolder.includes('..') || briefFolder.includes('~')
+    
+    if (containsTraversal || (!path.isAbsolute(briefFolder) && !isWithinUserData)) {
+      throw new Error('Invalid folder path: path traversal or unsafe path detected')
     }
 
     // Generate filename with date and sanitized title
@@ -672,6 +700,8 @@ ipcMain.handle('obsidian:saveBrief', async (_, briefContent: string, meetingTitl
       filePath = path.join(normalizedFolder, fileName)
       counter++
     }
+
+    Debug.log('[OBSIDIAN-SAVE] Generated file path:', filePath)
 
     // Create Obsidian-compatible markdown content with frontmatter
     const frontmatter = [
@@ -691,8 +721,10 @@ ipcMain.handle('obsidian:saveBrief', async (_, briefContent: string, meetingTitl
     await fs.mkdir(normalizedFolder, { recursive: true })
     await fs.writeFile(filePath, fullContent, 'utf8')
 
+    Debug.log('[OBSIDIAN-SAVE] Successfully saved brief to:', filePath)
     return { success: true, filePath }
   } catch (error) {
+    Debug.error('[OBSIDIAN-SAVE] Failed to save brief:', error instanceof Error ? error.message : 'Unknown error')
     console.error('Failed to save brief to Obsidian:', error)
     return { 
       success: false, 

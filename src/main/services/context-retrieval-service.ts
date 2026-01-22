@@ -1,6 +1,7 @@
 import { VaultIndexer } from './vault-indexer'
 import { SettingsManager } from './settings-manager'
 import { TextCleaner } from '../../shared/utils/text-cleaner'
+import { Debug } from '../../shared/utils/debug'
 import { Meeting } from '../../shared/types/meeting'
 import { ContextMatch, ContextRetrievalRequest, ContextRetrievalResult, ContextConfiguration } from '../../shared/types/context'
 import { VaultFile } from '../../shared/types/vault'
@@ -24,8 +25,8 @@ export class ContextRetrievalService {
   }
 
   private debugLog(message: string, ...args: any[]): void {
-    if (this.settingsManager.getDebugMode()) {
-      console.log(message, ...args)
+    if (Debug.isEnabled()) {
+      Debug.log('[CONTEXT-RETRIEVAL]', message, ...args)
     }
   }
 

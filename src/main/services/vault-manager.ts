@@ -6,6 +6,7 @@ import { VaultFile, VaultIndex, SearchResult } from '../../shared/types/vault'
 import { SettingsManager } from './settings-manager'
 import { VaultIndexer } from './vault-indexer'
 import { TextCleaner } from '../../shared/utils/text-cleaner'
+import { Debug } from '../../shared/utils/debug'
 
 export class VaultManager {
   private vaultPath: string | null = null
@@ -43,6 +44,8 @@ export class VaultManager {
 
   async scanVault(vaultPath: string): Promise<VaultIndex> {
     try {
+      Debug.log('[VAULT-MANAGER] Starting vault scan for path:', vaultPath)
+      
       // Validate vault path
       const stats = await fs.stat(vaultPath)
       if (!stats.isDirectory()) {
@@ -51,9 +54,11 @@ export class VaultManager {
 
       this.vaultPath = vaultPath
       await this.settingsManager.setVaultPath(vaultPath)
+      Debug.log('[VAULT-MANAGER] Vault path saved to settings')
 
       // Scan for markdown files
       const files = await this.scanDirectory(vaultPath)
+      Debug.log(`[VAULT-MANAGER] Found ${files.length} markdown files in vault`)
       const vaultFiles: VaultFile[] = []
       const errors: Array<{ filePath: string; error: string }> = []
 
@@ -82,6 +87,7 @@ export class VaultManager {
       // Index files for context retrieval (safe re-indexing)
       try {
         await this.vaultIndexer.indexFiles(vaultFiles)
+        Debug.log('[VAULT-MANAGER] Successfully indexed vault files for context retrieval')
       } catch (indexError) {
         console.warn('Context indexing failed, but vault scan completed:', indexError)
         // Don't fail the entire vault scan if indexing fails
@@ -89,9 +95,12 @@ export class VaultManager {
 
       // Start file watching
       this.startFileWatching(vaultPath)
+      Debug.log('[VAULT-MANAGER] Started file watching for vault changes')
 
+      Debug.log(`[VAULT-MANAGER] Vault scan completed successfully - ${vaultFiles.length} files indexed`)
       return index
     } catch (error) {
+      Debug.error('[VAULT-MANAGER] Vault scan failed:', error instanceof Error ? error.message : 'Unknown error')
       throw new Error(`Failed to scan vault: ${error instanceof Error ? error.message : 'Unknown error'}`)
     }
   }
@@ -354,6 +363,8 @@ export class VaultManager {
   }
 
   async disconnectVault(): Promise<void> {
+    Debug.log('[VAULT-MANAGER] Disconnecting vault')
+    
     // Clear the vault connection without deleting any files
     this.vaultPath = null
     this.index = null
@@ -362,6 +373,7 @@ export class VaultManager {
     if (this.watcher) {
       await this.watcher.close()
       this.watcher = null
+      Debug.log('[VAULT-MANAGER] Stopped file watching')
     }
     
     // Clear vault settings
@@ -369,6 +381,7 @@ export class VaultManager {
     
     // Clear vault indexer
     this.vaultIndexer.clear()
+    Debug.log('[VAULT-MANAGER] Vault disconnected successfully')
   }
 
   async dispose(): Promise<void> {

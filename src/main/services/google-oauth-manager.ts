@@ -4,6 +4,7 @@ import * as crypto from 'crypto'
 import express, { Request, Response } from 'express'
 import { Server } from 'http'
 import { GoogleCalendarError, GoogleCalendarCredentials, GoogleOAuthConfig } from '../../shared/types/google-calendar'
+import { Debug } from '../../shared/utils/debug'
 
 export class GoogleOAuthManager {
   private readonly CLIENT_ID = process.env.GOOGLE_CLIENT_ID || '1234567890-abcdefghijklmnopqrstuvwxyz.apps.googleusercontent.com' // TODO: Replace with actual client ID
@@ -18,10 +19,12 @@ export class GoogleOAuthManager {
 
   async initiateOAuthFlow(): Promise<string> {
     try {
+      Debug.log('[GOOGLE-OAUTH] Initiating OAuth flow')
       const state = crypto.randomBytes(16).toString('hex')
       
       // Store state temporarily
       this.tempStorage.set('state', state)
+      Debug.log('[GOOGLE-OAUTH] Generated and stored OAuth state')
       
       // For web apps, we don't need PKCE
       const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?${new URLSearchParams({
@@ -34,8 +37,10 @@ export class GoogleOAuthManager {
         prompt: 'consent'
       })}`
       
+      Debug.log('[GOOGLE-OAUTH] Generated OAuth authorization URL')
       return authUrl
     } catch (error) {
+      Debug.error('[GOOGLE-OAUTH] Failed to initiate OAuth flow:', error instanceof Error ? error.message : 'Unknown error')
       throw new GoogleCalendarError(
         'Failed to initiate OAuth flow',
         'AUTH_FAILED',
@@ -51,9 +56,11 @@ export class GoogleOAuthManager {
       app.get('/oauth/callback', (req: Request, res: Response) => {
         const { code, state, error } = req.query
         
+        Debug.log('[GOOGLE-OAUTH] OAuth callback received:', { code: !!code, state: !!state, error })
         console.log('OAuth callback received:', { code: !!code, state: !!state, error })
         
         if (error) {
+          Debug.error('[GOOGLE-OAUTH] OAuth error:', error)
           console.error('OAuth error:', error)
           res.send(`<html><body><h1>Authentication Failed</h1><p>${error}</p><script>window.close()</script></body></html>`)
           this.stopOAuthServer()
@@ -62,6 +69,7 @@ export class GoogleOAuthManager {
         }
         
         if (!code || !state) {
+          Debug.error('[GOOGLE-OAUTH] Missing code or state:', { code: !!code, state: !!state })
           console.error('Missing code or state:', { code: !!code, state: !!state })
           res.send('<html><body><h1>Authentication Failed</h1><p>Missing authorization code or state</p><script>window.close()</script></body></html>')
           this.stopOAuthServer()
@@ -84,6 +92,7 @@ export class GoogleOAuthManager {
         // Exchange code for tokens
         this.exchangeCodeForTokens(code as string)
           .then(() => {
+            Debug.log('[GOOGLE-OAUTH] OAuth flow completed successfully')
             console.log('OAuth flow completed successfully')
             resolve()
           })
@@ -91,6 +100,7 @@ export class GoogleOAuthManager {
       })
       
       this.oauthServer = app.listen(8080, 'localhost', () => {
+        Debug.log('[GOOGLE-OAUTH] OAuth server started on http://localhost:8080')
         console.log('OAuth server started on http://localhost:8080')
       })
       

@@ -3,6 +3,7 @@ import { promisify } from 'util'
 import * as fs from 'fs'
 import * as path from 'path'
 import { CalendarEvent, CalendarError, CalendarImportResult } from '../../shared/types/calendar'
+import { Debug } from '../../shared/utils/debug'
 
 // Safely initialize execFileAsync with proper error handling
 const execFileAsync = (() => {
@@ -104,7 +105,7 @@ export class SwiftCalendarManager {
     const helperPath = this.getHelperPath()
 
     try {
-      console.log('Executing Swift calendar helper...')
+      Debug.log('[SWIFT-CALENDAR] Executing Swift calendar helper...')
       const startTime = Date.now()
 
       const { stdout, stderr } = await execFileAsync(helperPath, [], {
@@ -112,7 +113,7 @@ export class SwiftCalendarManager {
       })
 
       const executionTime = Date.now() - startTime
-      console.log(`Swift calendar helper completed in ${executionTime}ms`)
+      Debug.log(`[SWIFT-CALENDAR] Swift calendar helper completed in ${executionTime}ms`)
 
       if (stderr && stderr.includes('PERMISSION_DENIED')) {
         throw new CalendarError(
@@ -132,7 +133,7 @@ export class SwiftCalendarManager {
         )
       }
 
-      console.log(`Parsed ${events.length} events from Swift helper`)
+      Debug.log(`[SWIFT-CALENDAR] Parsed ${events.length} events from Swift helper`)
 
       const calendarEvents: CalendarEvent[] = []
       

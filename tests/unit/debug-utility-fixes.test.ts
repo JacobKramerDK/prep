@@ -39,7 +39,10 @@ describe('Debug Utility Fixes', () => {
     Debug.setDebugMode(true)
     Debug.log('test message')
     
-    expect(consoleSpy).toHaveBeenCalledWith('[DEBUG]', 'test message')
+    // Check that console.log was called with a message containing timestamp and debug info
+    expect(consoleSpy).toHaveBeenCalledTimes(1)
+    const logCall = consoleSpy.mock.calls[0][0]
+    expect(logCall).toMatch(/^\[\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z\] \[DEBUG\] test message$/)
     consoleSpy.mockRestore()
   })
 })

@@ -141,6 +141,8 @@ const electronAPI: ElectronAPI = {
   // Debug mode methods
   getDebugMode: () => ipcRenderer.invoke('settings:getDebugMode'),
   setDebugMode: (enabled: boolean) => ipcRenderer.invoke('settings:setDebugMode', enabled),
+  getDebugLogPath: () => ipcRenderer.invoke('settings:getDebugLogPath'),
+  openDebugLogFolder: () => ipcRenderer.invoke('settings:openDebugLogFolder'),
   // Google Calendar methods
   authenticateGoogleCalendar: () => ipcRenderer.invoke('calendar:authenticateGoogle'),
   getGoogleCalendarEvents: async () => {

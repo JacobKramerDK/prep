@@ -69,6 +69,8 @@ export interface ElectronAPI {
   // Debug mode
   getDebugMode: () => Promise<boolean>
   setDebugMode: (enabled: boolean) => Promise<void>
+  getDebugLogPath: () => Promise<string>
+  openDebugLogFolder: () => Promise<void>
   // Google Calendar operations
   authenticateGoogleCalendar: () => Promise<string>
   getGoogleCalendarEvents: () => Promise<CalendarImportResult>

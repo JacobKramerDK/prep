@@ -3,6 +3,7 @@ import { unified } from 'unified'
 import remarkParse from 'remark-parse'
 import remarkFrontmatter from 'remark-frontmatter'
 import { VaultFile } from '../../shared/types/vault'
+import { Debug } from '../../shared/utils/debug'
 
 // FlexSearch document interface
 interface IndexedDocument {
@@ -64,7 +65,7 @@ export class VaultIndexer {
       }
 
       indexTime = Date.now() - startTime
-      console.log(`Indexed ${files.length} files in ${indexTime}ms (${(indexTime / files.length).toFixed(1)}ms/file)`)
+      Debug.log(`[VAULT-INDEXER] Indexed ${files.length} files in ${indexTime}ms (${(indexTime / files.length).toFixed(1)}ms/file)`)
     } else {
       // Production: index without timing
       for (const file of files) {
@@ -152,7 +153,7 @@ export class VaultIndexer {
       try {
         const results = await this.performSearch(query, maxResults)
         searchTime = Date.now() - startTime
-        console.log(`Search completed in ${searchTime}ms`)
+        Debug.log(`[VAULT-INDEXER] Search completed in ${searchTime}ms`)
         return results
       } catch (error) {
         console.error('Search failed:', error)

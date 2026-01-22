@@ -302,7 +302,24 @@ export class SettingsManager {
 
   setDebugMode(enabled: boolean): void {
     this.store.set('debugMode', enabled)
-    Debug.setDebugMode(enabled)
+    if (enabled) {
+      try {
+        const logPath = this.getDebugLogPath()
+        Debug.setDebugMode(enabled, logPath)
+      } catch (error) {
+        console.error('Failed to initialize debug logging:', error)
+        // Reset debug mode in store if initialization fails
+        this.store.set('debugMode', false)
+        throw error
+      }
+    } else {
+      Debug.setDebugMode(enabled)
+    }
+  }
+
+  getDebugLogPath(): string {
+    const userDataPath = app.getPath('userData')
+    return path.join(userDataPath, 'debug.log')
   }
 
   // Prompt template methods

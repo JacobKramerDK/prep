@@ -12,6 +12,7 @@ import { SwiftCalendarManager } from './swift-calendar-manager'
 import { GoogleCalendarManager } from './google-calendar-manager'
 import { GoogleOAuthManager } from './google-oauth-manager'
 import { PlatformDetector } from './platform-detector'
+import { Debug } from '../../shared/utils/debug'
 
 const execAsync = promisify(exec)
 
@@ -76,7 +77,7 @@ export class CalendarManager {
     // Try Swift backend first if enabled and available
     if (this.useSwiftBackend && this.swiftCalendarManager.isSupported()) {
       try {
-        console.log('Using Swift backend for calendar extraction')
+        Debug.log('[CALENDAR-MANAGER] Using Swift backend for calendar extraction')
         
         // First, ensure we have calendar permissions by running a simple AppleScript check
         // This will trigger the permission dialog if needed
@@ -131,7 +132,7 @@ export class CalendarManager {
     // Return existing promise if already running (atomic check)
     if (this.isExtracting && this.appleScriptPromise) {
       if (process.env.NODE_ENV === 'development') {
-        console.log('AppleScript extraction already in progress, returning existing promise')
+        Debug.log('[CALENDAR-MANAGER] AppleScript extraction already in progress, returning existing promise')
       }
       return this.appleScriptPromise
     }
@@ -166,7 +167,7 @@ export class CalendarManager {
     await this.checkAppleScriptPermissions()
 
     if (process.env.NODE_ENV === 'development') {
-      console.log('Selected calendars for extraction:', selectedCalendarNames)
+      Debug.log('[CALENDAR-MANAGER] Selected calendars for extraction:', selectedCalendarNames)
     }
 
     // Don't filter out the main Calendar - only filter truly problematic ones
@@ -175,13 +176,13 @@ export class CalendarManager {
     ) || []
     
     if (process.env.NODE_ENV === 'development') {
-      console.log('Filtered calendars (excluding system calendars):', filteredCalendars)
+      Debug.log('[CALENDAR-MANAGER] Filtered calendars (excluding system calendars):', filteredCalendars)
     }
 
     // If no calendars are selected, fall back to discovering and using all available calendars
     if (filteredCalendars.length === 0) {
       if (process.env.NODE_ENV === 'development') {
-        console.log('No calendars selected, discovering available calendars...')
+        Debug.log('[CALENDAR-MANAGER] No calendars selected, discovering available calendars...')
       }
       try {
         const discoveryResult = await this.discoverCalendars()
@@ -194,7 +195,7 @@ export class CalendarManager {
         }
         
         if (process.env.NODE_ENV === 'development') {
-          console.log('Using discovered calendars:', availableCalendars)
+          Debug.log('[CALENDAR-MANAGER] Using discovered calendars:', availableCalendars)
         }
         
         // Use immutable pattern for clarity
@@ -277,7 +278,7 @@ end tell`
       fs.writeFileSync(scriptPath, script, 'utf8')
       
       if (process.env.NODE_ENV === 'development') {
-        console.log('Executing AppleScript for calendar extraction...')
+        Debug.log('[CALENDAR-MANAGER] Executing AppleScript for calendar extraction...')
       }
       const startTime = Date.now()
       
@@ -289,12 +290,12 @@ end tell`
       
       const executionTime = Date.now() - startTime
       if (process.env.NODE_ENV === 'development') {
-        console.log(`AppleScript completed in ${executionTime}ms`)
+        Debug.log(`[CALENDAR-MANAGER] AppleScript completed in ${executionTime}ms`)
       }
       
       const events = this.parseOSAScriptResult(stdout.trim())
       if (process.env.NODE_ENV === 'development') {
-        console.log(`Parsed ${events.length} events from AppleScript`)
+        Debug.log(`[CALENDAR-MANAGER] Parsed ${events.length} events from AppleScript`)
       }
       
       // Clean up temporary file
@@ -752,15 +753,20 @@ end tell`
   // Google Calendar integration methods
   async authenticateGoogleCalendar(): Promise<string> {
     try {
+      Debug.log('[GOOGLE-CALENDAR] Starting Google Calendar authentication')
       const authUrl = await this.googleOAuthManager.initiateOAuthFlow()
+      Debug.log('[GOOGLE-CALENDAR] OAuth flow initiated, auth URL generated')
       
       // Start the OAuth server and handle the callback
       this.googleOAuthManager.startOAuthServer().catch(error => {
+        Debug.error('[GOOGLE-CALENDAR] OAuth server error:', error instanceof Error ? error.message : 'Unknown error')
         console.error('OAuth server error:', error)
       })
       
+      Debug.log('[GOOGLE-CALENDAR] OAuth server started, waiting for callback')
       return authUrl
     } catch (error) {
+      Debug.error('[GOOGLE-CALENDAR] Authentication failed:', error instanceof Error ? error.message : 'Unknown error')
       throw new CalendarError(
         'Failed to authenticate with Google Calendar',
         'PERMISSION_DENIED',
@@ -771,12 +777,15 @@ end tell`
 
   async getGoogleCalendarEvents(): Promise<CalendarImportResult> {
     try {
+      Debug.log('[GOOGLE-CALENDAR] Fetching Google Calendar events')
       const refreshToken = await this.settingsManager.getGoogleCalendarRefreshToken()
       if (!refreshToken) {
         throw new CalendarError('Google Calendar not authenticated', 'PERMISSION_DENIED')
       }
 
+      Debug.log('[GOOGLE-CALENDAR] Using stored refresh token to fetch events')
       const result = await this.googleCalendarManager.getEvents(refreshToken)
+      Debug.log(`[GOOGLE-CALENDAR] Retrieved ${result.events.length} events from Google Calendar`)
       
       // Merge with existing events from other sources
       const existingEvents = await this.settingsManager.getCalendarEvents()
@@ -784,9 +793,11 @@ end tell`
       const allEvents = [...nonGoogleEvents, ...result.events]
       
       await this.settingsManager.setCalendarEvents(allEvents)
+      Debug.log(`[GOOGLE-CALENDAR] Successfully merged and stored ${allEvents.length} total events`)
       
       return result
     } catch (error) {
+      Debug.error('[GOOGLE-CALENDAR] Failed to fetch events:', error instanceof Error ? error.message : 'Unknown error')
       throw new CalendarError(
         'Failed to fetch Google Calendar events',
         'PARSE_ERROR',
@@ -881,7 +892,7 @@ end tell`
     return events.map(event => {
       if (event.source === 'applescript' && this.isLikelyGoogleCalendarEvent(event)) {
         if (process.env.NODE_ENV === 'development') {
-          console.log(`Detected Google Calendar event in Apple Calendar: ${event.title}`)
+          Debug.log(`[CALENDAR-MANAGER] Detected Google Calendar event in Apple Calendar: ${event.title}`)
         }
         return {
           ...event,

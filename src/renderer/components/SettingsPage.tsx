@@ -16,6 +16,7 @@ import {
   Apple,
   FileText,
   FolderOpen,
+  Bug,
 } from 'lucide-react'
 import { PromptTemplateEditor } from './PromptTemplateEditor'
 import { RelevanceWeightSettings } from './RelevanceWeightSettings'
@@ -39,6 +40,9 @@ export function SettingsPage({ onBack, vaultFileCount }: SettingsPageProps) {
   const [isSaving, setIsSaving] = useState(false)
   const [saveMessage, setSaveMessage] = useState<string | null>(null)
   const [briefFolder, setBriefFolder] = useState<string | null>(null)
+  const [debugMode, setDebugMode] = useState(false)
+  const [debugLogPath, setDebugLogPath] = useState<string | null>(null)
+  const [debugError, setDebugError] = useState<string | null>(null)
 
   useEffect(() => {
     const loadSettings = async () => {
@@ -46,10 +50,11 @@ export function SettingsPage({ onBack, vaultFileCount }: SettingsPageProps) {
         const results = await Promise.allSettled([
           window.electronAPI.getOpenAIApiKey(),
           window.electronAPI.getOpenAIModel(),
-          window.electronAPI.getObsidianBriefFolder()
+          window.electronAPI.getObsidianBriefFolder(),
+          window.electronAPI.getDebugMode()
         ])
         
-        const [apiKeyResult, modelResult, briefFolderResult] = results
+        const [apiKeyResult, modelResult, briefFolderResult, debugModeResult] = results
         
         if (apiKeyResult.status === 'fulfilled' && apiKeyResult.value) {
           setApiKey(apiKeyResult.value)
@@ -76,6 +81,20 @@ export function SettingsPage({ onBack, vaultFileCount }: SettingsPageProps) {
         
         if (briefFolderResult.status === 'fulfilled' && briefFolderResult.value) {
           setBriefFolder(briefFolderResult.value)
+        }
+        
+        if (debugModeResult.status === 'fulfilled') {
+          setDebugMode(debugModeResult.value)
+          if (debugModeResult.value) {
+            try {
+              const logPath = await window.electronAPI.getDebugLogPath()
+              setDebugLogPath(logPath)
+              setDebugError(null)
+            } catch (error) {
+              console.error('Failed to get debug log path:', error)
+              setDebugError('Failed to determine debug log path. Debug mode may not work correctly.')
+            }
+          }
         }
       } catch (error) {
         console.error('Failed to load settings:', error)
@@ -203,6 +222,25 @@ export function SettingsPage({ onBack, vaultFileCount }: SettingsPageProps) {
     }
   }
 
+  const handleDebugModeToggle = async (enabled: boolean) => {
+    try {
+      await window.electronAPI.setDebugMode(enabled)
+      setDebugMode(enabled)
+      setDebugError(null)
+      if (enabled) {
+        const logPath = await window.electronAPI.getDebugLogPath()
+        setDebugLogPath(logPath)
+      } else {
+        setDebugLogPath(null)
+      }
+    } catch (error) {
+      console.error('Failed to toggle debug mode:', error)
+      setDebugError(`Failed to ${enabled ? 'enable' : 'disable'} debug mode: ${error instanceof Error ? error.message : 'Unknown error'}`)
+      // Revert the debug mode state if it failed
+      setDebugMode(!enabled)
+    }
+  }
+
   const tabs = [
     {
       id: 'ai',
@@ -228,6 +266,11 @@ export function SettingsPage({ onBack, vaultFileCount }: SettingsPageProps) {
       id: 'prompts',
       label: 'Prompt Templates',
       icon: <FileText className="w-4 h-4" />,
+    },
+    {
+      id: 'debug',
+      label: 'Debug Settings',
+      icon: <Bug className="w-4 h-4" />,
     },
   ]
 
@@ -663,6 +706,57 @@ export function SettingsPage({ onBack, vaultFileCount }: SettingsPageProps) {
                 </ul>
               </div>
               <PromptTemplateEditor />
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'debug' && (
+          <div className="space-y-6">
+            <div className="bg-surface border border-border rounded-xl p-6 shadow-sm">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="p-2 bg-brand-50 dark:bg-brand-900/20 rounded-lg">
+                  <Bug className="w-5 h-5 text-brand-600" />
+                </div>
+                <h3 className="text-lg font-semibold text-primary">Debug Mode</h3>
+              </div>
+              
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <p className="text-sm font-medium text-primary mb-1">Enable Debug Logging</p>
+                  <p className="text-xs text-secondary">Write debug information to log file for troubleshooting</p>
+                </div>
+                <label className="relative inline-flex items-center cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={debugMode}
+                    onChange={(e) => handleDebugModeToggle(e.target.checked)}
+                    className="sr-only"
+                  />
+                  <div className={`relative w-11 h-6 rounded-full transition-colors ${
+                    debugMode ? 'bg-brand-600' : 'bg-surface border border-border'
+                  }`}>
+                    <div className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full transition-transform ${
+                      debugMode ? 'translate-x-5' : 'translate-x-0'
+                    }`} />
+                  </div>
+                </label>
+              </div>
+              
+              {debugLogPath && (
+                <div className="mt-4 p-3 bg-surface-hover rounded-lg border border-border">
+                  <p className="text-xs text-secondary mb-1">Log file location:</p>
+                  <p className="text-sm font-mono text-primary break-all">{debugLogPath}</p>
+                </div>
+              )}
+              
+              {debugError && (
+                <div className="mt-4 p-3 bg-red-50 dark:bg-red-900/20 rounded-lg border border-red-200 dark:border-red-800">
+                  <div className="flex items-center gap-2">
+                    <AlertCircle className="w-4 h-4 text-red-600" />
+                    <p className="text-sm text-red-700 dark:text-red-300">{debugError}</p>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         )}
