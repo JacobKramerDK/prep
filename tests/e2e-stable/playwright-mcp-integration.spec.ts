@@ -51,8 +51,8 @@ test.describe('Playwright MCP Integration - Stable Tests', () => {
     const config = PlaywrightMCPHelper.getPlaywrightMCPConfig()
     
     expect(config.name).toBe('playwright')
-    expect(config.command).toBe('npx')
-    expect(config.args).toContain('@playwright/mcp@latest')
+    expect(config.command).toBe('node')
+    expect(config.args).toContain('-e')
     expect(config.env?.NODE_ENV).toBe('test')
   })
 

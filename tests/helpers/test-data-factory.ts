@@ -28,6 +28,24 @@ export class TestDataFactory {
     }
   }
 
+  static generateMockMeeting() {
+    const now = new Date()
+    const startDate = new Date(now.getTime() + 60 * 60 * 1000) // 1 hour from now
+    const endDate = new Date(startDate.getTime() + 60 * 60 * 1000) // 1 hour duration
+    
+    return {
+      id: randomUUID(),
+      title: 'Test Meeting - Product Strategy',
+      description: 'Discuss Q1 product roadmap and feature priorities',
+      startDate,
+      endDate,
+      attendees: ['john@example.com', 'sarah@example.com'],
+      location: 'Conference Room A',
+      calendarId: 'test-calendar',
+      source: 'test' as const
+    }
+  }
+
   static generateCalendarEvent(overrides: Partial<CalendarEvent> = {}): CalendarEvent {
     const baseEvent: CalendarEvent = {
       id: randomUUID(),

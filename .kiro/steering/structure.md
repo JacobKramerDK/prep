@@ -24,9 +24,7 @@ prep/
 │   ├── e2e-stable/        # Stable, isolated E2E tests (recommended)
 │   ├── helpers/           # Test utilities and factories
 │   ├── config/           # Test environment configuration
-│   ├── unit/             # Legacy unit tests (flaky, avoid)
-│   ├── integration/      # Legacy integration tests
-│   └── e2e/             # Legacy E2E tests (flaky, avoid)
+│   └── fixtures/         # Test fixtures
 ├── build/                 # Build configuration
 ├── dist/                  # Compiled output
 ├── assets/               # Static assets (icons, images)

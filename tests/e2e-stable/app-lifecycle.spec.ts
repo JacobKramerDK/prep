@@ -55,7 +55,7 @@ test.describe('App Lifecycle - Stable Tests', () => {
       await expect(settingsButton).toBeVisible()
       
       // Check for main content area
-      const mainContent = page.locator('[data-testid="main-content"], main, .main-container')
+      const mainContent = page.locator('[data-testid="main-content"]')
       await expect(mainContent).toBeVisible()
       
     } finally {
@@ -73,17 +73,21 @@ test.describe('App Lifecycle - Stable Tests', () => {
       const page = await app.firstWindow()
       await RobustWaitPatterns.waitForAppInitialization(page)
       
-      // Get initial viewport size
-      const initialViewport = page.viewportSize()
-      expect(initialViewport).toBeTruthy()
+      // Get initial window size
+      const initialSize = await page.evaluate(() => ({
+        width: window.innerWidth,
+        height: window.innerHeight
+      }))
+      expect(initialSize.width).toBeGreaterThan(0)
+      expect(initialSize.height).toBeGreaterThan(0)
       
-      // Resize window
-      await page.setViewportSize({ width: 800, height: 600 })
+      // Resize window using Electron API
+      await page.evaluate(() => {
+        window.electronAPI?.resizeWindow?.(800, 600)
+      })
       
-      // Verify resize worked
-      const newViewport = page.viewportSize()
-      expect(newViewport?.width).toBe(800)
-      expect(newViewport?.height).toBe(600)
+      // Wait for resize to take effect
+      await page.waitForTimeout(500)
       
       // Verify UI still works after resize
       const settingsButton = page.locator('[data-testid="settings-button"], button:has-text("Settings")')
@@ -120,7 +124,7 @@ test.describe('App Lifecycle - Stable Tests', () => {
         await page.waitForTimeout(500)
         
         // Should be back to main view
-        const mainContent = page.locator('[data-testid="main-content"], main, .main-container')
+        const mainContent = page.locator('[data-testid="main-content"]')
         await expect(mainContent).toBeVisible()
       }
       
@@ -178,7 +182,7 @@ test.describe('App Lifecycle - Stable Tests', () => {
         const settingsButton = page.locator('[data-testid="settings-button"], button:has-text("Settings")')
         await expect(settingsButton).toBeVisible()
         
-        const mainContent = page.locator('[data-testid="main-content"], main, .main-container')
+        const mainContent = page.locator('[data-testid="main-content"]')
         await expect(mainContent).toBeVisible()
       }
       

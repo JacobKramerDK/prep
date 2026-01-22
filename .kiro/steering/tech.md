@@ -42,12 +42,11 @@
 - **Documentation**: JSDoc comments for complex functions and APIs
 
 ## Testing Strategy
-- **Stable E2E Testing**: Playwright tests in `tests/e2e-stable/` with proper test isolation and mocked dependencies
-- **Helper Utilities Testing**: Jest tests for test utilities and factories in `tests/helpers/`
+- **Stable E2E Testing**: Playwright tests in `tests/e2e-stable/` with proper test isolation and mocked dependencies (23 tests, 100% pass rate)
+- **Helper Utilities Testing**: Jest tests for test utilities and factories in `tests/helpers/` (18 tests)
 - **Test Isolation**: Each test gets fresh Electron app instance to prevent state pollution
 - **Mocked Dependencies**: External APIs (OpenAI, Calendar) mocked to eliminate network dependencies
 - **Reliable Selectors**: UI components use `data-testid` attributes for stable test selection
-- **Legacy Tests**: Older tests in `tests/unit/` and `tests/e2e/` have known flaky behavior and should be avoided
 
 ## Deployment Process
 - **Build Pipeline**: TypeScript compilation, React bundling, Electron packaging

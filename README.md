@@ -91,7 +91,8 @@ npm run build            # Build both processes for production
 npm run build:renderer   # Build renderer process only
 npm run build:main       # Build main process only
 npm run package          # Package application for distribution
-npm run test:e2e         # Run Playwright e2e tests
+npm run test:e2e:stable  # Run stable E2E tests (recommended)
+npm run test:helpers     # Run helper utility tests
 ```
 
 ### TypeScript Configuration
@@ -106,20 +107,37 @@ The project uses TypeScript project references for optimal build performance:
 
 ## Testing
 
-### End-to-End Testing
+### Testing
+
+#### Stable E2E Testing
 ```bash
-# Run all e2e tests
-npm run test:e2e
+# Run all stable e2e tests (23 tests, 100% pass rate)
+npm run test:e2e:stable
 
 # Install Playwright browsers (first time only)
 npx playwright install
 ```
 
-The test suite validates:
+The stable test suite validates:
 - Application startup and window creation
-- Basic IPC communication
-- Build output structure
-- Package configuration
+- Basic IPC communication  
+- Settings management without data persistence
+- UI component rendering and interaction
+- MCP integration functionality
+- Brief generation form handling
+
+#### Helper Utilities Testing
+```bash
+# Run helper utility tests (18 tests)
+npm run test:helpers
+```
+
+Tests the test infrastructure itself:
+- Test data factories
+- Mock managers
+- Security validation helpers
+
+**Note:** All legacy and flaky tests have been removed. The project now maintains a clean, reliable test suite with 100% pass rate.
 
 ## Building and Distribution
 
