@@ -72,11 +72,15 @@ For each changed file or new file, analyze for:
    - Adherence to standards documented in the /docs directory
    - Linting, typing, and formatting standards
    - Logging standards
-   - Testing standards
+   - Testing standards (use stable test suite: `tests/e2e-stable/`, avoid legacy `tests/unit/`)
 
 ## Verify Issues Are Real
 
-- Run specific tests for issues found
+- Run specific tests for issues found using stable test suite:
+  - `npm run test:helpers` for utility functions
+  - `npm run test:e2e:stable` for e2e functionality
+  - `npm run test:e2e:stable -- --grep "pattern"` for targeted testing
+- Avoid using `npm test` (legacy tests with known flaky behavior)
 - Confirm type errors are legitimate
 - Validate security concerns with context
 
