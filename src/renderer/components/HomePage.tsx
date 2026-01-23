@@ -5,6 +5,7 @@ import { MeetingCard } from './MeetingCard'
 import { BriefGenerator } from './BriefGenerator'
 import { MeetingBriefDisplay } from './MeetingBriefDisplay'
 import { useBriefGeneration } from '../hooks/useBriefGeneration'
+import { AppIcon } from '../../../AppIcon'
 import type { Meeting } from '../../shared/types/meeting'
 import type { BriefGenerationRequest } from '../../shared/types/brief'
 
@@ -41,8 +42,7 @@ const CalendarStatusCard = ({
   const isConnected = isFullyConnected || isPartiallyConnected
 
   const getStatusText = () => {
-    if (isFullyConnected) return 'Connected'
-    if (isPartiallyConnected) return 'Partially Connected'
+    if (isFullyConnected || isPartiallyConnected) return 'Connected'
     return 'Not Connected'
   }
 
@@ -239,9 +239,7 @@ Location: ${meeting.location || 'No location specified'}`,
         <div className="flex items-start gap-4">
           {/* App Icon */}
           <div className="flex-shrink-0 mt-1">
-            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-brand-500 to-brand-600 dark:from-brand-600 dark:to-brand-700 flex items-center justify-center shadow-lg">
-              <Sparkles className="w-6 h-6 text-white" strokeWidth={2.5} />
-            </div>
+            <AppIcon size={48} />
           </div>
 
           {/* App Info */}
