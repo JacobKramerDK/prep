@@ -92,7 +92,7 @@ So that <benefit/value>
 
 **Documentation Gathering:**
 
-- Research latest library versions and best practices
+- Research latest library versions and best practices if possible use the context 7 mcp
 - Find official documentation with specific section anchors
 - Locate implementation examples and tutorials
 - Identify common gotchas and known issues

@@ -36,6 +36,7 @@ const contextRetrievalService = new ContextRetrievalService()
 const audioRecordingService = new AudioRecordingService()
 let openaiService: OpenAIService | null = null
 let transcriptionService: TranscriptionService | null = null
+let mainWindow: BrowserWindow | null = null
 
 // Add global indexing status tracking
 let currentIndexingStatus: VaultIndexingStatus = { isIndexing: false }
@@ -67,6 +68,13 @@ const initializeOpenAIService = async (): Promise<void> => {
       openaiService = new OpenAIService(apiKey)
       // Initialize transcription service when OpenAI service is available
       transcriptionService = new TranscriptionService(audioRecordingService, openaiService)
+      
+      // Set up chunk progress event listener
+      transcriptionService.on('chunkProgress', (progress) => {
+        if (mainWindow) {
+          mainWindow.webContents.send('transcription:chunkProgress', progress)
+        }
+      })
     }
   } catch (error) {
     console.error('Failed to initialize OpenAI service:', error instanceof Error ? error.message : 'Unknown error')
@@ -139,7 +147,7 @@ const createWindow = (): void => {
     console.log('Icon exists:', require('fs').existsSync(iconPath))
   }
 
-  const mainWindow = new BrowserWindow({
+  mainWindow = new BrowserWindow({
     width: 1200,
     height: 800,
     icon: iconPath,
@@ -178,6 +186,7 @@ const createWindow = (): void => {
   // Handle window closed
   mainWindow.on('closed', () => {
     // Dereference the window object
+    mainWindow = null
   })
 }
 
@@ -542,6 +551,13 @@ ipcMain.handle('settings:setOpenAIApiKey', async (_, apiKey: string | null) => {
   if (apiKey) {
     openaiService = new OpenAIService(apiKey)
     transcriptionService = new TranscriptionService(audioRecordingService, openaiService)
+    
+    // Set up chunk progress event listener
+    transcriptionService.on('chunkProgress', (progress) => {
+      if (mainWindow) {
+        mainWindow.webContents.send('transcription:chunkProgress', progress)
+      }
+    })
   } else {
     openaiService = null
     transcriptionService = null

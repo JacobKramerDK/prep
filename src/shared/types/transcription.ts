@@ -37,3 +37,15 @@ export interface AudioRecordingState {
   filePath?: string
   error?: string
 }
+
+export interface ChunkProgress {
+  current: number
+  total: number
+  status: 'processing' | 'completed' | 'error'
+  estimatedTimeRemaining?: number
+}
+
+export interface ChunkedTranscriptionResult extends TranscriptionResult {
+  chunks: number
+  processingTime: number
+}

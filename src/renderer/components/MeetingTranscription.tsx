@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { Mic, Square, Save, FolderOpen, AlertCircle } from 'lucide-react'
 import { TranscriptionResult, TranscriptionStatus } from '../../shared/types/transcription'
 
@@ -16,6 +16,15 @@ export const MeetingTranscription: React.FC<MeetingTranscriptionProps> = ({ onNa
   const [transcriptFolder, setTranscriptFolder] = useState<string | null>(null)
   const [mediaRecorder, setMediaRecorder] = useState<MediaRecorder | null>(null)
   const [audioStream, setAudioStream] = useState<MediaStream | null>(null)
+  const [currentTime, setCurrentTime] = useState<number>(Date.now())
+  const intervalRef = useRef<NodeJS.Timeout | null>(null)
+
+  const cleanupTimer = () => {
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current)
+      intervalRef.current = null
+    }
+  }
 
   useEffect(() => {
     loadTranscriptFolder()
@@ -29,8 +38,22 @@ export const MeetingTranscription: React.FC<MeetingTranscriptionProps> = ({ onNa
       if (audioStream) {
         audioStream.getTracks().forEach(track => track.stop())
       }
+      cleanupTimer()
     }
   }, [])
+
+  // Real-time timer effect
+  useEffect(() => {
+    if (recordingStatus.isRecording) {
+      intervalRef.current = setInterval(() => {
+        setCurrentTime(Date.now())
+      }, 1000)
+    } else {
+      cleanupTimer()
+    }
+    
+    return cleanupTimer
+  }, [recordingStatus.isRecording])
 
   const loadTranscriptFolder = async () => {
     try {
@@ -226,8 +249,7 @@ export const MeetingTranscription: React.FC<MeetingTranscriptionProps> = ({ onNa
   }
 
   const formatDuration = (startTime: Date) => {
-    const now = new Date()
-    const duration = Math.floor((now.getTime() - startTime.getTime()) / 1000)
+    const duration = Math.floor((currentTime - startTime.getTime()) / 1000)
     const minutes = Math.floor(duration / 60)
     const seconds = duration % 60
     return `${minutes}:${seconds.toString().padStart(2, '0')}`
