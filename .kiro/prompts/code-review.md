@@ -12,6 +12,7 @@ Review Philosophy:
 - Code is read far more often than it's written - optimize for readability
 - The best code is often the code you don't write
 - Elegance emerges from clarity of intent and economy of expression
+- Use the context7 mcp for input on best practices
 
 ## What to Review
 

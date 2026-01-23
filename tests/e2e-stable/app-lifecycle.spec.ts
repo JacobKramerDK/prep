@@ -51,7 +51,7 @@ test.describe('App Lifecycle - Stable Tests', () => {
       await RobustWaitPatterns.waitForAppInitialization(page)
       
       // Check for main navigation elements
-      const settingsButton = page.locator('[data-testid="settings-button"], button:has-text("Settings")')
+      const settingsButton = page.locator('[data-testid="settings-button"]')
       await expect(settingsButton).toBeVisible()
       
       // Check for main content area
@@ -90,7 +90,7 @@ test.describe('App Lifecycle - Stable Tests', () => {
       await page.waitForTimeout(500)
       
       // Verify UI still works after resize
-      const settingsButton = page.locator('[data-testid="settings-button"], button:has-text("Settings")')
+      const settingsButton = page.locator('[data-testid="settings-button"]')
       await expect(settingsButton).toBeVisible()
       
     } finally {
@@ -109,7 +109,7 @@ test.describe('App Lifecycle - Stable Tests', () => {
       await RobustWaitPatterns.waitForAppInitialization(page)
       
       // Navigate to Settings
-      const settingsButton = page.locator('[data-testid="settings-button"], button:has-text("Settings")')
+      const settingsButton = page.locator('[data-testid="settings-button"]')
       await settingsButton.click()
       await RobustWaitPatterns.waitForSettingsToLoad(page)
       
@@ -179,7 +179,7 @@ test.describe('App Lifecycle - Stable Tests', () => {
         await page.waitForTimeout(300)
         
         // Verify main elements are still visible
-        const settingsButton = page.locator('[data-testid="settings-button"], button:has-text("Settings")')
+        const settingsButton = page.locator('[data-testid="settings-button"]')
         await expect(settingsButton).toBeVisible()
         
         const mainContent = page.locator('[data-testid="main-content"]')
@@ -233,7 +233,7 @@ test.describe('App Lifecycle - Stable Tests', () => {
       await RobustWaitPatterns.waitForAppInitialization(page)
       
       // Verify core functionality works
-      const settingsButton = page.locator('[data-testid="settings-button"], button:has-text("Settings")')
+      const settingsButton = page.locator('[data-testid="settings-button"]')
       await expect(settingsButton).toBeVisible()
       
       // Should not show network-related errors

@@ -35,6 +35,8 @@ interface SettingsSchema {
     maxSearchResults: number
   }
   obsidianBriefFolder: string | null
+  transcriptionModel: string
+  transcriptFolder: string | null
 }
 
 export class SettingsManager {
@@ -69,7 +71,9 @@ export class SettingsManager {
         autoScan: true,
         maxSearchResults: 50
       },
-      obsidianBriefFolder: null
+      obsidianBriefFolder: null,
+      transcriptionModel: 'whisper-1',
+      transcriptFolder: null
     }
 
     const storeConfig: any = {
@@ -343,5 +347,22 @@ export class SettingsManager {
 
   setObsidianBriefFolder(folderPath: string | null): void {
     this.store.set('obsidianBriefFolder', folderPath)
+  }
+
+  // Transcription settings methods
+  getTranscriptionModel(): string {
+    return this.store.get('transcriptionModel', 'whisper-1')
+  }
+
+  setTranscriptionModel(model: string): void {
+    this.store.set('transcriptionModel', model)
+  }
+
+  getTranscriptFolder(): string | null {
+    return this.store.get('transcriptFolder', null)
+  }
+
+  setTranscriptFolder(folderPath: string | null): void {
+    this.store.set('transcriptFolder', folderPath)
   }
 }

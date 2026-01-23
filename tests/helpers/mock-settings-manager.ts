@@ -22,6 +22,8 @@ interface MockSettingsSchema {
     autoScan: boolean
     maxSearchResults: number
   }
+  transcriptionModel: string
+  transcriptFolder: string | null
 }
 
 export class MockSettingsManager {
@@ -54,7 +56,9 @@ export class MockSettingsManager {
       preferences: {
         autoScan: true,
         maxSearchResults: 50
-      }
+      },
+      transcriptionModel: 'whisper-1',
+      transcriptFolder: null
     }
   }
 
@@ -198,5 +202,22 @@ export class MockSettingsManager {
 
   getTestId(): string {
     return this.testId
+  }
+
+  // Transcription settings methods
+  async getTranscriptionModel(): Promise<string> {
+    return this.data.transcriptionModel
+  }
+
+  async setTranscriptionModel(model: string): Promise<void> {
+    this.data.transcriptionModel = model
+  }
+
+  async getTranscriptFolder(): Promise<string | null> {
+    return this.data.transcriptFolder
+  }
+
+  async setTranscriptFolder(folderPath: string | null): Promise<void> {
+    this.data.transcriptFolder = folderPath
   }
 }

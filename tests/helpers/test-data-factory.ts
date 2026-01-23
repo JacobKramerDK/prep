@@ -214,7 +214,50 @@ export class TestDataFactory {
       relevanceWeights: this.generateRelevanceWeights(),
       vaultFiles: this.generateVaultFiles(),
       environmentConfig: this.generateTestEnvironmentConfig(testId),
-      briefRequest: this.generateBriefGenerationRequest()
+      briefRequest: this.generateBriefGenerationRequest(),
+      transcriptionData: this.generateTranscriptionTestData()
+    }
+  }
+
+  // Transcription test data generators
+  static generateTranscriptionTestData() {
+    return {
+      transcriptionResult: {
+        id: randomUUID(),
+        text: 'This is a test transcription of a meeting discussion about product features and roadmap planning.',
+        language: 'en',
+        duration: 120,
+        createdAt: new Date(),
+        model: 'whisper-1'
+      },
+      transcriptionStatus: {
+        isRecording: false,
+        recordingStartTime: undefined,
+        currentFilePath: undefined
+      },
+      transcriptionSettings: {
+        model: 'whisper-1',
+        folder: `/tmp/test-transcripts-${randomUUID()}`
+      }
+    }
+  }
+
+  static generateMockTranscriptionResult() {
+    return {
+      id: randomUUID(),
+      text: 'Welcome to today\'s meeting. We\'ll be discussing the quarterly review and upcoming project milestones. Let\'s start with the current status of our development initiatives.',
+      language: 'en',
+      duration: 180,
+      createdAt: new Date(),
+      model: 'whisper-1'
+    }
+  }
+
+  static generateTranscriptionRequest() {
+    return {
+      audioFilePath: `/tmp/test-audio-${randomUUID()}.wav`,
+      model: 'whisper-1',
+      language: 'en'
     }
   }
 }

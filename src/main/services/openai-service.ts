@@ -1,7 +1,10 @@
 import OpenAI from 'openai'
 import { randomUUID } from 'crypto'
+import * as fs from 'fs'
+import * as path from 'path'
 import { BriefGenerationRequest, MeetingBrief, BriefGenerationStatus } from '../../shared/types/brief'
 import { Meeting } from '../../shared/types/meeting'
+import { TranscriptionRequest, TranscriptionResult } from '../../shared/types/transcription'
 import { Debug } from '../../shared/utils/debug'
 import { SettingsManager } from './settings-manager'
 
@@ -36,15 +39,16 @@ export class OpenAIService {
       'o1-preview', 'o1-mini', 'gpt-5', 'gpt-5-mini', 'gpt-5-turbo'
     ]
     
+    // Use exact matching or proper boundary matching to avoid false positives
     const usesCompletionTokens = completionTokenModels.some(m => 
-      model === m || model.startsWith(m + '-') || model.startsWith(m + '_') || model.startsWith(m + '.')
+      model === m || model.match(new RegExp(`^${m.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(-|_|\\.|$)`))
     )
     
     Debug.log('Model capabilities check:', {
       model,
       usesCompletionTokens,
       matchedModels: completionTokenModels.filter(m => 
-        model === m || model.startsWith(m + '-') || model.startsWith(m + '_') || model.startsWith(m + '.')
+        model === m || model.match(new RegExp(`^${m.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(-|_|\\.|$)`))
       )
     })
     
@@ -433,5 +437,69 @@ export class OpenAIService {
       return ''
     }
     return location.trim()
+  }
+
+  // Transcription methods
+  async transcribeAudio(request: TranscriptionRequest): Promise<TranscriptionResult> {
+    if (!this.isConfigured()) {
+      throw new Error('OpenAI API key not configured. Please set your API key in settings.')
+    }
+
+    // Validate API key
+    try {
+      const isValid = await this.isApiKeyValidCached()
+      if (!isValid) {
+        throw new Error('Invalid OpenAI API key. Please verify your API key is correct and has sufficient credits.')
+      }
+    } catch (validationError) {
+      if (validationError instanceof Error && validationError.message.includes('Invalid OpenAI API key')) {
+        throw validationError
+      }
+      throw new Error('Failed to validate OpenAI API key. Please check your internet connection and try again.')
+    }
+
+    // Validate file exists and size
+    if (!fs.existsSync(request.audioFilePath)) {
+      throw new Error('Audio file not found')
+    }
+
+    const stats = fs.statSync(request.audioFilePath)
+    const fileSizeMB = stats.size / (1024 * 1024)
+    if (fileSizeMB > 25) {
+      throw new Error('Audio file too large. Maximum size is 25MB.')
+    }
+
+    try {
+      const audioFile = fs.createReadStream(request.audioFilePath)
+      
+      const response = await this.client!.audio.transcriptions.create({
+        file: audioFile,
+        model: request.model || 'whisper-1',
+        language: request.language,
+        response_format: 'json'
+      })
+
+      return {
+        id: randomUUID(),
+        text: response.text,
+        language: request.language,
+        duration: undefined, // Not provided by basic response
+        createdAt: new Date(),
+        model: request.model || 'whisper-1'
+      }
+    } catch (error) {
+      Debug.error('Transcription failed:', error)
+      if (error instanceof OpenAI.APIError) {
+        if (error.status === 401) {
+          throw new Error('Invalid OpenAI API key')
+        } else if (error.status === 429) {
+          throw new Error('Rate limit exceeded. Please try again later.')
+        } else if (error.status === 413) {
+          throw new Error('Audio file too large')
+        }
+        throw new Error(`OpenAI API error: ${error.message}`)
+      }
+      throw new Error(`Transcription failed: ${error instanceof Error ? error.message : 'Unknown error'}`)
+    }
   }
 }

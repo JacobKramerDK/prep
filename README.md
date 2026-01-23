@@ -10,6 +10,7 @@
 - **Obsidian Vault Integration**: Direct connection to existing markdown note systems
 - **Calendar Parsing**: Automatic meeting detection and context association  
 - **AI-Powered Meeting Briefs**: Comprehensive preparation summaries using OpenAI
+- **Meeting Transcription**: Real-time audio recording and AI-powered transcription using Whisper
 - **Audio Transcription**: Post-meeting summary generation using Whisper
 - **Cross-Platform**: Native desktop experience on macOS and Windows
 
@@ -46,6 +47,42 @@ npm run build
 # Package for distribution
 npm run package
 ```
+
+## Meeting Transcription
+
+**Prep** includes real-time meeting transcription capabilities powered by OpenAI's Whisper API.
+
+### How It Works
+
+1. **Audio Capture**: Records meeting audio through your microphone or system audio (full meeting capture)
+2. **Real-time Processing**: Captures audio in WebM format for optimal Whisper compatibility
+3. **AI Transcription**: Uses OpenAI Whisper models to convert speech to text
+4. **Obsidian Integration**: Saves transcripts as markdown files with frontmatter metadata
+
+### Setup Requirements
+
+- **OpenAI API Key**: Required for Whisper transcription service
+- **Transcript Folder**: Configure where transcripts are saved (ideally within your Obsidian vault)
+- **Browser Permissions**: Microphone access for audio recording
+
+### Current Limitations
+
+- **Audio Quality**: Transcription accuracy depends on audio clarity and speaker proximity
+- **File Size**: Maximum 25MB audio file limit (OpenAI Whisper constraint)
+- **Language Support**: Primarily optimized for English, though Whisper supports multiple languages
+- **Real-time Processing**: Transcription occurs after recording stops, not during the meeting
+- **System Audio**: Full meeting capture requires browser display media permissions (may not work in all environments)
+- **Network Dependency**: Requires internet connection for OpenAI API calls
+
+### Usage
+
+1. Navigate to the transcription section on the home page
+2. Choose recording type: microphone only or full meeting audio
+3. Click "Start Recording" to begin capture
+4. Click "Stop Recording" to end and automatically transcribe
+5. Review and save transcript to your configured Obsidian folder
+
+The transcription feature integrates seamlessly with your existing note-taking workflow, creating searchable meeting records alongside your preparation briefs.
 
 ## Architecture Overview
 

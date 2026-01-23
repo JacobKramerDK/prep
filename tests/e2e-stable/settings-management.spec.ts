@@ -28,7 +28,7 @@ test.describe('Settings Management - Stable Tests', () => {
       await RobustWaitPatterns.waitForAppInitialization(page)
       
       // Navigate to Settings using data-testid (will be added in component updates)
-      const settingsButton = page.locator('[data-testid="settings-button"], button:has-text("Settings")')
+      const settingsButton = page.locator('[data-testid="settings-button"]')
       await expect(settingsButton).toBeVisible()
       await settingsButton.click()
       
@@ -100,7 +100,7 @@ test.describe('Settings Management - Stable Tests', () => {
       await page.waitForTimeout(300)
       
       // Test model selection
-      const modelSelect = page.locator('[data-testid="model-select"], select')
+      const modelSelect = page.locator('[data-testid="model-select"]')
       await expect(modelSelect).toBeVisible()
       
       // Get available options

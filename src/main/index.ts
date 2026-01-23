@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, dialog, shell } from 'electron'
+import { app, BrowserWindow, ipcMain, dialog, shell, session } from 'electron'
 import path from 'path'
 import os from 'os'
 import * as fs from 'fs/promises'
@@ -9,6 +9,8 @@ import { SettingsManager } from './services/settings-manager'
 import { MeetingDetector } from './services/meeting-detector'
 import { OpenAIService } from './services/openai-service'
 import { ContextRetrievalService } from './services/context-retrieval-service'
+import { AudioRecordingService } from './services/audio-recording-service'
+import { TranscriptionService } from './services/transcription-service'
 import { PlatformDetector } from './services/platform-detector'
 import { Debug } from '../shared/utils/debug'
 import { CalendarSelectionSettings } from '../shared/types/calendar-selection'
@@ -31,7 +33,9 @@ const calendarSyncScheduler = new CalendarSyncScheduler(calendarManager)
 const meetingDetector = new MeetingDetector(calendarManager)
 const settingsManager = new SettingsManager()
 const contextRetrievalService = new ContextRetrievalService()
+const audioRecordingService = new AudioRecordingService()
 let openaiService: OpenAIService | null = null
+let transcriptionService: TranscriptionService | null = null
 
 // Add global indexing status tracking
 let currentIndexingStatus: VaultIndexingStatus = { isIndexing: false }
@@ -61,11 +65,14 @@ const initializeOpenAIService = async (): Promise<void> => {
     
     if (apiKey) {
       openaiService = new OpenAIService(apiKey)
+      // Initialize transcription service when OpenAI service is available
+      transcriptionService = new TranscriptionService(audioRecordingService, openaiService)
     }
   } catch (error) {
     console.error('Failed to initialize OpenAI service:', error instanceof Error ? error.message : 'Unknown error')
     // Continue without OpenAI service - user can configure it later in settings
     openaiService = null
+    transcriptionService = null
   }
 }
 
@@ -73,7 +80,19 @@ const initializeOpenAIService = async (): Promise<void> => {
 const initializeServices = async (): Promise<void> => {
   connectServices()
   await initializeOpenAIService()
+  setupDisplayMediaHandler()
   await loadExistingVault()
+}
+
+// Setup display media handler for system audio capture
+const setupDisplayMediaHandler = (): void => {
+  session.defaultSession.setDisplayMediaRequestHandler((request, callback) => {
+    Debug.log('Display media request received:', request)
+    // Grant access to system audio (loopback)
+    callback({ 
+      audio: 'loopback'
+    })
+  })
 }
 
 // Load and index existing vault if one was previously configured
@@ -522,8 +541,10 @@ ipcMain.handle('settings:setOpenAIApiKey', async (_, apiKey: string | null) => {
   // Reinitialize OpenAI service with new key
   if (apiKey) {
     openaiService = new OpenAIService(apiKey)
+    transcriptionService = new TranscriptionService(audioRecordingService, openaiService)
   } else {
     openaiService = null
+    transcriptionService = null
   }
 })
 
@@ -705,10 +726,11 @@ ipcMain.handle('obsidian:saveBrief', async (_, briefContent: string, meetingTitl
     const userDataPath = app.getPath('userData')
     const normalizedUserData = path.normalize(userDataPath)
     
-    // Allow paths within user data directory or absolute paths that don't contain traversal
-    const isWithinUserData = normalizedFolder.startsWith(normalizedUserData)
+    // Check for path traversal attempts
     const containsTraversal = briefFolder.includes('..') || briefFolder.includes('~')
+    const isWithinUserData = normalizedFolder.startsWith(normalizedUserData)
     
+    // Only allow absolute paths or paths within user data directory, and no traversal
     if (containsTraversal || (!path.isAbsolute(briefFolder) && !isWithinUserData)) {
       throw new Error('Invalid folder path: path traversal or unsafe path detected')
     }
@@ -807,7 +829,183 @@ namespace ObsidianBriefUtils {
 // Use the utility functions
 const { sanitizeFileName, fileExists, escapeYamlString } = ObsidianBriefUtils
 
+// Transcription IPC handlers
+ipcMain.handle('transcription:startRecording', async () => {
+  try {
+    if (!transcriptionService) {
+      throw new Error('Transcription service not available. Please configure OpenAI API key.')
+    }
+    await transcriptionService.startRecording()
+    Debug.log('Recording started via IPC')
+  } catch (error) {
+    Debug.error('Failed to start recording:', error)
+    throw error
+  }
+})
+
+ipcMain.handle('transcription:sendAudioData', async (_, audioData: ArrayBuffer) => {
+  try {
+    if (audioRecordingService) {
+      audioRecordingService.addAudioData(audioData)
+    }
+  } catch (error) {
+    Debug.error('Failed to add audio data:', error)
+    throw error
+  }
+})
+
+ipcMain.handle('transcription:stopAndTranscribe', async (_, model?: string) => {
+  try {
+    if (!transcriptionService) {
+      throw new Error('Transcription service not available. Please configure OpenAI API key.')
+    }
+    const result = await transcriptionService.stopRecordingAndTranscribe(model)
+    Debug.log('Recording stopped and transcribed via IPC:', result.id)
+    return result
+  } catch (error) {
+    Debug.error('Failed to stop recording and transcribe:', error)
+    throw error
+  }
+})
+
+ipcMain.handle('transcription:getStatus', async () => {
+  try {
+    if (!transcriptionService) {
+      return { isRecording: false }
+    }
+    return transcriptionService.getRecordingStatus()
+  } catch (error) {
+    Debug.error('Failed to get recording status:', error)
+    throw error
+  }
+})
+
+ipcMain.handle('transcription:transcribeFile', async (_, filePath: string, model?: string) => {
+  try {
+    if (!transcriptionService) {
+      throw new Error('Transcription service not available. Please configure OpenAI API key.')
+    }
+    return await transcriptionService.transcribeFile(filePath, model)
+  } catch (error) {
+    Debug.error('Failed to transcribe file:', error)
+    throw error
+  }
+})
+
+// Transcription settings IPC handlers
+ipcMain.handle('transcription:getModel', async () => {
+  return settingsManager.getTranscriptionModel()
+})
+
+ipcMain.handle('transcription:setModel', async (_, model: string) => {
+  return settingsManager.setTranscriptionModel(model)
+})
+
+ipcMain.handle('transcription:getFolder', async () => {
+  return settingsManager.getTranscriptFolder()
+})
+
+ipcMain.handle('transcription:setFolder', async (_, folderPath: string | null) => {
+  return settingsManager.setTranscriptFolder(folderPath)
+})
+
+ipcMain.handle('transcription:selectFolder', async () => {
+  const currentVaultPath = await settingsManager.getVaultPath()
+  const defaultPath = currentVaultPath || (process.platform === 'darwin' 
+    ? path.join(os.homedir(), 'Documents')
+    : os.homedir())
+    
+  const result = await dialog.showOpenDialog({
+    properties: ['openDirectory'],
+    title: 'Select Transcript Folder',
+    defaultPath
+  })
+  
+  if (result.canceled || result.filePaths.length === 0) {
+    return null
+  }
+  
+  return result.filePaths[0]
+})
+
+ipcMain.handle('transcription:saveToObsidian', async (_, transcriptContent: string, meetingTitle: string, transcriptionId: string) => {
+  try {
+    Debug.log('[TRANSCRIPT-SAVE] Starting transcript save to Obsidian folder')
+    const transcriptFolder = settingsManager.getTranscriptFolder()
+    if (!transcriptFolder) {
+      throw new Error('No transcript folder configured')
+    }
+
+    Debug.log('[TRANSCRIPT-SAVE] Using transcript folder:', transcriptFolder)
+
+    // Validate and normalize the folder path to prevent path traversal
+    const normalizedFolder = path.resolve(transcriptFolder)
+    
+    // Security validation: ensure the resolved path doesn't escape expected boundaries
+    const userDataPath = app.getPath('userData')
+    const normalizedUserData = path.normalize(userDataPath)
+    
+    // Check for path traversal attempts
+    const containsTraversal = transcriptFolder.includes('..') || transcriptFolder.includes('~')
+    const isWithinUserData = normalizedFolder.startsWith(normalizedUserData)
+    
+    // Only allow absolute paths or paths within user data directory, and no traversal
+    if (containsTraversal || (!path.isAbsolute(transcriptFolder) && !isWithinUserData)) {
+      throw new Error('Invalid folder path: path traversal or unsafe path detected')
+    }
+
+    // Generate filename with date and sanitized title
+    const dateStr = new Date().toISOString().split('T')[0]
+    const timeStr = new Date().toISOString().split('T')[1].split('.')[0].replace(/:/g, '-')
+    const sanitizedTitle = ObsidianBriefUtils.sanitizeFileName(meetingTitle || 'Untitled Meeting', platformDetector.isWindows())
+    let fileName = `${dateStr}_${timeStr} - Transcript - ${sanitizedTitle}.md`
+    
+    // Handle filename conflicts by appending counter
+    let filePath = path.join(normalizedFolder, fileName)
+    let counter = 2
+    while (await ObsidianBriefUtils.fileExists(filePath)) {
+      const baseName = `${dateStr}_${timeStr} - Transcript - ${sanitizedTitle} (${counter})`
+      fileName = `${baseName}.md`
+      filePath = path.join(normalizedFolder, fileName)
+      counter++
+    }
+
+    Debug.log('[TRANSCRIPT-SAVE] Generated file path:', filePath)
+
+    // Create Obsidian-compatible markdown content with frontmatter
+    const frontmatter = [
+      '---',
+      `title: "${ObsidianBriefUtils.escapeYamlString(meetingTitle || 'Untitled Meeting')}"`,
+      `date: ${new Date().toISOString()}`,
+      `transcription-id: ${ObsidianBriefUtils.escapeYamlString(transcriptionId)}`,
+      `type: meeting-transcript`,
+      `generated-by: prep-app`,
+      '---',
+      ''
+    ].join('\n')
+
+    const fullContent = frontmatter + transcriptContent
+
+    // Ensure directory exists and write file
+    await fs.mkdir(normalizedFolder, { recursive: true })
+    await fs.writeFile(filePath, fullContent, 'utf8')
+
+    Debug.log('[TRANSCRIPT-SAVE] Successfully saved transcript to:', filePath)
+    return { success: true, filePath }
+  } catch (error) {
+    Debug.error('[TRANSCRIPT-SAVE] Failed to save transcript:', error instanceof Error ? error.message : 'Unknown error')
+    console.error('Failed to save transcript to Obsidian:', error)
+    return { 
+      success: false, 
+      error: error instanceof Error ? error.message : 'Unknown error' 
+    }
+  }
+})
+
 // Cleanup on app exit
-app.on('before-quit', () => {
+app.on('before-quit', async () => {
   calendarSyncScheduler.dispose()
+  if (transcriptionService) {
+    await transcriptionService.cleanup()
+  }
 })

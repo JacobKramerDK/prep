@@ -4,6 +4,7 @@ import { StatusCard } from './StatusCard'
 import { MeetingCard } from './MeetingCard'
 import { BriefGenerator } from './BriefGenerator'
 import { MeetingBriefDisplay } from './MeetingBriefDisplay'
+import { MeetingTranscription } from './MeetingTranscription'
 import { useBriefGeneration } from '../hooks/useBriefGeneration'
 import { AppIcon } from '../../../AppIcon'
 import type { Meeting } from '../../shared/types/meeting'
@@ -447,6 +448,11 @@ Location: ${meeting.location || 'No location specified'}`,
             ))}
           </div>
         )}
+      </div>
+
+      {/* Meeting Transcription Section */}
+      <div className="mt-8">
+        <MeetingTranscription onNavigate={onNavigate} />
       </div>
 
       {/* Brief Display Modal */}

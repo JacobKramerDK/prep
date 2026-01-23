@@ -228,6 +228,23 @@ const electronAPI: ElectronAPI = {
   setObsidianBriefFolder: (folderPath: string | null) => ipcRenderer.invoke('obsidian:setBriefFolder', folderPath),
   saveBriefToObsidian: (briefContent: string, meetingTitle: string, meetingId: string) => 
     ipcRenderer.invoke('obsidian:saveBrief', briefContent, meetingTitle, meetingId),
+  // Add audio recording methods to renderer API
+  // Transcription operations
+  startRecording: () => ipcRenderer.invoke('transcription:startRecording'),
+  startAudioRecording: () => ipcRenderer.invoke('transcription:startRecording'),
+  stopAudioRecording: () => ipcRenderer.invoke('transcription:stopRecording'),
+  sendAudioData: (audioData: ArrayBuffer) => ipcRenderer.invoke('transcription:sendAudioData', audioData),
+  stopRecordingAndTranscribe: (model?: string) => ipcRenderer.invoke('transcription:stopAndTranscribe', model),
+  getRecordingStatus: () => ipcRenderer.invoke('transcription:getStatus'),
+  transcribeFile: (filePath: string, model?: string) => ipcRenderer.invoke('transcription:transcribeFile', filePath, model),
+  // Transcription settings
+  getTranscriptionModel: () => ipcRenderer.invoke('transcription:getModel'),
+  setTranscriptionModel: (model: string) => ipcRenderer.invoke('transcription:setModel', model),
+  getTranscriptFolder: () => ipcRenderer.invoke('transcription:getFolder'),
+  setTranscriptFolder: (folderPath: string | null) => ipcRenderer.invoke('transcription:setFolder', folderPath),
+  selectTranscriptFolder: () => ipcRenderer.invoke('transcription:selectFolder'),
+  saveTranscriptToObsidian: (transcriptContent: string, meetingTitle: string, transcriptionId: string) => 
+    ipcRenderer.invoke('transcription:saveToObsidian', transcriptContent, meetingTitle, transcriptionId),
 }
 
 contextBridge.exposeInMainWorld('electronAPI', electronAPI)

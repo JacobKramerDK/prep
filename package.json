@@ -74,6 +74,8 @@
     "gray-matter": "^4.0.3",
     "ical.js": "^1.5.0",
     "lucide-react": "^0.562.0",
+    "node-cpal": "^0.1.1",
+    "node-record-lpcm16": "^1.0.1",
     "node-schedule": "^2.1.1",
     "openai": "^6.15.0",
     "react": "^19.0.0",

@@ -47,6 +47,8 @@ export function SettingsPage({ onBack, vaultFileCount }: SettingsPageProps) {
   const [debugError, setDebugError] = useState<string | null>(null)
   const [vaultLoading, setVaultLoading] = useState(false)
   const [vaultIndexingProgress, setVaultIndexingProgress] = useState<VaultIndexingProgress | null>(null)
+  const [transcriptionModel, setTranscriptionModel] = useState('whisper-1')
+  const [transcriptFolder, setTranscriptFolder] = useState<string | null>(null)
 
   useEffect(() => {
     const loadSettings = async () => {
@@ -55,10 +57,12 @@ export function SettingsPage({ onBack, vaultFileCount }: SettingsPageProps) {
           window.electronAPI.getOpenAIApiKey(),
           window.electronAPI.getOpenAIModel(),
           window.electronAPI.getObsidianBriefFolder(),
-          window.electronAPI.getDebugMode()
+          window.electronAPI.getDebugMode(),
+          window.electronAPI.getTranscriptionModel(),
+          window.electronAPI.getTranscriptFolder()
         ])
         
-        const [apiKeyResult, modelResult, briefFolderResult, debugModeResult] = results
+        const [apiKeyResult, modelResult, briefFolderResult, debugModeResult, transcriptionModelResult, transcriptFolderResult] = results
         
         if (apiKeyResult.status === 'fulfilled' && apiKeyResult.value) {
           setApiKey(apiKeyResult.value)
@@ -85,6 +89,14 @@ export function SettingsPage({ onBack, vaultFileCount }: SettingsPageProps) {
         
         if (briefFolderResult.status === 'fulfilled' && briefFolderResult.value) {
           setBriefFolder(briefFolderResult.value)
+        }
+        
+        if (transcriptionModelResult.status === 'fulfilled' && transcriptionModelResult.value) {
+          setTranscriptionModel(transcriptionModelResult.value)
+        }
+        
+        if (transcriptFolderResult.status === 'fulfilled' && transcriptFolderResult.value) {
+          setTranscriptFolder(transcriptFolderResult.value)
         }
         
         if (debugModeResult.status === 'fulfilled') {
@@ -162,7 +174,8 @@ export function SettingsPage({ onBack, vaultFileCount }: SettingsPageProps) {
     try {
       await Promise.all([
         window.electronAPI.setOpenAIApiKey(apiKey.trim() || null),
-        window.electronAPI.setOpenAIModel(selectedModel)
+        window.electronAPI.setOpenAIModel(selectedModel),
+        window.electronAPI.setTranscriptionModel(transcriptionModel)
       ])
       setSaveMessage('Settings saved successfully!')
       setTimeout(() => setSaveMessage(null), 3000)
@@ -243,6 +256,18 @@ export function SettingsPage({ onBack, vaultFileCount }: SettingsPageProps) {
       }
     } catch (error) {
       console.error('Failed to select brief folder:', error)
+    }
+  }
+
+  const handleSelectTranscriptFolder = async () => {
+    try {
+      const folderPath = await window.electronAPI.selectTranscriptFolder()
+      if (folderPath) {
+        await window.electronAPI.setTranscriptFolder(folderPath)
+        setTranscriptFolder(folderPath)
+      }
+    } catch (error) {
+      console.error('Failed to select transcript folder:', error)
     }
   }
 
@@ -435,6 +460,46 @@ export function SettingsPage({ onBack, vaultFileCount }: SettingsPageProps) {
                     ? 'Loading available models from OpenAI...' 
                     : 'Choose the AI model for generating meeting briefs. Validate your API key to see all available models.'
                   }
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-primary mb-2">
+                  Transcription Model
+                </label>
+                <select
+                  value={transcriptionModel}
+                  onChange={(e) => setTranscriptionModel(e.target.value)}
+                  className="w-full h-11 px-4 rounded-lg border border-border bg-background text-primary focus:ring-2 focus:ring-brand-500 focus:border-transparent transition-all appearance-none"
+                  data-testid="transcription-model-select"
+                >
+                  <option value="whisper-1">Whisper-1 (Recommended)</option>
+                </select>
+                <p className="text-xs text-secondary mt-2">
+                  Choose the AI model for transcribing meeting audio. Whisper-1 provides high-quality transcription with automatic language detection.
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-primary mb-2">
+                  Transcript Folder
+                </label>
+                <div className="flex items-center gap-3">
+                  <div className="flex-1 h-11 px-4 rounded-lg border border-border bg-surface text-primary flex items-center">
+                    <span className="text-sm truncate">
+                      {transcriptFolder || 'No folder selected'}
+                    </span>
+                  </div>
+                  <button
+                    onClick={handleSelectTranscriptFolder}
+                    className="flex items-center gap-2 px-4 py-2.5 bg-surface border border-border hover:bg-surface-hover text-secondary hover:text-primary rounded-lg transition-colors"
+                  >
+                    <FolderOpen className="w-4 h-4" />
+                    Select
+                  </button>
+                </div>
+                <p className="text-xs text-secondary mt-2">
+                  Choose where to save meeting transcripts. Transcripts will be saved as Markdown files with metadata.
                 </p>
               </div>
 

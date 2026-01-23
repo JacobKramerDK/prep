@@ -99,6 +99,21 @@ export interface ElectronAPI {
   getObsidianBriefFolder: () => Promise<string | null>
   setObsidianBriefFolder: (folderPath: string | null) => Promise<void>
   saveBriefToObsidian: (briefContent: string, meetingTitle: string, meetingId: string) => Promise<{ success: boolean; filePath?: string; error?: string }>
+  // Transcription operations
+  startRecording: () => Promise<void>
+  startAudioRecording: () => Promise<void>
+  stopAudioRecording: () => Promise<void>
+  sendAudioData: (audioData: ArrayBuffer) => Promise<void>
+  stopRecordingAndTranscribe: (model?: string) => Promise<import('./transcription').TranscriptionResult>
+  getRecordingStatus: () => Promise<import('./transcription').TranscriptionStatus>
+  transcribeFile: (filePath: string, model?: string) => Promise<import('./transcription').TranscriptionResult>
+  // Transcription settings
+  getTranscriptionModel: () => Promise<string>
+  setTranscriptionModel: (model: string) => Promise<void>
+  getTranscriptFolder: () => Promise<string | null>
+  setTranscriptFolder: (folderPath: string | null) => Promise<void>
+  selectTranscriptFolder: () => Promise<string | null>
+  saveTranscriptToObsidian: (transcriptContent: string, meetingTitle: string, transcriptionId: string) => Promise<import('./transcription').SaveTranscriptResult>
 }
 
 declare global {

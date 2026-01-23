@@ -8,7 +8,7 @@
     },
     "Context7": {
       "command": "npx",
-      "args": ["-y", "@upstash/context7-mcp", "--api-key", "YOUR_API_KEY"],
+      "args": ["-y", "@upstash/context7-mcp", "--api-key", "ctx7sk-45b9c4e0-e880-422c-bf3d-d826e290d88f"],
       "env": {},
       "disabled": false,
       "autoApprove": []
