@@ -41,7 +41,7 @@ export class CalendarManager {
 
   constructor() {
     this.settingsManager = new SettingsManager()
-    this.swiftCalendarManager = new SwiftCalendarManager()
+    this.swiftCalendarManager = new SwiftCalendarManager(this.settingsManager)
     this.googleOAuthManager = new GoogleOAuthManager()
     this.googleCalendarManager = new GoogleCalendarManager(this.googleOAuthManager)
     this.platformDetector = new PlatformDetector()
@@ -608,11 +608,15 @@ end tell`
 
   async getEvents(): Promise<CalendarEvent[]> {
     // Only return stored events, don't auto-extract
-    return await this.getStoredEvents()
+    const events = await this.getStoredEvents()
+    Debug.log(`[CALENDAR-MANAGER] getEvents() returning ${events.length} stored events`)
+    return events
   }
 
   async getStoredEvents(): Promise<CalendarEvent[]> {
-    return await this.settingsManager.getCalendarEvents()
+    const events = await this.settingsManager.getCalendarEvents()
+    Debug.log(`[CALENDAR-MANAGER] getStoredEvents() found ${events.length} events in settings`)
+    return events
   }
 
   async clearEvents(): Promise<void> {

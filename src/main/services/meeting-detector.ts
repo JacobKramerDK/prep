@@ -2,6 +2,7 @@ import { CalendarEvent } from '../../shared/types/calendar'
 import { Meeting, TodaysMeetingsResult } from '../../shared/types/meeting'
 import { CalendarManager } from './calendar-manager'
 import { SettingsManager } from './settings-manager'
+import { Debug } from '../../shared/utils/debug'
 
 export class MeetingDetector {
   private settingsManager: SettingsManager
@@ -37,8 +38,14 @@ export class MeetingDetector {
       // Get all calendar events
       const allEvents = await this.calendarManager.getEvents()
       
+      // DEBUG: Log all events
+      Debug.log(`[MEETING-DETECTOR] Retrieved ${allEvents.length} total events from calendar manager`)
+      
       // Filter for today's meetings
       const todaysMeetings = this.filterTodaysEvents(allEvents)
+      
+      // DEBUG: Log filtered events
+      Debug.log(`[MEETING-DETECTOR] Filtered to ${todaysMeetings.length} today's events`)
       
       // Convert to Meeting objects
       const meetings: Meeting[] = todaysMeetings.map(event => ({
@@ -56,9 +63,7 @@ export class MeetingDetector {
         detectedAt: this.lastDetection
       }
     } catch (error) {
-      if (process.env.NODE_ENV === 'development') {
-        console.error('Failed to detect today\'s meetings:', error)
-      }
+      console.error('[MEETING-DETECTOR] Failed to detect today\'s meetings:', error)
       return {
         meetings: [],
         totalMeetings: 0,

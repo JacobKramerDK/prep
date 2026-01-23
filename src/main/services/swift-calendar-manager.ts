@@ -4,6 +4,7 @@ import * as fs from 'fs'
 import * as path from 'path'
 import { CalendarEvent, CalendarError, CalendarImportResult } from '../../shared/types/calendar'
 import { Debug } from '../../shared/utils/debug'
+import { SettingsManager } from './settings-manager'
 
 // Safely initialize execFileAsync with proper error handling
 const execFileAsync = (() => {
@@ -31,6 +32,11 @@ interface SwiftCalendarEvent {
 
 export class SwiftCalendarManager {
   private readonly isSwiftAvailable = process.platform === 'darwin'
+  private readonly settingsManager: SettingsManager
+
+  constructor(settingsManager: SettingsManager) {
+    this.settingsManager = settingsManager
+  }
 
   private getHelperPath(): string {
     // Handle both packaged and development modes
@@ -135,9 +141,24 @@ export class SwiftCalendarManager {
 
       Debug.log(`[SWIFT-CALENDAR] Parsed ${events.length} events from Swift helper`)
 
+      // Apply calendar selection filtering
+      const settings = await this.settingsManager.getCalendarSelection()
+      Debug.log(`[SWIFT-CALENDAR] Calendar selection settings:`, settings)
+      
+      let filteredEvents = events
+      if (settings.selectedCalendarUids && settings.selectedCalendarUids.length > 0) {
+        const beforeCount = filteredEvents.length
+        filteredEvents = events.filter(event => 
+          settings.selectedCalendarUids.includes(event.calendar)
+        )
+        Debug.log(`[SWIFT-CALENDAR] Filtered events from ${beforeCount} to ${filteredEvents.length} based on selected calendars:`, settings.selectedCalendarUids)
+      } else {
+        Debug.log(`[SWIFT-CALENDAR] No calendar filtering applied - using all ${filteredEvents.length} events`)
+      }
+
       const calendarEvents: CalendarEvent[] = []
       
-      events.forEach((event, index) => {
+      filteredEvents.forEach((event, index) => {
         try {
           calendarEvents.push({
             id: event.id,
