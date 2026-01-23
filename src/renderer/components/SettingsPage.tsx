@@ -600,24 +600,6 @@ export function SettingsPage({ onBack, vaultFileCount }: SettingsPageProps) {
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
-                {isMacOS && (
-                  <button 
-                    onClick={handleConnectAppleCalendar}
-                    className="flex items-center gap-3 p-5 border-2 border-border rounded-xl hover:border-brand-500 hover:bg-surface-hover transition-all group">
-                    <div className="flex-shrink-0 w-10 h-10 rounded-lg bg-surface-hover border border-border flex items-center justify-center group-hover:bg-background transition-colors">
-                      <CalendarIcon className="w-5 h-5 text-secondary group-hover:text-brand-600 dark:group-hover:text-brand-400 transition-colors" />
-                    </div>
-                    <div className="text-left">
-                      <div className="font-semibold text-primary group-hover:text-brand-600 dark:group-hover:text-brand-400 transition-colors">
-                        Apple Calendar
-                      </div>
-                      <div className="text-sm text-secondary">
-                        Extract events from macOS
-                      </div>
-                    </div>
-                  </button>
-                )}
-
                 <button 
                   onClick={handleImportICS}
                   className="flex items-center gap-3 p-5 border-2 border-border rounded-xl hover:border-brand-500 hover:bg-surface-hover transition-all group">
