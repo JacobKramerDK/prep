@@ -185,6 +185,7 @@ export class SettingsManager {
   }
 
   async setCalendarEvents(events: CalendarEvent[]): Promise<void> {
+    Debug.log(`[SETTINGS-MANAGER] Storing ${events.length} calendar events`)
     this.store.set('calendarEvents', events)
     this.store.set('lastCalendarSync', new Date().toISOString())
   }

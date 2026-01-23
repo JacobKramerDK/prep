@@ -106,6 +106,8 @@ export class CalendarManager {
         const googleEvents = existingEvents.filter(event => event.source === 'google')
         const mergedEvents = [...googleEvents, ...result.events]
         
+        Debug.log(`[CALENDAR-MANAGER] Merging ${googleEvents.length} Google events with ${result.events.length} Swift events = ${mergedEvents.length} total`)
+        
         await this.settingsManager.setCalendarEvents(mergedEvents)
         this.lastExtraction = new Date()
         
@@ -988,7 +990,10 @@ end tell`
             try {
               console.log('Attempting Swift backend for automatic sync')
               const swiftResult = await this.swiftCalendarManager.extractEvents()
-              appleEvents = swiftResult.events
+              
+              // Apply Google Calendar detection to Swift results (same as manual extraction)
+              const enhancedEvents = this.enhanceEventSources(swiftResult.events)
+              appleEvents = enhancedEvents
               hasAnySuccess = true
             } catch (swiftError) {
               console.log('Swift backend failed, falling back to AppleScript:', swiftError instanceof Error ? swiftError.message : 'Unknown error')
