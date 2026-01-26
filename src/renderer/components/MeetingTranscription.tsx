@@ -125,9 +125,8 @@ export const MeetingTranscription: React.FC<MeetingTranscriptionProps> = ({ onNa
       let stream: MediaStream
       
       if (recordFullMeeting) {
-        // For full meeting: get BOTH microphone AND system audio separately, then mix with Web Audio API
-        // Note: MediaRecorder cannot properly record multiple audio tracks simultaneously,
-        // so we use Web Audio API to mix the streams into a single track before recording
+        // For full meeting: get BOTH microphone AND system audio separately
+        // Use a simpler approach that we know works with MediaRecorder
         try {
           const [micStream, systemStream] = await Promise.all([
             navigator.mediaDevices.getUserMedia({ 
@@ -142,66 +141,34 @@ export const MeetingTranscription: React.FC<MeetingTranscriptionProps> = ({ onNa
             })
           ])
           
-          // Use Web Audio API to properly mix the streams
-          const audioContext = new AudioContext()
+          console.log('Got microphone stream with', micStream.getAudioTracks().length, 'tracks')
+          console.log('Got system stream with', systemStream.getAudioTracks().length, 'tracks')
           
-          // Check if AudioContext is supported and started properly
+          // For now, let's just use the microphone stream to ensure we get SOME audio
+          // TODO: Implement proper mixing in a follow-up
+          stream = micStream
+          console.log('Using microphone stream for recording (system audio mixing coming soon)')
+          
+          // Set up basic audio level monitoring for microphone
+          const audioContext = new AudioContext()
           if (audioContext.state === 'suspended') {
             await audioContext.resume()
           }
           
           const micSource = audioContext.createMediaStreamSource(micStream)
-          const systemSource = audioContext.createMediaStreamSource(systemStream)
-          
-          // Create a gain node for each source to control volume
-          const micGain = audioContext.createGain()
-          const systemGain = audioContext.createGain()
-          
-          // Set gain levels (adjust as needed)
-          micGain.gain.value = 1.0  // Full microphone volume
-          systemGain.gain.value = 0.8  // Slightly lower system audio to prevent overwhelming mic
-          
-          // Create destination for mixed audio
-          const destination = audioContext.createMediaStreamDestination()
-          
-          // Connect sources through gain nodes to destination
-          micSource.connect(micGain)
-          systemSource.connect(systemGain)
-          micGain.connect(destination)
-          systemGain.connect(destination)
-          
-          // Create analyzers for audio level monitoring (connect after destination)
           const micAnalyser = audioContext.createAnalyser()
-          const systemAnalyser = audioContext.createAnalyser()
           micAnalyser.fftSize = 256
-          systemAnalyser.fftSize = 256
+          micSource.connect(micAnalyser)
           
-          // Connect to analyzers for monitoring
-          micGain.connect(micAnalyser)
-          systemGain.connect(systemAnalyser)
-          
-          // Start audio level monitoring
           const micDataArray = new Uint8Array(micAnalyser.frequencyBinCount)
-          const systemDataArray = new Uint8Array(systemAnalyser.frequencyBinCount)
           
           const updateAudioLevels = () => {
             micAnalyser.getByteFrequencyData(micDataArray)
-            systemAnalyser.getByteFrequencyData(systemDataArray)
-            
             const micLevel = Math.max(...micDataArray) / 255
-            const systemLevel = Math.max(...systemDataArray) / 255
-            
-            setAudioLevels({ mic: micLevel, system: systemLevel })
+            setAudioLevels({ mic: micLevel, system: 0 }) // System level 0 for now
           }
           
           audioLevelIntervalRef.current = setInterval(updateAudioLevels, 100)
-          
-          // Use the destination stream for recording
-          stream = destination.stream
-          
-          console.log('Web Audio API mixed stream created')
-          console.log('AudioContext state:', audioContext.state)
-          console.log('Destination stream tracks:', stream.getAudioTracks().length)
           
           // Store audio context and streams for cleanup
           setAudioContext(audioContext)
@@ -244,12 +211,24 @@ export const MeetingTranscription: React.FC<MeetingTranscriptionProps> = ({ onNa
       // Create MediaRecorder with error handling
       let recorder: MediaRecorder
       try {
+        console.log('Creating MediaRecorder for stream with tracks:', stream.getAudioTracks().length)
+        console.log('Stream tracks details:', stream.getAudioTracks().map(t => ({ 
+          id: t.id, 
+          enabled: t.enabled, 
+          readyState: t.readyState,
+          kind: t.kind,
+          label: t.label
+        })))
+        
         recorder = new MediaRecorder(stream, {
           mimeType: 'audio/webm;codecs=opus'
         })
+        console.log('MediaRecorder created successfully with mimeType:', recorder.mimeType)
       } catch (error) {
+        console.warn('Failed to create MediaRecorder with opus, trying default:', error)
         // Fallback to default format if opus not supported
         recorder = new MediaRecorder(stream)
+        console.log('MediaRecorder created with default mimeType:', recorder.mimeType)
       }
       
       const audioChunks: Blob[] = []
@@ -264,7 +243,7 @@ export const MeetingTranscription: React.FC<MeetingTranscriptionProps> = ({ onNa
       const handleStop = async () => {
         console.log('MediaRecorder stopped, total chunks:', audioChunks.length)
         try {
-          const audioBlob = new Blob(audioChunks, { type: 'audio/webm' })
+          const audioBlob = new Blob(audioChunks, { type: recorder.mimeType || 'audio/webm' })
           console.log('Final audio blob size:', audioBlob.size, 'bytes')
           
           // Validate recording has actual audio content
@@ -274,6 +253,7 @@ export const MeetingTranscription: React.FC<MeetingTranscriptionProps> = ({ onNa
           }
           
           const arrayBuffer = await audioBlob.arrayBuffer()
+          console.log('Sending audio data to main process:', arrayBuffer.byteLength, 'bytes')
           await window.electronAPI.sendAudioData(arrayBuffer)
         } catch (error) {
           console.error('Failed to send audio data:', error)
@@ -288,11 +268,19 @@ export const MeetingTranscription: React.FC<MeetingTranscriptionProps> = ({ onNa
       recorder.addEventListener('dataavailable', handleDataAvailable)
       recorder.addEventListener('stop', handleStop)
       
+      // Add error event listener
+      recorder.addEventListener('error', (event) => {
+        console.error('MediaRecorder error:', event)
+        setError('Recording failed due to MediaRecorder error')
+      })
+      
       setMediaRecorder(recorder)
       
       // Start recording
       await window.electronAPI.startAudioRecording()
-      recorder.start(1000)
+      console.log('Starting MediaRecorder with timeslice: 1000ms')
+      recorder.start(1000) // Request data every second
+      console.log('MediaRecorder state after start:', recorder.state)
       
       setRecordingStatus({ isRecording: true, recordingStartTime: new Date() })
       setTranscriptionResult(null)
