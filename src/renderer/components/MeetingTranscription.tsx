@@ -199,64 +199,77 @@ export const MeetingTranscription: React.FC<MeetingTranscriptionProps> = ({ onNa
         }
       } else {
         // Microphone only
+        console.log('Getting microphone stream...')
+        
+        // Check microphone permission first
+        try {
+          const permission = await navigator.permissions.query({ name: 'microphone' as PermissionName })
+          console.log('Microphone permission:', permission.state)
+        } catch (permError) {
+          console.log('Could not check microphone permission:', permError)
+        }
+        
         stream = await navigator.mediaDevices.getUserMedia({ 
-          audio: {
-            echoCancellation: true,
-            noiseSuppression: true
-          } 
+          audio: true  // Use the most basic audio constraints
         })
+        console.log('Got microphone stream:', stream.active, stream.getAudioTracks().length, 'tracks')
+        
+        // Test the stream immediately
+        const track = stream.getAudioTracks()[0]
+        if (track) {
+          console.log('Microphone track details:', {
+            enabled: track.enabled,
+            readyState: track.readyState,
+            muted: track.muted,
+            label: track.label
+          })
+        }
+        
         setAudioStream(stream)
       }
       
-      // Create MediaRecorder with error handling
-      let recorder: MediaRecorder
-      try {
-        console.log('Creating MediaRecorder for stream with tracks:', stream.getAudioTracks().length)
-        console.log('Stream tracks details:', stream.getAudioTracks().map(t => ({ 
-          id: t.id, 
-          enabled: t.enabled, 
-          readyState: t.readyState,
-          kind: t.kind,
-          label: t.label
-        })))
-        
-        recorder = new MediaRecorder(stream, {
-          mimeType: 'audio/webm;codecs=opus'
-        })
-        console.log('MediaRecorder created successfully with mimeType:', recorder.mimeType)
-      } catch (error) {
-        console.warn('Failed to create MediaRecorder with opus, trying default:', error)
-        // Fallback to default format if opus not supported
-        recorder = new MediaRecorder(stream)
-        console.log('MediaRecorder created with default mimeType:', recorder.mimeType)
-      }
+      // Create MediaRecorder with minimal configuration
+      console.log('Creating MediaRecorder for stream with tracks:', stream.getAudioTracks().length)
+      console.log('Stream tracks details:', stream.getAudioTracks().map(t => ({ 
+        id: t.id, 
+        enabled: t.enabled, 
+        readyState: t.readyState,
+        kind: t.kind,
+        label: t.label
+      })))
+      
+      // Use the most basic MediaRecorder setup
+      const recorder = new MediaRecorder(stream)
+      console.log('MediaRecorder created with mimeType:', recorder.mimeType)
       
       const audioChunks: Blob[] = []
       
       const handleDataAvailable = (event: BlobEvent) => {
-        console.log('MediaRecorder data available:', event.data.size, 'bytes')
+        console.log('🎵 MediaRecorder data available:', event.data.size, 'bytes')
         if (event.data.size > 0) {
           audioChunks.push(event.data)
         }
       }
       
       const handleStop = async () => {
-        console.log('MediaRecorder stopped, total chunks:', audioChunks.length)
+        console.log('🛑 MediaRecorder stopped, total chunks:', audioChunks.length)
         try {
           const audioBlob = new Blob(audioChunks, { type: recorder.mimeType || 'audio/webm' })
-          console.log('Final audio blob size:', audioBlob.size, 'bytes')
+          console.log('📦 Final audio blob size:', audioBlob.size, 'bytes')
           
           // Validate recording has actual audio content
-          if (audioBlob.size < 1000) { // Less than 1KB suggests silence
+          if (audioBlob.size < 100) { // Lower threshold for testing
+            console.error('❌ Recording too small:', audioBlob.size, 'bytes')
             setError('Recording appears to be silent. Please check your microphone and try again.')
             return
           }
           
           const arrayBuffer = await audioBlob.arrayBuffer()
-          console.log('Sending audio data to main process:', arrayBuffer.byteLength, 'bytes')
+          console.log('📤 Sending audio data to main process:', arrayBuffer.byteLength, 'bytes')
           await window.electronAPI.sendAudioData(arrayBuffer)
+          console.log('✅ Audio data sent successfully')
         } catch (error) {
-          console.error('Failed to send audio data:', error)
+          console.error('❌ Failed to send audio data:', error)
           setError('Failed to process recorded audio')
         }
         
@@ -270,7 +283,7 @@ export const MeetingTranscription: React.FC<MeetingTranscriptionProps> = ({ onNa
       
       // Add error event listener
       recorder.addEventListener('error', (event) => {
-        console.error('MediaRecorder error:', event)
+        console.error('❌ MediaRecorder error:', event)
         setError('Recording failed due to MediaRecorder error')
       })
       
@@ -279,8 +292,27 @@ export const MeetingTranscription: React.FC<MeetingTranscriptionProps> = ({ onNa
       // Start recording
       await window.electronAPI.startAudioRecording()
       console.log('Starting MediaRecorder with timeslice: 1000ms')
+      
+      // Add a test to see if the stream is actually active
+      console.log('Stream active before start:', stream.active)
+      console.log('Stream tracks before start:', stream.getAudioTracks().map(t => ({
+        enabled: t.enabled,
+        readyState: t.readyState,
+        muted: t.muted
+      })))
+      
       recorder.start(1000) // Request data every second
       console.log('MediaRecorder state after start:', recorder.state)
+      
+      // Test if we can manually trigger data
+      setTimeout(() => {
+        console.log('MediaRecorder state after 2 seconds:', recorder.state)
+        console.log('Stream still active:', stream.active)
+        if (recorder.state === 'recording') {
+          console.log('Requesting data manually...')
+          recorder.requestData()
+        }
+      }, 2000)
       
       setRecordingStatus({ isRecording: true, recordingStartTime: new Date() })
       setTranscriptionResult(null)
