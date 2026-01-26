@@ -65,6 +65,29 @@ npm run package
 - **Transcript Folder**: Configure where transcripts are saved (ideally within your Obsidian vault)
 - **Browser Permissions**: Microphone access for audio recording
 
+### Optional: Enhanced Audio Processing
+
+For optimal transcription of long recordings (>10 minutes), install FFmpeg:
+
+```bash
+# macOS (recommended)
+brew install ffmpeg
+
+# Windows (via Chocolatey)
+choco install ffmpeg
+
+# Linux (Ubuntu/Debian)
+sudo apt update && sudo apt install ffmpeg
+```
+
+**Benefits of FFmpeg installation:**
+- **Unlimited Recording Time**: Process recordings of any length
+- **Better Audio Quality**: Time-based segmentation preserves audio integrity
+- **Format Conversion**: Automatic MP3 conversion for smaller file sizes
+- **Faster Processing**: Optimized audio handling for large files
+
+**Without FFmpeg**: The app works perfectly for most recordings using fallback processing, but very long recordings (>30 minutes) may take longer to process.
+
 ### Current Limitations
 
 - **Audio Quality**: Transcription accuracy depends on audio clarity and speaker proximity

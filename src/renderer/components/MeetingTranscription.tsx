@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react'
-import { Mic, Square, Save, FolderOpen, AlertCircle, Clock } from 'lucide-react'
+import { Mic, Square, Save, FolderOpen, AlertCircle, Clock, Users } from 'lucide-react'
 import { TranscriptionResult, TranscriptionStatus, ChunkProgress } from '../../shared/types/transcription'
 import { RecordingTypeSelector } from './RecordingTypeSelector'
 
@@ -17,6 +17,9 @@ export const MeetingTranscription: React.FC<MeetingTranscriptionProps> = ({ onNa
   const [transcriptFolder, setTranscriptFolder] = useState<string | null>(null)
   const [mediaRecorder, setMediaRecorder] = useState<MediaRecorder | null>(null)
   const [audioStream, setAudioStream] = useState<MediaStream | null>(null)
+  const [audioContext, setAudioContext] = useState<AudioContext | null>(null)
+  const [audioLevels, setAudioLevels] = useState<{ mic: number; system: number }>({ mic: 0, system: 0 })
+  const audioLevelIntervalRef = useRef<NodeJS.Timeout | null>(null)
   const [currentTime, setCurrentTime] = useState<number>(Date.now())
   const [showRecordingSelector, setShowRecordingSelector] = useState(false)
   const [chunkProgress, setChunkProgress] = useState<ChunkProgress | null>(null)
@@ -26,6 +29,10 @@ export const MeetingTranscription: React.FC<MeetingTranscriptionProps> = ({ onNa
     if (intervalRef.current) {
       clearInterval(intervalRef.current)
       intervalRef.current = null
+    }
+    if (audioLevelIntervalRef.current) {
+      clearInterval(audioLevelIntervalRef.current)
+      audioLevelIntervalRef.current = null
     }
   }
 
@@ -51,6 +58,9 @@ export const MeetingTranscription: React.FC<MeetingTranscriptionProps> = ({ onNa
       }
       if (audioStream) {
         audioStream.getTracks().forEach(track => track.stop())
+      }
+      if (audioContext && audioContext.state !== 'closed') {
+        audioContext.close().catch(console.error)
       }
       cleanupTimer()
       // Cleanup event listener
@@ -98,13 +108,26 @@ export const MeetingTranscription: React.FC<MeetingTranscriptionProps> = ({ onNa
   const handleRecordingTypeSelected = async (recordFullMeeting: boolean) => {
     setShowRecordingSelector(false)
     
+    // Check browser compatibility
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      setError('Your browser does not support audio recording')
+      return
+    }
+    
+    if (recordFullMeeting && !navigator.mediaDevices.getDisplayMedia) {
+      setError('Your browser does not support system audio capture. Please use microphone-only recording.')
+      return
+    }
+    
     try {
       setError(null)
       
       let stream: MediaStream
       
       if (recordFullMeeting) {
-        // For full meeting: get BOTH microphone AND system audio separately, then combine
+        // For full meeting: get BOTH microphone AND system audio separately, then mix with Web Audio API
+        // Note: MediaRecorder cannot properly record multiple audio tracks simultaneously,
+        // so we use Web Audio API to mix the streams into a single track before recording
         try {
           const [micStream, systemStream] = await Promise.all([
             navigator.mediaDevices.getUserMedia({ 
@@ -121,21 +144,81 @@ export const MeetingTranscription: React.FC<MeetingTranscriptionProps> = ({ onNa
             })
           ])
           
-          // Create a combined stream with both audio tracks
-          const combinedStream = new MediaStream()
-          micStream.getAudioTracks().forEach(track => combinedStream.addTrack(track))
-          systemStream.getAudioTracks().forEach(track => combinedStream.addTrack(track))
+          // Use Web Audio API to properly mix the streams
+          // Note: Use default sample rate, then resample if needed for Whisper
+          const audioContext = new AudioContext()
           
-          stream = combinedStream
+          // Check if AudioContext is supported and started properly
+          if (audioContext.state === 'suspended') {
+            await audioContext.resume()
+          }
           
-          // Store both streams for cleanup
+          const micSource = audioContext.createMediaStreamSource(micStream)
+          const systemSource = audioContext.createMediaStreamSource(systemStream)
+          
+          // Create a gain node for each source to control volume
+          const micGain = audioContext.createGain()
+          const systemGain = audioContext.createGain()
+          
+          // Set gain levels (adjust as needed)
+          micGain.gain.value = 1.0  // Full microphone volume
+          systemGain.gain.value = 0.8  // Slightly lower system audio to prevent overwhelming mic
+          
+          // Create destination for mixed audio
+          const destination = audioContext.createMediaStreamDestination()
+          
+          // Create analyzers for audio level monitoring
+          const micAnalyser = audioContext.createAnalyser()
+          const systemAnalyser = audioContext.createAnalyser()
+          micAnalyser.fftSize = 256
+          systemAnalyser.fftSize = 256
+          
+          // Connect sources through gain nodes to destination and analyzers
+          micSource.connect(micGain)
+          systemSource.connect(systemGain)
+          micGain.connect(destination)
+          systemGain.connect(destination)
+          micGain.connect(micAnalyser)
+          systemGain.connect(systemAnalyser)
+          
+          // Start audio level monitoring
+          const micDataArray = new Uint8Array(micAnalyser.frequencyBinCount)
+          const systemDataArray = new Uint8Array(systemAnalyser.frequencyBinCount)
+          
+          const updateAudioLevels = () => {
+            micAnalyser.getByteFrequencyData(micDataArray)
+            systemAnalyser.getByteFrequencyData(systemDataArray)
+            
+            const micLevel = Math.max(...micDataArray) / 255
+            const systemLevel = Math.max(...systemDataArray) / 255
+            
+            setAudioLevels({ mic: micLevel, system: systemLevel })
+          }
+          
+          audioLevelIntervalRef.current = setInterval(updateAudioLevels, 100)
+          
+          stream = destination.stream
+          
+          // Store all streams and audio context for cleanup
+          setAudioContext(audioContext)
           setAudioStream(new MediaStream([
             ...micStream.getTracks(),
-            ...systemStream.getTracks()
+            ...systemStream.getTracks(),
+            ...destination.stream.getTracks()
           ]))
         } catch (error) {
           // Fallback to microphone only if system audio fails
           console.warn('System audio capture failed, using microphone only:', error)
+          
+          // Provide specific error message for common issues
+          if (error instanceof Error) {
+            if (error.name === 'NotAllowedError') {
+              setError('System audio permission denied. Using microphone only. To record full meetings, please allow screen sharing when prompted.')
+            } else if (error.name === 'NotSupportedError') {
+              setError('System audio not supported in this browser. Using microphone only.')
+            }
+          }
+          
           stream = await navigator.mediaDevices.getUserMedia({ 
             audio: {
               sampleRate: 16000,
@@ -159,24 +242,49 @@ export const MeetingTranscription: React.FC<MeetingTranscriptionProps> = ({ onNa
         setAudioStream(stream)
       }
       
-      // Create MediaRecorder
-      const recorder = new MediaRecorder(stream, {
-        mimeType: 'audio/webm;codecs=opus'
-      })
+      // Create MediaRecorder with error handling
+      let recorder: MediaRecorder
+      try {
+        recorder = new MediaRecorder(stream, {
+          mimeType: 'audio/webm;codecs=opus'
+        })
+      } catch (error) {
+        // Fallback to default format if opus not supported
+        recorder = new MediaRecorder(stream)
+      }
       
       const audioChunks: Blob[] = []
       
-      recorder.ondataavailable = (event) => {
+      const handleDataAvailable = (event: BlobEvent) => {
         if (event.data.size > 0) {
           audioChunks.push(event.data)
         }
       }
       
-      recorder.onstop = async () => {
-        const audioBlob = new Blob(audioChunks, { type: 'audio/webm' })
-        const arrayBuffer = await audioBlob.arrayBuffer()
-        await window.electronAPI.sendAudioData(arrayBuffer)
+      const handleStop = async () => {
+        try {
+          const audioBlob = new Blob(audioChunks, { type: 'audio/webm' })
+          
+          // Validate recording has actual audio content
+          if (audioBlob.size < 1000) { // Less than 1KB suggests silence
+            setError('Recording appears to be silent. Please check your microphone and try again.')
+            return
+          }
+          
+          const arrayBuffer = await audioBlob.arrayBuffer()
+          await window.electronAPI.sendAudioData(arrayBuffer)
+        } catch (error) {
+          console.error('Failed to send audio data:', error)
+          setError('Failed to process recorded audio')
+        }
+        
+        // Clean up event listeners
+        recorder.removeEventListener('dataavailable', handleDataAvailable)
+        recorder.removeEventListener('stop', handleStop)
       }
+      
+      recorder.addEventListener('dataavailable', handleDataAvailable)
+      recorder.addEventListener('stop', handleStop)
       
       setMediaRecorder(recorder)
       
@@ -207,10 +315,25 @@ export const MeetingTranscription: React.FC<MeetingTranscriptionProps> = ({ onNa
         setAudioStream(null)
       }
       
+      // Close audio context
+      if (audioContext && audioContext.state !== 'closed') {
+        await audioContext.close()
+        setAudioContext(null)
+      }
+      
+      // Reset audio levels
+      setAudioLevels({ mic: 0, system: 0 })
+      
       setMediaRecorder(null)
       
-      // Wait a moment for data to be sent
-      await new Promise(resolve => setTimeout(resolve, 500))
+      // Wait for MediaRecorder to finish processing
+      await new Promise(resolve => {
+        if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+          mediaRecorder.addEventListener('stop', resolve, { once: true })
+        } else {
+          resolve(undefined)
+        }
+      })
       
       const model = await window.electronAPI.getTranscriptionModel()
       const result = await window.electronAPI.stopRecordingAndTranscribe(model)
@@ -327,6 +450,35 @@ export const MeetingTranscription: React.FC<MeetingTranscriptionProps> = ({ onNa
           </div>
         )}
       </div>
+
+      {/* Audio Level Indicators */}
+      {recordingStatus.isRecording && (audioLevels.mic > 0 || audioLevels.system > 0) && (
+        <div className="mb-4 p-3 bg-surface-hover border border-border rounded-lg">
+          <div className="text-xs text-secondary mb-2">Audio Levels</div>
+          <div className="space-y-2">
+            <div className="flex items-center gap-2">
+              <Mic className="w-3 h-3 text-secondary" />
+              <span className="text-xs text-secondary w-12">Mic:</span>
+              <div className="flex-1 h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+                <div 
+                  className="h-full bg-green-500 transition-all duration-100"
+                  style={{ width: `${audioLevels.mic * 100}%` }}
+                />
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <Users className="w-3 h-3 text-secondary" />
+              <span className="text-xs text-secondary w-12">System:</span>
+              <div className="flex-1 h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+                <div 
+                  className="h-full bg-blue-500 transition-all duration-100"
+                  style={{ width: `${audioLevels.system * 100}%` }}
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Transcript Display */}
       {transcriptionResult && (
