@@ -132,8 +132,6 @@ export const MeetingTranscription: React.FC<MeetingTranscriptionProps> = ({ onNa
           const [micStream, systemStream] = await Promise.all([
             navigator.mediaDevices.getUserMedia({ 
               audio: {
-                sampleRate: 16000,
-                channelCount: 1,
                 echoCancellation: true,
                 noiseSuppression: true
               } 
@@ -145,7 +143,6 @@ export const MeetingTranscription: React.FC<MeetingTranscriptionProps> = ({ onNa
           ])
           
           // Use Web Audio API to properly mix the streams
-          // Note: Use default sample rate, then resample if needed for Whisper
           const audioContext = new AudioContext()
           
           // Check if AudioContext is supported and started properly
@@ -167,17 +164,19 @@ export const MeetingTranscription: React.FC<MeetingTranscriptionProps> = ({ onNa
           // Create destination for mixed audio
           const destination = audioContext.createMediaStreamDestination()
           
-          // Create analyzers for audio level monitoring
+          // Connect sources through gain nodes to destination
+          micSource.connect(micGain)
+          systemSource.connect(systemGain)
+          micGain.connect(destination)
+          systemGain.connect(destination)
+          
+          // Create analyzers for audio level monitoring (connect after destination)
           const micAnalyser = audioContext.createAnalyser()
           const systemAnalyser = audioContext.createAnalyser()
           micAnalyser.fftSize = 256
           systemAnalyser.fftSize = 256
           
-          // Connect sources through gain nodes to destination and analyzers
-          micSource.connect(micGain)
-          systemSource.connect(systemGain)
-          micGain.connect(destination)
-          systemGain.connect(destination)
+          // Connect to analyzers for monitoring
           micGain.connect(micAnalyser)
           systemGain.connect(systemAnalyser)
           
@@ -197,14 +196,18 @@ export const MeetingTranscription: React.FC<MeetingTranscriptionProps> = ({ onNa
           
           audioLevelIntervalRef.current = setInterval(updateAudioLevels, 100)
           
+          // Use the destination stream for recording
           stream = destination.stream
           
-          // Store all streams and audio context for cleanup
+          console.log('Web Audio API mixed stream created')
+          console.log('AudioContext state:', audioContext.state)
+          console.log('Destination stream tracks:', stream.getAudioTracks().length)
+          
+          // Store audio context and streams for cleanup
           setAudioContext(audioContext)
           setAudioStream(new MediaStream([
             ...micStream.getTracks(),
-            ...systemStream.getTracks(),
-            ...destination.stream.getTracks()
+            ...systemStream.getTracks()
           ]))
         } catch (error) {
           // Fallback to microphone only if system audio fails
@@ -221,8 +224,6 @@ export const MeetingTranscription: React.FC<MeetingTranscriptionProps> = ({ onNa
           
           stream = await navigator.mediaDevices.getUserMedia({ 
             audio: {
-              sampleRate: 16000,
-              channelCount: 1,
               echoCancellation: true,
               noiseSuppression: true
             } 
@@ -233,8 +234,6 @@ export const MeetingTranscription: React.FC<MeetingTranscriptionProps> = ({ onNa
         // Microphone only
         stream = await navigator.mediaDevices.getUserMedia({ 
           audio: {
-            sampleRate: 16000,
-            channelCount: 1,
             echoCancellation: true,
             noiseSuppression: true
           } 
@@ -256,14 +255,17 @@ export const MeetingTranscription: React.FC<MeetingTranscriptionProps> = ({ onNa
       const audioChunks: Blob[] = []
       
       const handleDataAvailable = (event: BlobEvent) => {
+        console.log('MediaRecorder data available:', event.data.size, 'bytes')
         if (event.data.size > 0) {
           audioChunks.push(event.data)
         }
       }
       
       const handleStop = async () => {
+        console.log('MediaRecorder stopped, total chunks:', audioChunks.length)
         try {
           const audioBlob = new Blob(audioChunks, { type: 'audio/webm' })
+          console.log('Final audio blob size:', audioBlob.size, 'bytes')
           
           // Validate recording has actual audio content
           if (audioBlob.size < 1000) { // Less than 1KB suggests silence
