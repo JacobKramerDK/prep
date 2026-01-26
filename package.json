@@ -115,16 +115,17 @@
       "entitlementsInherit": "build/entitlements.mac.plist"
     },
     "win": {
-      "target": "nsis",
+      "target": [
+        {
+          "target": "nsis",
+          "arch": ["x64", "arm64"]
+        }
+      ],
       "requestedExecutionLevel": "asInvoker"
     },
     "linux": {
       "target": "AppImage"
     }
-  },
-  "directories": {
-    "example": "examples",
-    "test": "tests"
   },
   "repository": {
     "type": "git",
