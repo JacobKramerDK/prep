@@ -125,13 +125,14 @@ export const MeetingTranscription: React.FC<MeetingTranscriptionProps> = ({ onNa
       let stream: MediaStream
       
       if (recordFullMeeting) {
-        // For full meeting: get BOTH microphone AND system audio separately
-        // TEMPORARY: Use microphone only until we fix the mixing
+        // For full meeting: get BOTH microphone AND system audio, then mix properly
         try {
-          console.log('🎯 Full meeting selected - getting microphone + system audio...')
           const [micStream, systemStream] = await Promise.all([
             navigator.mediaDevices.getUserMedia({ 
-              audio: true
+              audio: {
+                echoCancellation: true,
+                noiseSuppression: true
+              }
             }),
             navigator.mediaDevices.getDisplayMedia({ 
               audio: true,
@@ -139,15 +140,54 @@ export const MeetingTranscription: React.FC<MeetingTranscriptionProps> = ({ onNa
             })
           ])
           
-          console.log('🎤 Got microphone stream with', micStream.getAudioTracks().length, 'tracks')
-          console.log('🖥️ Got system stream with', systemStream.getAudioTracks().length, 'tracks')
+          // Use Web Audio API to properly mix the streams
+          const audioContext = new AudioContext()
+          if (audioContext.state === 'suspended') {
+            await audioContext.resume()
+          }
           
-          // TEMPORARY FIX: Use microphone stream for recording
-          // TODO: Implement proper mixing that works with MediaRecorder
-          stream = micStream
-          console.log('⚠️ Using microphone stream only (system audio mixing coming soon)')
+          const micSource = audioContext.createMediaStreamSource(micStream)
+          const systemSource = audioContext.createMediaStreamSource(systemStream)
           
-          // Store all streams for cleanup
+          // Create gain nodes for volume control
+          const micGain = audioContext.createGain()
+          const systemGain = audioContext.createGain()
+          micGain.gain.value = 1.0
+          systemGain.gain.value = 0.8
+          
+          // Create destination and connect sources
+          const destination = audioContext.createMediaStreamDestination()
+          micSource.connect(micGain).connect(destination)
+          systemSource.connect(systemGain).connect(destination)
+          
+          // Set up audio level monitoring
+          const micAnalyser = audioContext.createAnalyser()
+          const systemAnalyser = audioContext.createAnalyser()
+          micAnalyser.fftSize = 256
+          systemAnalyser.fftSize = 256
+          micGain.connect(micAnalyser)
+          systemGain.connect(systemAnalyser)
+          
+          const micDataArray = new Uint8Array(micAnalyser.frequencyBinCount)
+          const systemDataArray = new Uint8Array(systemAnalyser.frequencyBinCount)
+          
+          const updateAudioLevels = () => {
+            micAnalyser.getByteFrequencyData(micDataArray)
+            systemAnalyser.getByteFrequencyData(systemDataArray)
+            
+            const micLevel = Math.max(...micDataArray) / 255
+            const systemLevel = Math.max(...systemDataArray) / 255
+            
+            setAudioLevels({ mic: micLevel, system: systemLevel })
+          }
+          
+          audioLevelIntervalRef.current = setInterval(updateAudioLevels, 100)
+          
+          // Use destination stream for recording
+          stream = destination.stream
+          
+          // Store context and streams for cleanup
+          setAudioContext(audioContext)
           setAudioStream(new MediaStream([
             ...micStream.getTracks(),
             ...systemStream.getTracks()
@@ -175,32 +215,12 @@ export const MeetingTranscription: React.FC<MeetingTranscriptionProps> = ({ onNa
         }
       } else {
         // Microphone only
-        console.log('Getting microphone stream...')
-        
-        // Check microphone permission first
-        try {
-          const permission = await navigator.permissions.query({ name: 'microphone' as PermissionName })
-          console.log('Microphone permission:', permission.state)
-        } catch (permError) {
-          console.log('Could not check microphone permission:', permError)
-        }
-        
         stream = await navigator.mediaDevices.getUserMedia({ 
-          audio: true  // Use the most basic audio constraints
+          audio: {
+            echoCancellation: true,
+            noiseSuppression: true
+          }
         })
-        console.log('Got microphone stream:', stream.active, stream.getAudioTracks().length, 'tracks')
-        
-        // Test the stream immediately
-        const track = stream.getAudioTracks()[0]
-        if (track) {
-          console.log('Microphone track details:', {
-            enabled: track.enabled,
-            readyState: track.readyState,
-            muted: track.muted,
-            label: track.label
-          })
-        }
-        
         setAudioStream(stream)
       }
       
