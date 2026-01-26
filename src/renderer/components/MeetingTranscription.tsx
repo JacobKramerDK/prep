@@ -22,6 +22,10 @@ export const MeetingTranscription: React.FC<MeetingTranscriptionProps> = ({ onNa
   const audioLevelIntervalRef = useRef<NodeJS.Timeout | null>(null)
   const updateAudioLevelsRef = useRef<(() => void) | null>(null)
   const isRecordingRef = useRef<boolean>(false)
+  const trackCleanupRef = useRef<(() => void) | null>(null)
+  const trackMonitorIntervalRef = useRef<NodeJS.Timeout | null>(null)
+  const micStreamRef = useRef<MediaStream | null>(null)
+  const systemStreamRef = useRef<MediaStream | null>(null)
   const [currentTime, setCurrentTime] = useState<number>(Date.now())
   const [showRecordingSelector, setShowRecordingSelector] = useState(false)
   const [chunkProgress, setChunkProgress] = useState<ChunkProgress | null>(null)
@@ -152,36 +156,75 @@ export const MeetingTranscription: React.FC<MeetingTranscriptionProps> = ({ onNa
           const micSource = audioContext.createMediaStreamSource(micStream)
           const systemSource = audioContext.createMediaStreamSource(systemStream)
           
+          // Store streams in refs for proper cleanup
+          micStreamRef.current = micStream
+          systemStreamRef.current = systemStream
+          
           // Create gain nodes for volume control
           const micGain = audioContext.createGain()
           const systemGain = audioContext.createGain()
           micGain.gain.value = 1.0
           systemGain.gain.value = 0.8
           
-          // Create destination and connect sources
+          // Connect sources to their gain nodes FIRST
+          micSource.connect(micGain)
+          systemSource.connect(systemGain)
+          
+          // Create destination and connect sources with PROPER MIXING
           const destination = audioContext.createMediaStreamDestination()
-          micSource.connect(micGain).connect(destination)
-          systemSource.connect(systemGain).connect(destination)
+          
+          // CRITICAL FIX: Create a single mixer node that both sources feed into
+          const mixer = audioContext.createGain()
+          mixer.gain.value = 1.0
+          
+          // Connect both gain nodes to the mixer, then mixer to destination
+          micGain.connect(mixer)
+          systemGain.connect(mixer)
+          mixer.connect(destination)
+          
+          console.log('🔧 Audio routing setup:', {
+            micGainConnected: true,
+            systemGainConnected: true,
+            mixerConnected: true,
+            destinationTracks: destination.stream.getAudioTracks().length
+          })
           
           // Set up audio level monitoring - connect BEFORE the destination
           const micAnalyser = audioContext.createAnalyser()
           const systemAnalyser = audioContext.createAnalyser()
+          
+          // CRITICAL: Also create analyzer AFTER mixing to see final output
+          const mixerAnalyser = audioContext.createAnalyser()
+          mixer.connect(mixerAnalyser)
+          
           micAnalyser.fftSize = 256
           systemAnalyser.fftSize = 256
+          mixerAnalyser.fftSize = 256
           
           // Connect analyzers to the original sources (not gain nodes)
           micSource.connect(micAnalyser)
           systemSource.connect(systemAnalyser)
-          
           const micDataArray = new Uint8Array(micAnalyser.frequencyBinCount)
           const systemDataArray = new Uint8Array(systemAnalyser.frequencyBinCount)
+          const mixerDataArray = new Uint8Array(mixerAnalyser.frequencyBinCount)
           
           const updateAudioLevels = () => {
             micAnalyser.getByteFrequencyData(micDataArray)
             systemAnalyser.getByteFrequencyData(systemDataArray)
+            mixerAnalyser.getByteFrequencyData(mixerDataArray)
             
             const micLevel = Math.max(...micDataArray) / 255
             const systemLevel = Math.max(...systemDataArray) / 255
+            const mixerLevel = Math.max(...mixerDataArray) / 255
+            
+            // Debug logging in development mode
+            if (process.env.NODE_ENV === 'development') {
+              console.log('🎚️ Audio levels:', {
+                mic: micLevel.toFixed(3),
+                system: systemLevel.toFixed(3),
+                mixed: mixerLevel.toFixed(3)
+              })
+            }
             
             setAudioLevels({ mic: micLevel, system: systemLevel })
           }
@@ -192,12 +235,66 @@ export const MeetingTranscription: React.FC<MeetingTranscriptionProps> = ({ onNa
           // Use destination stream for recording
           stream = destination.stream
           
+          // CRITICAL: Verify both streams are actually flowing to destination
+          console.log('🔍 Destination stream tracks:', destination.stream.getAudioTracks().map(t => ({
+            id: t.id,
+            label: t.label,
+            enabled: t.enabled,
+            readyState: t.readyState
+          })))
+          
+          // Monitor track states during recording
+          const monitorTracks = () => {
+            console.log('📊 Track monitoring:', {
+              micTracks: micStream.getAudioTracks().map(t => ({ 
+                id: t.id, 
+                enabled: t.enabled, 
+                readyState: t.readyState,
+                muted: t.muted 
+              })),
+              systemTracks: systemStream.getAudioTracks().map(t => ({ 
+                id: t.id, 
+                enabled: t.enabled, 
+                readyState: t.readyState,
+                muted: t.muted 
+              })),
+              destinationTracks: destination.stream.getAudioTracks().map(t => ({ 
+                id: t.id, 
+                enabled: t.enabled, 
+                readyState: t.readyState,
+                muted: t.muted 
+              }))
+            })
+          }
+          
+          // Monitor every 5 seconds during recording
+          trackMonitorIntervalRef.current = setInterval(monitorTracks, 5000)
+          
+          // Store cleanup function
+          const originalCleanup = () => {
+            if (trackMonitorIntervalRef.current) {
+              clearInterval(trackMonitorIntervalRef.current)
+              trackMonitorIntervalRef.current = null
+            }
+            if (micStreamRef.current) {
+              micStreamRef.current.getTracks().forEach(track => track.stop())
+              micStreamRef.current = null
+            }
+            if (systemStreamRef.current) {
+              systemStreamRef.current.getTracks().forEach(track => track.stop())
+              systemStreamRef.current = null
+            }
+          }
+          
           // Store context and streams for cleanup
           setAudioContext(audioContext)
           setAudioStream(new MediaStream([
             ...micStream.getTracks(),
             ...systemStream.getTracks()
           ]))
+          
+          // Store cleanup function for track monitoring
+          trackCleanupRef.current = originalCleanup
         } catch (error) {
           // Fallback to microphone only if system audio fails
           console.warn('System audio capture failed, using microphone only:', error)
@@ -377,6 +474,12 @@ export const MeetingTranscription: React.FC<MeetingTranscriptionProps> = ({ onNa
       if (audioContext && audioContext.state !== 'closed') {
         await audioContext.close()
         setAudioContext(null)
+      }
+      
+      // Clean up track monitoring
+      if (trackCleanupRef.current) {
+        trackCleanupRef.current()
+        trackCleanupRef.current = null
       }
       
       // Reset audio levels
