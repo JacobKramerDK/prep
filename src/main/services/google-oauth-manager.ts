@@ -7,7 +7,7 @@ import { GoogleCalendarError, GoogleCalendarCredentials, GoogleOAuthConfig } fro
 import { Debug } from '../../shared/utils/debug'
 
 export class GoogleOAuthManager {
-  private readonly CLIENT_ID = process.env.GOOGLE_CLIENT_ID || '1234567890-abcdefghijklmnopqrstuvwxyz.apps.googleusercontent.com' // TODO: Replace with actual client ID
+  private readonly CLIENT_ID = process.env.GOOGLE_CLIENT_ID || ''
   private readonly CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET || ''
   private readonly SCOPES = ['https://www.googleapis.com/auth/calendar.readonly']
   private readonly REDIRECT_URI = 'http://localhost:8080/oauth/callback'
@@ -19,6 +19,14 @@ export class GoogleOAuthManager {
 
   async initiateOAuthFlow(): Promise<string> {
     try {
+      // Validate that we have proper credentials
+      if (!this.CLIENT_ID || this.CLIENT_ID === '') {
+        throw new GoogleCalendarError(
+          'Google OAuth not configured. Please set GOOGLE_CLIENT_ID environment variable or configure OAuth credentials in settings.',
+          'CONFIG_MISSING'
+        )
+      }
+      
       Debug.log('[GOOGLE-OAUTH] Initiating OAuth flow')
       const state = crypto.randomBytes(16).toString('hex')
       
@@ -57,14 +65,21 @@ export class GoogleOAuthManager {
         const { code, state, error } = req.query
         
         Debug.log('[GOOGLE-OAUTH] OAuth callback received:', { code: !!code, state: !!state, error })
-        console.log('OAuth callback received:', { code: !!code, state: !!state, error })
         
         if (error) {
           Debug.error('[GOOGLE-OAUTH] OAuth error:', error)
-          console.error('OAuth error:', error)
-          res.send(`<html><body><h1>Authentication Failed</h1><p>${error}</p><script>window.close()</script></body></html>`)
+          let errorMessage = 'Authentication failed'
+          
+          // Provide specific error messages for common issues
+          if (error === 'invalid_client') {
+            errorMessage = 'Invalid OAuth client configuration. Please check your Google Client ID and Client Secret.'
+          } else if (error === 'access_denied') {
+            errorMessage = 'Access denied. Please grant permission to access your Google Calendar.'
+          }
+          
+          res.send(`<html><body><h1>Authentication Failed</h1><p>${errorMessage}</p><p>Error: ${error}</p><script>setTimeout(() => window.close(), 5000)</script></body></html>`)
           this.stopOAuthServer()
-          reject(new GoogleCalendarError('OAuth authorization failed', 'AUTH_FAILED'))
+          reject(new GoogleCalendarError(`OAuth authorization failed: ${error}`, 'AUTH_FAILED'))
           return
         }
         

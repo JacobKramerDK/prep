@@ -55,7 +55,7 @@ export interface GoogleCalendarEvent {
 export class GoogleCalendarError extends Error {
   constructor(
     message: string,
-    public code: 'AUTH_FAILED' | 'API_ERROR' | 'RATE_LIMITED' | 'NETWORK_ERROR' | 'TOKEN_EXPIRED',
+    public code: 'AUTH_FAILED' | 'API_ERROR' | 'RATE_LIMITED' | 'NETWORK_ERROR' | 'TOKEN_EXPIRED' | 'CONFIG_MISSING',
     public cause?: Error
   ) {
     super(message)
