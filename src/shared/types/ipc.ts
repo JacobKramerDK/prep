@@ -114,6 +114,11 @@ export interface ElectronAPI {
   setTranscriptFolder: (folderPath: string | null) => Promise<void>
   selectTranscriptFolder: () => Promise<string | null>
   saveTranscriptToObsidian: (transcriptContent: string, meetingTitle: string, transcriptionId: string) => Promise<import('./transcription').SaveTranscriptResult>
+  // Recording file cleanup settings
+  getCleanupRecordingFiles: () => Promise<boolean>
+  setCleanupRecordingFiles: (enabled: boolean) => Promise<void>
+  // Event listeners
+  onTranscriptionChunkProgress: (callback: (progress: import('./transcription').ChunkProgress) => void) => () => void
 }
 
 declare global {

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react'
-import { Mic, Square, Save, FolderOpen, AlertCircle } from 'lucide-react'
-import { TranscriptionResult, TranscriptionStatus } from '../../shared/types/transcription'
+import { Mic, Square, Save, FolderOpen, AlertCircle, Clock } from 'lucide-react'
+import { TranscriptionResult, TranscriptionStatus, ChunkProgress } from '../../shared/types/transcription'
+import { RecordingTypeSelector } from './RecordingTypeSelector'
 
 interface MeetingTranscriptionProps {
   onNavigate: (page: string) => void
@@ -17,6 +18,8 @@ export const MeetingTranscription: React.FC<MeetingTranscriptionProps> = ({ onNa
   const [mediaRecorder, setMediaRecorder] = useState<MediaRecorder | null>(null)
   const [audioStream, setAudioStream] = useState<MediaStream | null>(null)
   const [currentTime, setCurrentTime] = useState<number>(Date.now())
+  const [showRecordingSelector, setShowRecordingSelector] = useState(false)
+  const [chunkProgress, setChunkProgress] = useState<ChunkProgress | null>(null)
   const intervalRef = useRef<NodeJS.Timeout | null>(null)
 
   const cleanupTimer = () => {
@@ -30,6 +33,17 @@ export const MeetingTranscription: React.FC<MeetingTranscriptionProps> = ({ onNa
     loadTranscriptFolder()
     checkRecordingStatus()
     
+    // Listen for chunk progress events
+    const handleChunkProgress = (progress: ChunkProgress) => {
+      setChunkProgress(progress)
+      if (progress.status === 'completed' || progress.status === 'error') {
+        // Clear progress after completion
+        setTimeout(() => setChunkProgress(null), 3000)
+      }
+    }
+
+    const cleanupChunkProgress = window.electronAPI.onTranscriptionChunkProgress?.(handleChunkProgress)
+    
     // Cleanup function to prevent memory leaks
     return () => {
       if (mediaRecorder && mediaRecorder.state === 'recording') {
@@ -39,6 +53,10 @@ export const MeetingTranscription: React.FC<MeetingTranscriptionProps> = ({ onNa
         audioStream.getTracks().forEach(track => track.stop())
       }
       cleanupTimer()
+      // Cleanup event listener
+      if (cleanupChunkProgress) {
+        cleanupChunkProgress()
+      }
     }
   }, [])
 
@@ -74,15 +92,14 @@ export const MeetingTranscription: React.FC<MeetingTranscriptionProps> = ({ onNa
   }
 
   const handleStartRecording = async () => {
+    setShowRecordingSelector(true)
+  }
+
+  const handleRecordingTypeSelected = async (recordFullMeeting: boolean) => {
+    setShowRecordingSelector(false)
+    
     try {
       setError(null)
-      
-      // Ask user what type of audio to record
-      const recordFullMeeting = window.confirm(
-        'Record full meeting audio?\n\n' +
-        'OK = Full meeting (your voice + others)\n' +
-        'Cancel = Microphone only (just your voice)'
-      )
       
       let stream: MediaStream
       
@@ -256,7 +273,16 @@ export const MeetingTranscription: React.FC<MeetingTranscriptionProps> = ({ onNa
   }
 
   return (
-    <div className="bg-surface border border-border rounded-xl p-6 shadow-sm">
+    <>
+      {/* Recording Type Selection Modal */}
+      {showRecordingSelector && (
+        <RecordingTypeSelector
+          onSelect={handleRecordingTypeSelected}
+          onCancel={() => setShowRecordingSelector(false)}
+        />
+      )}
+
+      <div className="bg-surface border border-border rounded-xl p-6 shadow-sm">
       <div className="flex items-center gap-3 mb-4">
         <div className="w-10 h-10 rounded-lg bg-surface-hover border border-border flex items-center justify-center">
           <Mic className="w-5 h-5 text-secondary" />
@@ -336,6 +362,50 @@ export const MeetingTranscription: React.FC<MeetingTranscriptionProps> = ({ onNa
         </div>
       )}
 
+      {/* Chunk Progress Display */}
+      {chunkProgress && (
+        <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+          <div className="flex items-center gap-2 text-blue-700 dark:text-blue-400">
+            <Clock className="w-4 h-4" />
+            <div className="flex-1">
+              <div className="text-sm font-medium">
+                Processing Audio Segments
+              </div>
+              <div className="text-xs text-blue-600 dark:text-blue-300 mt-1">
+                {chunkProgress.status === 'processing' && (
+                  <>
+                    Segment {chunkProgress.current} of {chunkProgress.total}
+                    {chunkProgress.estimatedTimeRemaining && (
+                      <span className="ml-2">
+                        • ~{Math.round(chunkProgress.estimatedTimeRemaining / 60)}m remaining
+                      </span>
+                    )}
+                  </>
+                )}
+                {chunkProgress.status === 'completed' && (
+                  <span className="text-green-600 dark:text-green-400">
+                    ✅ All segments processed successfully
+                  </span>
+                )}
+                {chunkProgress.status === 'error' && (
+                  <span className="text-red-600 dark:text-red-400">
+                    ❌ Processing failed
+                  </span>
+                )}
+              </div>
+              {chunkProgress.status === 'processing' && (
+                <div className="mt-2 w-full bg-blue-200 dark:bg-blue-800 rounded-full h-2">
+                  <div 
+                    className="bg-blue-600 dark:bg-blue-400 h-2 rounded-full transition-all duration-300"
+                    style={{ width: `${(chunkProgress.current / chunkProgress.total) * 100}%` }}
+                  />
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Error Display */}
       {error && (
         <div className="mb-4 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
@@ -379,5 +449,6 @@ export const MeetingTranscription: React.FC<MeetingTranscriptionProps> = ({ onNa
         </div>
       )}
     </div>
+    </>
   )
 }

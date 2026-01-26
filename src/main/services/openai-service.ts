@@ -472,11 +472,15 @@ export class OpenAIService {
     try {
       const audioFile = fs.createReadStream(request.audioFilePath)
       
+      // GPT-4o models support both 'json' and 'text' formats
+      const model = request.model || 'whisper-1'
+      const responseFormat = 'json' // Use json format for all models for consistency
+      
       const response = await this.client!.audio.transcriptions.create({
         file: audioFile,
-        model: request.model || 'whisper-1',
+        model: model,
         language: request.language,
-        response_format: 'json'
+        response_format: responseFormat
       })
 
       return {
@@ -485,7 +489,7 @@ export class OpenAIService {
         language: request.language,
         duration: undefined, // Not provided by basic response
         createdAt: new Date(),
-        model: request.model || 'whisper-1'
+        model: model
       }
     } catch (error) {
       Debug.error('Transcription failed:', error)

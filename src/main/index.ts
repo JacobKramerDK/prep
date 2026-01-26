@@ -68,6 +68,7 @@ const initializeOpenAIService = async (): Promise<void> => {
       openaiService = new OpenAIService(apiKey)
       // Initialize transcription service when OpenAI service is available
       transcriptionService = new TranscriptionService(audioRecordingService, openaiService)
+      await transcriptionService.initialize() // Initialize async components
       
       // Set up chunk progress event listener
       transcriptionService.on('chunkProgress', (progress) => {
@@ -923,6 +924,15 @@ ipcMain.handle('transcription:getFolder', async () => {
 
 ipcMain.handle('transcription:setFolder', async (_, folderPath: string | null) => {
   return settingsManager.setTranscriptFolder(folderPath)
+})
+
+// Recording file cleanup settings
+ipcMain.handle('transcription:getCleanupRecordingFiles', async () => {
+  return settingsManager.getCleanupRecordingFiles()
+})
+
+ipcMain.handle('transcription:setCleanupRecordingFiles', async (_, enabled: boolean) => {
+  return settingsManager.setCleanupRecordingFiles(enabled)
 })
 
 ipcMain.handle('transcription:selectFolder', async () => {

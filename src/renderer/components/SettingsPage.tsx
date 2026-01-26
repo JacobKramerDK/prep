@@ -49,6 +49,7 @@ export function SettingsPage({ onBack, vaultFileCount }: SettingsPageProps) {
   const [vaultIndexingProgress, setVaultIndexingProgress] = useState<VaultIndexingProgress | null>(null)
   const [transcriptionModel, setTranscriptionModel] = useState('whisper-1')
   const [transcriptFolder, setTranscriptFolder] = useState<string | null>(null)
+  const [cleanupRecordingFiles, setCleanupRecordingFiles] = useState(true)
 
   useEffect(() => {
     const loadSettings = async () => {
@@ -59,10 +60,11 @@ export function SettingsPage({ onBack, vaultFileCount }: SettingsPageProps) {
           window.electronAPI.getObsidianBriefFolder(),
           window.electronAPI.getDebugMode(),
           window.electronAPI.getTranscriptionModel(),
-          window.electronAPI.getTranscriptFolder()
+          window.electronAPI.getTranscriptFolder(),
+          window.electronAPI.getCleanupRecordingFiles()
         ])
         
-        const [apiKeyResult, modelResult, briefFolderResult, debugModeResult, transcriptionModelResult, transcriptFolderResult] = results
+        const [apiKeyResult, modelResult, briefFolderResult, debugModeResult, transcriptionModelResult, transcriptFolderResult, cleanupResult] = results
         
         if (apiKeyResult.status === 'fulfilled' && apiKeyResult.value) {
           setApiKey(apiKeyResult.value)
@@ -97,6 +99,10 @@ export function SettingsPage({ onBack, vaultFileCount }: SettingsPageProps) {
         
         if (transcriptFolderResult.status === 'fulfilled' && transcriptFolderResult.value) {
           setTranscriptFolder(transcriptFolderResult.value)
+        }
+        
+        if (cleanupResult.status === 'fulfilled') {
+          setCleanupRecordingFiles(cleanupResult.value)
         }
         
         if (debugModeResult.status === 'fulfilled') {
@@ -175,7 +181,8 @@ export function SettingsPage({ onBack, vaultFileCount }: SettingsPageProps) {
       await Promise.all([
         window.electronAPI.setOpenAIApiKey(apiKey.trim() || null),
         window.electronAPI.setOpenAIModel(selectedModel),
-        window.electronAPI.setTranscriptionModel(transcriptionModel)
+        window.electronAPI.setTranscriptionModel(transcriptionModel),
+        window.electronAPI.setCleanupRecordingFiles(cleanupRecordingFiles)
       ])
       setSaveMessage('Settings saved successfully!')
       setTimeout(() => setSaveMessage(null), 3000)
@@ -473,10 +480,12 @@ export function SettingsPage({ onBack, vaultFileCount }: SettingsPageProps) {
                   className="w-full h-11 px-4 rounded-lg border border-border bg-background text-primary focus:ring-2 focus:ring-brand-500 focus:border-transparent transition-all appearance-none"
                   data-testid="transcription-model-select"
                 >
-                  <option value="whisper-1">Whisper-1 (Recommended)</option>
+                  <option value="whisper-1">Whisper-1 (Original - Duration Billing)</option>
+                  <option value="gpt-4o-mini-transcribe">GPT-4o Mini Transcribe (Fast & Accurate - Token Billing)</option>
+                  <option value="gpt-4o-transcribe">GPT-4o Transcribe (Highest Quality - Token Billing)</option>
                 </select>
                 <p className="text-xs text-secondary mt-2">
-                  Choose the AI model for transcribing meeting audio. Whisper-1 provides high-quality transcription with automatic language detection.
+                  Choose the AI model for transcribing meeting audio. Whisper-1 uses duration-based billing, while GPT-4o models use token-based billing for cost optimization.
                 </p>
               </div>
 
@@ -500,6 +509,29 @@ export function SettingsPage({ onBack, vaultFileCount }: SettingsPageProps) {
                 </div>
                 <p className="text-xs text-secondary mt-2">
                   Choose where to save meeting transcripts. Transcripts will be saved as Markdown files with metadata.
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-primary mb-3">
+                  Recording File Management
+                </label>
+                <div className="flex items-center gap-3">
+                  <input
+                    type="checkbox"
+                    id="cleanup-recording-files"
+                    checked={cleanupRecordingFiles}
+                    onChange={(e) => setCleanupRecordingFiles(e.target.checked)}
+                    className="w-4 h-4 text-brand-600 bg-background border-border rounded focus:ring-brand-500 focus:ring-2"
+                    data-testid="cleanup-recording-files-checkbox"
+                  />
+                  <label htmlFor="cleanup-recording-files" className="text-sm text-primary cursor-pointer">
+                    Automatically delete recording files after successful transcription
+                  </label>
+                </div>
+                <p className="text-xs text-secondary mt-2">
+                  When enabled, original audio recordings are automatically deleted after transcription completes successfully. 
+                  This saves storage space and protects privacy. Failed transcriptions preserve files for retry.
                 </p>
               </div>
 

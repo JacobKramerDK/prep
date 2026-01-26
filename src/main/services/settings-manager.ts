@@ -351,11 +351,26 @@ export class SettingsManager {
 
   // Transcription settings methods
   getTranscriptionModel(): string {
-    return this.store.get('transcriptionModel', 'whisper-1')
+    const model = this.store.get('transcriptionModel', 'whisper-1')
+    // Validate model is supported
+    const validModels = ['whisper-1', 'gpt-4o-mini-transcribe', 'gpt-4o-transcribe']
+    const finalModel = validModels.includes(model) ? model : 'whisper-1'
+    
+    if (this.getDebugMode()) {
+      Debug.log(`Using transcription model: ${finalModel}`)
+    }
+    
+    return finalModel
   }
 
   setTranscriptionModel(model: string): void {
-    this.store.set('transcriptionModel', model)
+    // Validate model before setting
+    const validModels = ['whisper-1', 'gpt-4o-mini-transcribe', 'gpt-4o-transcribe']
+    if (validModels.includes(model)) {
+      this.store.set('transcriptionModel', model)
+    } else {
+      throw new Error(`Invalid transcription model: ${model}`)
+    }
   }
 
   getTranscriptFolder(): string | null {
@@ -364,5 +379,14 @@ export class SettingsManager {
 
   setTranscriptFolder(folderPath: string | null): void {
     this.store.set('transcriptFolder', folderPath)
+  }
+
+  // Recording file cleanup settings
+  getCleanupRecordingFiles(): boolean {
+    return this.store.get('cleanupRecordingFiles', true) // Default: true for privacy
+  }
+
+  setCleanupRecordingFiles(enabled: boolean): void {
+    this.store.set('cleanupRecordingFiles', enabled)
   }
 }

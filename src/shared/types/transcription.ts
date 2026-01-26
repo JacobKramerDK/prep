@@ -4,6 +4,26 @@ export interface TranscriptionRequest {
   language?: string
 }
 
+export type TranscriptionModel = 'whisper-1' | 'gpt-4o-mini-transcribe' | 'gpt-4o-transcribe'
+
+export const TRANSCRIPTION_MODELS: Record<TranscriptionModel, { name: string; description: string; billing: string }> = {
+  'whisper-1': {
+    name: 'Whisper-1',
+    description: 'Original - Duration Billing',
+    billing: 'duration'
+  },
+  'gpt-4o-mini-transcribe': {
+    name: 'GPT-4o Mini Transcribe',
+    description: 'Fast & Accurate - Token Billing',
+    billing: 'token'
+  },
+  'gpt-4o-transcribe': {
+    name: 'GPT-4o Transcribe',
+    description: 'Highest Quality - Token Billing',
+    billing: 'token'
+  }
+}
+
 export interface TranscriptionResult {
   id: string
   text: string

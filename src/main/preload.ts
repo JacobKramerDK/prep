@@ -245,6 +245,15 @@ const electronAPI: ElectronAPI = {
   selectTranscriptFolder: () => ipcRenderer.invoke('transcription:selectFolder'),
   saveTranscriptToObsidian: (transcriptContent: string, meetingTitle: string, transcriptionId: string) => 
     ipcRenderer.invoke('transcription:saveToObsidian', transcriptContent, meetingTitle, transcriptionId),
+  // Recording file cleanup settings
+  getCleanupRecordingFiles: () => ipcRenderer.invoke('transcription:getCleanupRecordingFiles'),
+  setCleanupRecordingFiles: (enabled: boolean) => ipcRenderer.invoke('transcription:setCleanupRecordingFiles', enabled),
+  // Event listeners
+  onTranscriptionChunkProgress: (callback: (progress: any) => void) => {
+    const listener = (_event: any, progress: any) => callback(progress)
+    ipcRenderer.on('transcription:chunkProgress', listener)
+    return () => ipcRenderer.removeListener('transcription:chunkProgress', listener)
+  },
 }
 
 contextBridge.exposeInMainWorld('electronAPI', electronAPI)
