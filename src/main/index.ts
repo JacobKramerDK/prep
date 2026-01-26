@@ -862,12 +862,8 @@ ipcMain.handle('transcription:startRecording', async () => {
 
 ipcMain.handle('transcription:sendAudioData', async (_, audioData: ArrayBuffer) => {
   try {
-    Debug.log(`IPC: Received audio data: ${audioData.byteLength} bytes`)
     if (audioRecordingService) {
       audioRecordingService.addAudioData(audioData)
-      Debug.log('IPC: Audio data added to recording service')
-    } else {
-      Debug.error('IPC: No audio recording service available')
     }
   } catch (error) {
     Debug.error('Failed to add audio data:', error)

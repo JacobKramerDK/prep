@@ -20,6 +20,8 @@ export const MeetingTranscription: React.FC<MeetingTranscriptionProps> = ({ onNa
   const [audioContext, setAudioContext] = useState<AudioContext | null>(null)
   const [audioLevels, setAudioLevels] = useState<{ mic: number; system: number }>({ mic: 0, system: 0 })
   const audioLevelIntervalRef = useRef<NodeJS.Timeout | null>(null)
+  const updateAudioLevelsRef = useRef<(() => void) | null>(null)
+  const isRecordingRef = useRef<boolean>(false)
   const [currentTime, setCurrentTime] = useState<number>(Date.now())
   const [showRecordingSelector, setShowRecordingSelector] = useState(false)
   const [chunkProgress, setChunkProgress] = useState<ChunkProgress | null>(null)
@@ -30,7 +32,8 @@ export const MeetingTranscription: React.FC<MeetingTranscriptionProps> = ({ onNa
       clearInterval(intervalRef.current)
       intervalRef.current = null
     }
-    if (audioLevelIntervalRef.current) {
+    // Only clear audio level timer if not recording (use ref for immediate state)
+    if (audioLevelIntervalRef.current && !isRecordingRef.current) {
       clearInterval(audioLevelIntervalRef.current)
       audioLevelIntervalRef.current = null
     }
@@ -160,13 +163,15 @@ export const MeetingTranscription: React.FC<MeetingTranscriptionProps> = ({ onNa
           micSource.connect(micGain).connect(destination)
           systemSource.connect(systemGain).connect(destination)
           
-          // Set up audio level monitoring
+          // Set up audio level monitoring - connect BEFORE the destination
           const micAnalyser = audioContext.createAnalyser()
           const systemAnalyser = audioContext.createAnalyser()
           micAnalyser.fftSize = 256
           systemAnalyser.fftSize = 256
-          micGain.connect(micAnalyser)
-          systemGain.connect(systemAnalyser)
+          
+          // Connect analyzers to the original sources (not gain nodes)
+          micSource.connect(micAnalyser)
+          systemSource.connect(systemAnalyser)
           
           const micDataArray = new Uint8Array(micAnalyser.frequencyBinCount)
           const systemDataArray = new Uint8Array(systemAnalyser.frequencyBinCount)
@@ -181,7 +186,8 @@ export const MeetingTranscription: React.FC<MeetingTranscriptionProps> = ({ onNa
             setAudioLevels({ mic: micLevel, system: systemLevel })
           }
           
-          audioLevelIntervalRef.current = setInterval(updateAudioLevels, 100)
+          // Store function in ref for later use
+          updateAudioLevelsRef.current = updateAudioLevels
           
           // Use destination stream for recording
           stream = destination.stream
@@ -338,7 +344,14 @@ export const MeetingTranscription: React.FC<MeetingTranscriptionProps> = ({ onNa
       }, 3000)
       
       setRecordingStatus({ isRecording: true, recordingStartTime: new Date() })
+      isRecordingRef.current = true // Set ref immediately
       setTranscriptionResult(null)
+      
+      // Start audio level monitoring after recording status is set
+      if (audioLevelIntervalRef.current === null && updateAudioLevelsRef.current) {
+        const intervalId = setInterval(updateAudioLevelsRef.current, 100)
+        audioLevelIntervalRef.current = intervalId
+      }
     } catch (error) {
       setError(error instanceof Error ? error.message : 'Failed to start recording')
     }
@@ -388,6 +401,7 @@ export const MeetingTranscription: React.FC<MeetingTranscriptionProps> = ({ onNa
       
       setTranscriptionResult(result)
       setRecordingStatus({ isRecording: false })
+      isRecordingRef.current = false // Clear ref when recording stops
     } catch (error) {
       setError(error instanceof Error ? error.message : 'Failed to stop recording and transcribe')
       setRecordingStatus({ isRecording: false })
