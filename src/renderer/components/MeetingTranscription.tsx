@@ -125,7 +125,8 @@ export const MeetingTranscription: React.FC<MeetingTranscriptionProps> = ({ onNa
       let stream: MediaStream
       
       if (recordFullMeeting) {
-        // For full meeting: get BOTH microphone AND system audio, then mix properly
+        // For full meeting: get BOTH microphone AND system audio
+        // TEMPORARY: Use microphone only until we solve Web Audio API + MediaRecorder compatibility
         try {
           const [micStream, systemStream] = await Promise.all([
             navigator.mediaDevices.getUserMedia({ 
@@ -140,51 +141,29 @@ export const MeetingTranscription: React.FC<MeetingTranscriptionProps> = ({ onNa
             })
           ])
           
-          // Use Web Audio API to properly mix the streams
+          // Use microphone stream for recording (we know this works)
+          stream = micStream
+          
+          // Set up basic audio level monitoring for microphone only
           const audioContext = new AudioContext()
           if (audioContext.state === 'suspended') {
             await audioContext.resume()
           }
           
           const micSource = audioContext.createMediaStreamSource(micStream)
-          const systemSource = audioContext.createMediaStreamSource(systemStream)
-          
-          // Create gain nodes for volume control
-          const micGain = audioContext.createGain()
-          const systemGain = audioContext.createGain()
-          micGain.gain.value = 1.0
-          systemGain.gain.value = 0.8
-          
-          // Create destination and connect sources
-          const destination = audioContext.createMediaStreamDestination()
-          micSource.connect(micGain).connect(destination)
-          systemSource.connect(systemGain).connect(destination)
-          
-          // Set up audio level monitoring
           const micAnalyser = audioContext.createAnalyser()
-          const systemAnalyser = audioContext.createAnalyser()
           micAnalyser.fftSize = 256
-          systemAnalyser.fftSize = 256
-          micGain.connect(micAnalyser)
-          systemGain.connect(systemAnalyser)
+          micSource.connect(micAnalyser)
           
           const micDataArray = new Uint8Array(micAnalyser.frequencyBinCount)
-          const systemDataArray = new Uint8Array(systemAnalyser.frequencyBinCount)
           
           const updateAudioLevels = () => {
             micAnalyser.getByteFrequencyData(micDataArray)
-            systemAnalyser.getByteFrequencyData(systemDataArray)
-            
             const micLevel = Math.max(...micDataArray) / 255
-            const systemLevel = Math.max(...systemDataArray) / 255
-            
-            setAudioLevels({ mic: micLevel, system: systemLevel })
+            setAudioLevels({ mic: micLevel, system: 0 }) // System level 0 for now
           }
           
           audioLevelIntervalRef.current = setInterval(updateAudioLevels, 100)
-          
-          // Use destination stream for recording
-          stream = destination.stream
           
           // Store context and streams for cleanup
           setAudioContext(audioContext)
