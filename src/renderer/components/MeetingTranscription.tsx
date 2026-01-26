@@ -126,14 +126,12 @@ export const MeetingTranscription: React.FC<MeetingTranscriptionProps> = ({ onNa
       
       if (recordFullMeeting) {
         // For full meeting: get BOTH microphone AND system audio separately
-        // Use a simpler approach that we know works with MediaRecorder
+        // TEMPORARY: Use microphone only until we fix the mixing
         try {
+          console.log('🎯 Full meeting selected - getting microphone + system audio...')
           const [micStream, systemStream] = await Promise.all([
             navigator.mediaDevices.getUserMedia({ 
-              audio: {
-                echoCancellation: true,
-                noiseSuppression: true
-              } 
+              audio: true
             }),
             navigator.mediaDevices.getDisplayMedia({ 
               audio: true,
@@ -141,37 +139,15 @@ export const MeetingTranscription: React.FC<MeetingTranscriptionProps> = ({ onNa
             })
           ])
           
-          console.log('Got microphone stream with', micStream.getAudioTracks().length, 'tracks')
-          console.log('Got system stream with', systemStream.getAudioTracks().length, 'tracks')
+          console.log('🎤 Got microphone stream with', micStream.getAudioTracks().length, 'tracks')
+          console.log('🖥️ Got system stream with', systemStream.getAudioTracks().length, 'tracks')
           
-          // For now, let's just use the microphone stream to ensure we get SOME audio
-          // TODO: Implement proper mixing in a follow-up
+          // TEMPORARY FIX: Use microphone stream for recording
+          // TODO: Implement proper mixing that works with MediaRecorder
           stream = micStream
-          console.log('Using microphone stream for recording (system audio mixing coming soon)')
+          console.log('⚠️ Using microphone stream only (system audio mixing coming soon)')
           
-          // Set up basic audio level monitoring for microphone
-          const audioContext = new AudioContext()
-          if (audioContext.state === 'suspended') {
-            await audioContext.resume()
-          }
-          
-          const micSource = audioContext.createMediaStreamSource(micStream)
-          const micAnalyser = audioContext.createAnalyser()
-          micAnalyser.fftSize = 256
-          micSource.connect(micAnalyser)
-          
-          const micDataArray = new Uint8Array(micAnalyser.frequencyBinCount)
-          
-          const updateAudioLevels = () => {
-            micAnalyser.getByteFrequencyData(micDataArray)
-            const micLevel = Math.max(...micDataArray) / 255
-            setAudioLevels({ mic: micLevel, system: 0 }) // System level 0 for now
-          }
-          
-          audioLevelIntervalRef.current = setInterval(updateAudioLevels, 100)
-          
-          // Store audio context and streams for cleanup
-          setAudioContext(audioContext)
+          // Store all streams for cleanup
           setAudioStream(new MediaStream([
             ...micStream.getTracks(),
             ...systemStream.getTracks()
@@ -291,28 +267,55 @@ export const MeetingTranscription: React.FC<MeetingTranscriptionProps> = ({ onNa
       
       // Start recording
       await window.electronAPI.startAudioRecording()
-      console.log('Starting MediaRecorder with timeslice: 1000ms')
+      console.log('🚀 Starting MediaRecorder with timeslice: 1000ms')
       
       // Add a test to see if the stream is actually active
-      console.log('Stream active before start:', stream.active)
-      console.log('Stream tracks before start:', stream.getAudioTracks().map(t => ({
+      console.log('📊 Stream active before start:', stream.active)
+      console.log('🎤 Stream tracks before start:', stream.getAudioTracks().map(t => ({
         enabled: t.enabled,
         readyState: t.readyState,
         muted: t.muted
       })))
       
-      recorder.start(1000) // Request data every second
-      console.log('MediaRecorder state after start:', recorder.state)
+      // CRITICAL: Test if MediaRecorder can actually start
+      try {
+        recorder.start(1000) // Request data every second
+        console.log('✅ MediaRecorder.start() called successfully')
+        console.log('📊 MediaRecorder state after start:', recorder.state)
+      } catch (startError) {
+        console.error('❌ MediaRecorder.start() failed:', startError)
+        setError('Failed to start recording: ' + startError.message)
+        return
+      }
       
       // Test if we can manually trigger data
       setTimeout(() => {
-        console.log('MediaRecorder state after 2 seconds:', recorder.state)
-        console.log('Stream still active:', stream.active)
+        console.log('⏰ 2-second check - MediaRecorder state:', recorder.state)
+        console.log('⏰ 2-second check - Stream still active:', stream.active)
         if (recorder.state === 'recording') {
-          console.log('Requesting data manually...')
-          recorder.requestData()
+          console.log('🔄 Requesting data manually...')
+          try {
+            recorder.requestData()
+            console.log('✅ Manual requestData() called')
+          } catch (requestError) {
+            console.error('❌ Manual requestData() failed:', requestError)
+          }
+        } else {
+          console.error('❌ MediaRecorder not in recording state after 2 seconds!')
         }
       }, 2000)
+      
+      // Test stream activity
+      setTimeout(() => {
+        const track = stream.getAudioTracks()[0]
+        if (track) {
+          console.log('🎤 Track state after 3 seconds:', {
+            enabled: track.enabled,
+            readyState: track.readyState,
+            muted: track.muted
+          })
+        }
+      }, 3000)
       
       setRecordingStatus({ isRecording: true, recordingStartTime: new Date() })
       setTranscriptionResult(null)
