@@ -307,7 +307,9 @@ export class AudioProcessor {
 
       // Use time-based segmentation if FFmpeg is available
       if (this.isFFmpegAvailable()) {
-        return await this.createTimeBasedSegments(workingFile, totalDuration)
+        // If duration is unknown (0), estimate based on file size for segmentation
+        const effectiveDuration = totalDuration > 0 ? totalDuration : this.estimateDurationFromSize(metadata.size)
+        return await this.createTimeBasedSegments(workingFile, effectiveDuration)
       } else {
         // Fallback to improved byte-based segmentation
         return await this.createByteBasedSegments(workingFile)
@@ -316,6 +318,21 @@ export class AudioProcessor {
       Debug.error('Audio segmentation failed:', error)
       throw new Error(`Audio segmentation failed: ${error instanceof Error ? error.message : 'Unknown error'}`)
     }
+  }
+
+  /**
+   * Estimate audio duration from file size when metadata is unavailable
+   * Uses conservative estimate for WebM/MP3 files
+   */
+  private static estimateDurationFromSize(sizeBytes: number): number {
+    // Conservative estimate: ~1MB per minute for compressed audio
+    // This ensures we create enough segments rather than too few
+    const estimatedMinutes = sizeBytes / (1024 * 1024)
+    const estimatedSeconds = estimatedMinutes * 60
+    
+    Debug.log(`Estimating duration from file size: ${(sizeBytes / 1024 / 1024).toFixed(2)}MB → ~${estimatedSeconds.toFixed(0)}s`)
+    
+    return Math.max(estimatedSeconds, this.SEGMENT_DURATION_SECONDS) // At least one segment
   }
 
   /**
