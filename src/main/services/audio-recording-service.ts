@@ -121,14 +121,23 @@ export class AudioRecordingService {
 
   private isValidWebMFile(data: Buffer): boolean {
     // Check minimum file size
-    if (data.length < 32) return false
+    if (data.length < 32) {
+      Debug.log(`WebM validation failed: file too small (${data.length} bytes)`)
+      return false
+    }
     
     // Check WebM magic bytes (EBML header)
-    if (data.toString('hex', 0, 4) !== '1a45dfa3') return false
+    const firstFourBytes = data.toString('hex', 0, 4)
+    Debug.log(`First 4 bytes: ${firstFourBytes} (expected: 1a45dfa3 for EBML)`)
+    if (firstFourBytes !== '1a45dfa3') {
+      Debug.log('WebM validation failed: no EBML header')
+      return false
+    }
     
     // Additional basic structure validation - look for WebM signature
-    const dataStr = data.toString('hex')
-    const hasWebMSignature = dataStr.includes('7765626d') // 'webm' in hex
+    const first1KB = data.toString('hex', 0, Math.min(1024, data.length))
+    const hasWebMSignature = first1KB.includes('7765626d') // 'webm' in hex
+    Debug.log(`WebM signature found in first 1KB: ${hasWebMSignature}`)
     
     return hasWebMSignature
   }
