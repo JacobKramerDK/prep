@@ -497,7 +497,7 @@ export const MeetingTranscription: React.FC<MeetingTranscriptionProps> = ({ onNa
       </div>
 
       {/* Audio Level Indicators */}
-      {recordingStatus.isRecording && (audioLevels.mic > 0 || audioLevels.system > 0) && (
+      {recordingStatus.isRecording && (
         <div className="mb-4 p-3 bg-surface-hover border border-border rounded-lg">
           <div className="text-xs text-secondary mb-2">Audio Levels</div>
           <div className="space-y-2">
