@@ -3,9 +3,12 @@ import path from 'path'
 import os from 'os'
 import * as fs from 'fs/promises'
 
-// Load environment variables in development
-if (process.env.NODE_ENV !== 'production') {
+// Load environment variables in development and production
+// This allows users to create a .env file to override bundled credentials
+try {
   require('dotenv').config()
+} catch (error) {
+  // dotenv not available or .env file doesn't exist - use bundled credentials
 }
 
 import { VaultManager } from './services/vault-manager'

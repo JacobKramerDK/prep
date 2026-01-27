@@ -52,6 +52,15 @@ npm run package
 
 **Prep** includes real-time meeting transcription capabilities powered by OpenAI's Whisper API.
 
+### Google Calendar Integration
+
+The app comes with **built-in Google OAuth credentials** for immediate Google Calendar access. No setup required!
+
+**Want to use your own Google credentials?** 
+1. Create a `.env` file next to the Prep executable
+2. Add your custom `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET`
+3. See `.env.example` for detailed instructions
+
 ### How It Works
 
 1. **Audio Capture**: Records meeting audio through your microphone or system audio (full meeting capture)

@@ -6,14 +6,18 @@ import { Server } from 'http'
 import { GoogleCalendarError, GoogleCalendarCredentials, GoogleOAuthConfig } from '../../shared/types/google-calendar'
 import { Debug } from '../../shared/utils/debug'
 
-// Load environment variables in development
-if (process.env.NODE_ENV !== 'production') {
+// Load environment variables in development and production
+// This allows users to create a .env file to override bundled credentials
+try {
   require('dotenv').config()
+} catch (error) {
+  // dotenv not available or .env file doesn't exist - use bundled credentials
 }
 
 export class GoogleOAuthManager {
   // For desktop applications, it's safe to bundle OAuth client credentials
   // Client ID is considered public information by Google
+  // Users can override by creating a .env file with their own credentials
   private readonly CLIENT_ID = process.env.GOOGLE_CLIENT_ID || '447955780442-ktbnkmlm3cm5ld633tv9ckr96coipv4s.apps.googleusercontent.com'
   private readonly CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET || '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'
   private readonly SCOPES = ['https://www.googleapis.com/auth/calendar.readonly']
@@ -26,7 +30,9 @@ export class GoogleOAuthManager {
 
   async initiateOAuthFlow(): Promise<string> {
     try {
-      Debug.log('[GOOGLE-OAUTH] Initiating OAuth flow with Client ID:', this.CLIENT_ID.substring(0, 20) + '...')
+      const usingCustomCredentials = process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET
+      Debug.log('[GOOGLE-OAUTH] Initiating OAuth flow with', usingCustomCredentials ? 'custom' : 'bundled', 'credentials')
+      Debug.log('[GOOGLE-OAUTH] Client ID:', this.CLIENT_ID.substring(0, 20) + '...')
       const state = crypto.randomBytes(16).toString('hex')
       
       // Store state temporarily
