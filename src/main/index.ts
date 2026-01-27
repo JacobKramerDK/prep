@@ -67,10 +67,10 @@ const initializeOpenAIService = async (): Promise<void> => {
   try {
     let apiKey = await settingsManager.getOpenAIApiKey()
     
-    // Fallback to environment variable if no stored key
-    if (!apiKey && process.env.OPENAI_API_KEY) {
+    // Fallback to environment variable if no stored key (development only)
+    if (!apiKey && process.env.OPENAI_API_KEY && process.env.NODE_ENV !== 'production') {
       apiKey = process.env.OPENAI_API_KEY
-      console.log('Using OpenAI API key from environment variable')
+      console.log('Using OpenAI API key from environment variable (development mode)')
     }
     
     if (apiKey) {
