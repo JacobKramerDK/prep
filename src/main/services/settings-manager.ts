@@ -300,6 +300,37 @@ export class SettingsManager {
     this.store.set('googleCalendarConnected', false)
   }
 
+  // Google OAuth2 credential storage methods
+  async getGoogleClientId(): Promise<string | null> {
+    return this.store.get('googleClientId')
+  }
+
+  async setGoogleClientId(clientId: string | null): Promise<void> {
+    this.store.set('googleClientId', clientId)
+  }
+
+  async getGoogleClientSecret(): Promise<string | null> {
+    return this.store.get('googleClientSecret')
+  }
+
+  async setGoogleClientSecret(clientSecret: string | null): Promise<void> {
+    this.store.set('googleClientSecret', clientSecret)
+  }
+
+  validateGoogleClientIdFormat(clientId: string): boolean {
+    // Google Client IDs end with .apps.googleusercontent.com
+    return typeof clientId === 'string' && 
+           clientId.length > 20 && 
+           clientId.endsWith('.apps.googleusercontent.com')
+  }
+
+  validateGoogleClientSecretFormat(clientSecret: string): boolean {
+    // Google Client Secrets are typically 24 characters, alphanumeric with hyphens/underscores
+    return typeof clientSecret === 'string' && 
+           clientSecret.length >= 20 && 
+           /^[A-Za-z0-9_-]+$/.test(clientSecret)
+  }
+
   // Debug mode methods
   getDebugMode(): boolean {
     return this.store.get('debugMode', false)

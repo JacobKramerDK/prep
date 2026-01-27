@@ -80,14 +80,25 @@ export class MeetingDetector {
     const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate())
     const todayEnd = new Date(todayStart.getTime() + 24 * 60 * 60 * 1000)
 
-    return events.filter(event => {
+    Debug.log(`[MEETING-DETECTOR] Filtering for today: ${todayStart.toISOString()} to ${todayEnd.toISOString()}`)
+    
+    const todaysEvents = events.filter(event => {
       const eventStart = new Date(event.startDate)
       const eventEnd = new Date(event.endDate)
 
-      // Event starts today OR event spans across today
-      return (eventStart >= todayStart && eventStart < todayEnd) ||
-             (eventStart < todayStart && eventEnd > todayStart)
+      const isToday = (eventStart >= todayStart && eventStart < todayEnd) ||
+                      (eventStart < todayStart && eventEnd > todayStart)
+      
+      // Only log first few events to avoid spam
+      if (isToday && todaysEvents.length < 5) {
+        Debug.log(`[MEETING-DETECTOR] Found today's event: "${event.title}" at ${eventStart.toISOString()}`)
+      }
+
+      return isToday
     })
+
+    Debug.log(`[MEETING-DETECTOR] Found ${todaysEvents.length} events for today out of ${events.length} total events`)
+    return todaysEvents
   }
 
   /**

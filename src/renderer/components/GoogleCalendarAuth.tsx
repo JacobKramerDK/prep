@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react'
+import { Edit, Eye, EyeOff } from 'lucide-react'
 
 interface GoogleCalendarAuthProps {
   onAuthSuccess?: () => void
@@ -9,26 +10,111 @@ export const GoogleCalendarAuth: React.FC<GoogleCalendarAuthProps> = ({
   onAuthSuccess,
   onAuthError
 }) => {
+  const [clientId, setClientId] = useState('')
+  const [clientSecret, setClientSecret] = useState('')
+  const [isValidating, setIsValidating] = useState(false)
+  const [validationResult, setValidationResult] = useState<'valid' | 'invalid' | null>(null)
+  const [showCredentialForm, setShowCredentialForm] = useState(false)
+  const [isSaving, setIsSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
   const [isConnected, setIsConnected] = useState(false)
   const [isAuthenticating, setIsAuthenticating] = useState(false)
   const [userInfo, setUserInfo] = useState<{ email: string; name?: string } | null>(null)
-  const [error, setError] = useState<string | null>(null)
+  const [showClientSecret, setShowClientSecret] = useState(false)
 
   useEffect(() => {
-    checkConnectionStatus()
+    loadCredentialsAndStatus()
   }, [])
 
-  const checkConnectionStatus = async () => {
+  const loadCredentialsAndStatus = async () => {
     try {
-      const connected = await window.electronAPI.isGoogleCalendarConnected()
-      setIsConnected(connected)
+      const [storedClientId, storedClientSecret, connected, info] = await Promise.all([
+        window.electronAPI.getGoogleClientId(),
+        window.electronAPI.getGoogleClientSecret(),
+        window.electronAPI.isGoogleCalendarConnected(),
+        window.electronAPI.getGoogleCalendarUserInfo()
+      ])
       
-      if (connected) {
-        const info = await window.electronAPI.getGoogleCalendarUserInfo()
-        setUserInfo(info)
+      if (storedClientId) setClientId(storedClientId)
+      if (storedClientSecret) setClientSecret(storedClientSecret)
+      setIsConnected(connected)
+      setUserInfo(info)
+      
+      // Show credential form if no credentials are configured
+      setShowCredentialForm(!storedClientId || !storedClientSecret)
+    } catch (error) {
+      console.error('Failed to load Google credentials and status:', error)
+      setShowCredentialForm(true)
+    }
+  }
+
+  const handleValidateCredentials = async () => {
+    if (!clientId.trim() || !clientSecret.trim()) {
+      setValidationResult('invalid')
+      setError('Both Client ID and Client Secret are required')
+      return
+    }
+
+    setIsValidating(true)
+    setValidationResult(null)
+    setError(null)
+
+    try {
+      const isValid = await window.electronAPI.validateGoogleCredentials(
+        clientId.trim(), 
+        clientSecret.trim()
+      )
+      setValidationResult(isValid ? 'valid' : 'invalid')
+      if (!isValid) {
+        setError('Invalid credential format. Please check your Client ID and Secret.')
       }
     } catch (error) {
-      console.error('Failed to check Google Calendar connection:', error)
+      console.error('Credential validation failed:', error)
+      setValidationResult('invalid')
+      setError('Failed to validate credentials')
+    } finally {
+      setIsValidating(false)
+    }
+  }
+
+  const handleSaveCredentials = async () => {
+    setIsSaving(true)
+    setError(null)
+    try {
+      await Promise.all([
+        window.electronAPI.setGoogleClientId(clientId.trim() || null),
+        window.electronAPI.setGoogleClientSecret(clientSecret.trim() || null)
+      ])
+      setShowCredentialForm(false)
+      setError(null)
+      // Reload credentials and status to ensure UI updates properly
+      await loadCredentialsAndStatus()
+    } catch (error) {
+      console.error('Failed to save credentials:', error)
+      setError('Failed to save credentials')
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  const handleClearCredentials = async () => {
+    try {
+      await Promise.all([
+        window.electronAPI.setGoogleClientId(null),
+        window.electronAPI.setGoogleClientSecret(null)
+      ])
+      setClientId('')
+      setClientSecret('')
+      setValidationResult(null)
+      setShowCredentialForm(true)
+      setError(null)
+      // Disconnect if currently connected
+      if (isConnected) {
+        await handleDisconnect()
+      }
+    } catch (error) {
+      console.error('Failed to clear credentials:', error)
+      setError('Failed to clear credentials')
     }
   }
 
@@ -37,17 +123,7 @@ export const GoogleCalendarAuth: React.FC<GoogleCalendarAuthProps> = ({
     setError(null)
     
     try {
-      // Check if we're using a test/placeholder client ID
-      const authUrl = await window.electronAPI.authenticateGoogleCalendar()
-      
-      if (authUrl.includes('1234567890-abcdefghijklmnopqrstuvwxyz')) {
-        // This is the placeholder client ID - show helpful error
-        setError('Google OAuth Client ID not configured. Please set up a real Google OAuth Client ID in the Google Cloud Console and add it to your .env file as GOOGLE_CLIENT_ID.')
-        return
-      }
-      
-      // The OAuth flow will be handled by the main process
-      // We'll need to poll for completion or listen for events
+      await window.electronAPI.authenticateGoogleCalendar()
       await pollForAuthCompletion()
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Authentication failed'
@@ -59,7 +135,7 @@ export const GoogleCalendarAuth: React.FC<GoogleCalendarAuthProps> = ({
   }
 
   const pollForAuthCompletion = async () => {
-    const maxAttempts = 60 // 5 minutes with 5-second intervals
+    const maxAttempts = 60
     let attempts = 0
     
     const poll = async (): Promise<void> => {
@@ -82,7 +158,6 @@ export const GoogleCalendarAuth: React.FC<GoogleCalendarAuthProps> = ({
         // Continue polling on error
       }
       
-      // Wait 2 seconds before next poll (faster polling)
       await new Promise(resolve => setTimeout(resolve, 2000))
       return poll()
     }
@@ -102,7 +177,8 @@ export const GoogleCalendarAuth: React.FC<GoogleCalendarAuthProps> = ({
     }
   }
 
-  if (isConnected && userInfo) {
+  // Connected state UI
+  if (isConnected && userInfo && !showCredentialForm) {
     return (
       <div className="space-y-4">
         <div className="flex items-center justify-between p-4 bg-green-50 border border-green-200 rounded-lg">
@@ -126,50 +202,194 @@ export const GoogleCalendarAuth: React.FC<GoogleCalendarAuthProps> = ({
           </button>
         </div>
         
-        <div className="text-xs text-gray-500">
-          Your Google Calendar events will be automatically imported and included in meeting preparation.
+        {/* Configured credentials display with edit button */}
+        <div className="p-3 bg-surface border border-border rounded-lg">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-xs font-medium text-primary">Google OAuth2 Configured</p>
+              <p className="text-xs text-secondary font-mono">{clientId.substring(0, 20)}...</p>
+            </div>
+            <button
+              onClick={() => setShowCredentialForm(true)}
+              className="flex items-center gap-1 px-2 py-1 text-xs font-medium text-secondary bg-surface border border-border rounded hover:bg-surface-hover focus:outline-none focus:ring-2 focus:ring-brand-500"
+            >
+              <Edit className="w-3 h-3" />
+              Edit
+            </button>
+          </div>
+        </div>
+        
+        <div className="text-xs text-tertiary">
+          Your Google Calendar events are automatically imported for meeting preparation.
         </div>
       </div>
     )
   }
 
+  // Credential configuration or connection UI
   return (
     <div className="space-y-4">
-      <div className="p-4 bg-gray-50 border border-gray-200 rounded-lg">
-        <div className="flex items-center justify-between">
-          <div>
-            <h3 className="text-sm font-medium text-gray-900">
-              Google Calendar Integration
-            </h3>
-            <p className="text-xs text-gray-600 mt-1">
-              Connect your Google Calendar to automatically import events for meeting preparation
-            </p>
+      {/* Credential Configuration Form */}
+      {showCredentialForm && (
+        <div className="p-4 bg-surface border border-border rounded-lg">
+          <h3 className="text-sm font-medium text-primary mb-3">
+            Configure Google OAuth2 Credentials
+          </h3>
+          <p className="text-xs text-secondary mb-4">
+            Enter your Google Cloud Project OAuth2 credentials to enable Google Calendar integration.
+          </p>
+          
+          <div className="space-y-4">
+            <div>
+              <label className="block text-xs font-medium text-primary mb-1">
+                Client ID
+              </label>
+              <input
+                type="text"
+                value={clientId}
+                onChange={(e) => {
+                  setClientId(e.target.value)
+                  setValidationResult(null)
+                  setError(null)
+                }}
+                placeholder="1234567890-abcdefghijklmnopqrstuvwxyz.apps.googleusercontent.com"
+                className="w-full px-3 py-2 bg-background border border-border rounded-md focus:ring-2 focus:ring-brand-500 focus:border-transparent text-xs font-mono"
+              />
+            </div>
+            
+            <div>
+              <label className="block text-xs font-medium text-primary mb-1">
+                Client Secret
+              </label>
+              <div className="relative">
+                <input
+                  type={showClientSecret ? "text" : "password"}
+                  value={clientSecret}
+                  onChange={(e) => {
+                    setClientSecret(e.target.value)
+                    setValidationResult(null)
+                    setError(null)
+                  }}
+                  placeholder="GOCSPX-..."
+                  className="w-full px-3 py-2 pr-10 bg-background border border-border rounded-md focus:ring-2 focus:ring-brand-500 focus:border-transparent text-xs font-mono"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowClientSecret(!showClientSecret)}
+                  className="absolute inset-y-0 right-0 pr-3 flex items-center"
+                  data-testid="toggle-client-secret"
+                >
+                  {showClientSecret ? (
+                    <EyeOff className="w-4 h-4 text-tertiary" />
+                  ) : (
+                    <Eye className="w-4 h-4 text-tertiary" />
+                  )}
+                </button>
+              </div>
+            </div>
+            
+            <div className="flex space-x-2">
+              <button
+                onClick={handleValidateCredentials}
+                disabled={isValidating || !clientId.trim() || !clientSecret.trim()}
+                className="px-3 py-2 text-xs font-medium text-secondary bg-surface border border-border rounded hover:bg-surface-hover focus:outline-none focus:ring-2 focus:ring-brand-500 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isValidating ? 'Validating...' : 'Validate'}
+              </button>
+              
+              <button
+                onClick={handleSaveCredentials}
+                disabled={isSaving || validationResult !== 'valid'}
+                className="px-3 py-2 text-xs font-medium text-white bg-brand-600 border border-transparent rounded hover:bg-brand-700 focus:outline-none focus:ring-2 focus:ring-brand-500 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isSaving ? 'Saving...' : 'Save Credentials'}
+              </button>
+              
+              <button
+                onClick={handleClearCredentials}
+                className="px-3 py-2 text-xs font-medium text-secondary bg-surface border border-border rounded hover:bg-surface-hover focus:outline-none focus:ring-2 focus:ring-brand-500"
+              >
+                Clear
+              </button>
+            </div>
+            
+            {/* Inline error display */}
+            {error && (
+              <div className="p-2 bg-surface border border-border rounded text-xs text-secondary">
+                {error}
+              </div>
+            )}
+            
+            {validationResult === 'valid' && (
+              <div className="p-2 bg-surface border border-border rounded text-xs text-secondary">
+                Credentials format is valid
+              </div>
+            )}
           </div>
-          <button
-            onClick={handleConnect}
-            disabled={isAuthenticating}
-            className="px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {isAuthenticating ? 'Connecting...' : 'Connect Google Calendar'}
-          </button>
+          
+          <div className="mt-4 text-xs text-tertiary">
+            <p className="mb-2"><strong>How to get Google OAuth2 credentials:</strong></p>
+            <ol className="list-decimal list-inside space-y-1 ml-2">
+              <li>Go to <a href="https://console.cloud.google.com/" target="_blank" rel="noopener noreferrer" className="text-brand-600 hover:text-brand-700 underline">Google Cloud Console</a></li>
+              <li>Create a new project or select an existing one</li>
+              <li>Enable the Google Calendar API</li>
+              <li>Go to "Credentials" and create "OAuth 2.0 Client IDs"</li>
+              <li>Choose "Desktop application" as the application type</li>
+              <li>Add http://localhost:8080/oauth/callback as authorized redirect URI</li>
+              <li>Copy the Client ID and Client Secret here</li>
+            </ol>
+          </div>
         </div>
-      </div>
+      )}
 
-      {error && (
-        <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
-          <p className="text-sm text-red-800">{error}</p>
+      {/* Connection UI - only show if credentials are configured */}
+      {!showCredentialForm && clientId && clientSecret && clientId.trim() && clientSecret.trim() && (
+        <div className="p-4 bg-surface border border-border rounded-lg">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-sm font-medium text-primary">
+                Google Calendar Integration
+              </h3>
+              <p className="text-xs text-secondary mt-1">
+                Connect your Google Calendar to automatically import events for meeting preparation
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setShowCredentialForm(true)}
+                className="flex items-center gap-1 px-2 py-1 text-xs font-medium text-secondary bg-surface border border-border rounded hover:bg-surface-hover focus:outline-none focus:ring-2 focus:ring-brand-500"
+              >
+                <Edit className="w-3 h-3" />
+                Edit
+              </button>
+              <button
+                onClick={handleConnect}
+                disabled={isAuthenticating}
+                className="px-4 py-2 text-sm font-medium text-white bg-brand-600 border border-transparent rounded-md hover:bg-brand-700 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isAuthenticating ? 'Connecting...' : 'Connect Google Calendar'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Inline error display for connection issues */}
+      {error && !showCredentialForm && (
+        <div className="p-3 bg-surface border border-border rounded-lg">
+          <p className="text-sm text-secondary">{error}</p>
         </div>
       )}
 
       {isAuthenticating && (
-        <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
-          <p className="text-sm text-blue-800">
+        <div className="p-3 bg-surface border border-border rounded-lg">
+          <p className="text-sm text-secondary">
             Please complete the authentication in your browser. This window will update automatically once you're connected.
           </p>
         </div>
       )}
 
-      <div className="text-xs text-gray-500">
+      <div className="text-xs text-tertiary">
         <p className="mb-2">
           <strong>What happens when you connect:</strong>
         </p>

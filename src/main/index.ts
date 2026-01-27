@@ -30,10 +30,6 @@ import { appleCalendarStatusToIPC } from '../shared/types/apple-calendar'
 import { RelevanceWeights } from '../shared/types/relevance-weights'
 import { VaultIndexingStatus } from '../shared/types/vault-status'
 
-// Load environment variables
-import * as dotenv from 'dotenv'
-dotenv.config()
-
 const isDevelopment = process.env.NODE_ENV === 'development'
 const platformDetector = new PlatformDetector()
 const vaultManager = new VaultManager()
@@ -427,7 +423,13 @@ ipcMain.handle('calendar:authenticateGoogle', async () => {
 })
 
 ipcMain.handle('calendar:getGoogleEvents', async () => {
-  return await calendarManager.getGoogleCalendarEvents()
+  const result = await calendarManager.getGoogleCalendarEvents()
+  // Only invalidate cache if we actually got new events
+  if (result.events.length > 0) {
+    meetingDetector.invalidateCache()
+    Debug.log('[MAIN] Meeting detector cache invalidated after Google Calendar sync with new events')
+  }
+  return result
 })
 
 ipcMain.handle('calendar:isGoogleConnected', async () => {
@@ -440,6 +442,64 @@ ipcMain.handle('calendar:disconnectGoogle', async () => {
 
 ipcMain.handle('calendar:getGoogleUserInfo', async () => {
   return await calendarManager.getGoogleCalendarUserInfo()
+})
+
+// Google credential management IPC handlers
+ipcMain.handle('settings:getGoogleClientId', async () => {
+  try {
+    return await settingsManager.getGoogleClientId()
+  } catch (error) {
+    console.error('Failed to get Google Client ID:', error)
+    return null
+  }
+})
+
+ipcMain.handle('settings:setGoogleClientId', async (_, clientId: string | null) => {
+  try {
+    await settingsManager.setGoogleClientId(clientId)
+    // Update OAuth manager with new credentials if both are available
+    const clientSecret = await settingsManager.getGoogleClientSecret()
+    if (clientId && clientSecret) {
+      await calendarManager.updateGoogleCredentials(clientId, clientSecret)
+    }
+  } catch (error) {
+    console.error('Failed to set Google Client ID:', error)
+    throw error
+  }
+})
+
+ipcMain.handle('settings:getGoogleClientSecret', async () => {
+  try {
+    return await settingsManager.getGoogleClientSecret()
+  } catch (error) {
+    console.error('Failed to get Google Client Secret:', error)
+    return null
+  }
+})
+
+ipcMain.handle('settings:setGoogleClientSecret', async (_, clientSecret: string | null) => {
+  try {
+    await settingsManager.setGoogleClientSecret(clientSecret)
+    // Update OAuth manager with new credentials if both are available
+    const clientId = await settingsManager.getGoogleClientId()
+    if (clientId && clientSecret) {
+      await calendarManager.updateGoogleCredentials(clientId, clientSecret)
+    }
+  } catch (error) {
+    console.error('Failed to set Google Client Secret:', error)
+    throw error
+  }
+})
+
+ipcMain.handle('settings:validateGoogleCredentials', async (_, clientId: string, clientSecret: string) => {
+  try {
+    const isValidId = settingsManager.validateGoogleClientIdFormat(clientId)
+    const isValidSecret = settingsManager.validateGoogleClientSecretFormat(clientSecret)
+    return isValidId && isValidSecret
+  } catch (error) {
+    console.error('Failed to validate Google credentials:', error)
+    return false
+  }
 })
 
 // Calendar sync IPC handlers
@@ -744,22 +804,12 @@ ipcMain.handle('obsidian:saveBrief', async (_, briefContent: string, meetingTitl
 
     Debug.log('[OBSIDIAN-SAVE] Using brief folder:', briefFolder)
 
-    // Validate and normalize the folder path to prevent path traversal
-    const normalizedFolder = path.resolve(briefFolder)
-    
-    // Security validation: ensure the resolved path doesn't escape expected boundaries
-    // Get user data directory as the safe boundary
-    const userDataPath = app.getPath('userData')
-    const normalizedUserData = path.normalize(userDataPath)
-    
-    // Check for path traversal attempts
-    const containsTraversal = briefFolder.includes('..') || briefFolder.includes('~')
-    const isWithinUserData = normalizedFolder.startsWith(normalizedUserData)
-    
-    // Only allow absolute paths or paths within user data directory, and no traversal
-    if (containsTraversal || (!path.isAbsolute(briefFolder) && !isWithinUserData)) {
-      throw new Error('Invalid folder path: path traversal or unsafe path detected')
+    // Validate path safety using robust validation
+    if (!ObsidianBriefUtils.validateSafePath(briefFolder)) {
+      throw new Error('Invalid folder path: unsafe path detected')
     }
+
+    const normalizedFolder = path.resolve(briefFolder)
 
     // Generate filename with date and sanitized title
     const dateStr = new Date().toISOString().split('T')[0]
@@ -812,6 +862,68 @@ ipcMain.handle('obsidian:saveBrief', async (_, briefContent: string, meetingTitl
 namespace ObsidianBriefUtils {
   /** Maximum filename length for cross-platform compatibility */
   const MAX_FILENAME_LENGTH = 200
+
+  /**
+   * Validates that a folder path is safe and doesn't contain path traversal attempts
+   * @param folderPath The folder path to validate
+   * @returns true if path is safe, false otherwise
+   */
+  export function validateSafePath(folderPath: string): boolean {
+    try {
+      // Normalize and resolve the path
+      const normalizedPath = path.resolve(folderPath)
+      
+      // Check for common path traversal patterns in the original path
+      const dangerousPatterns = [
+        /\.\.[\/\\]/,     // Parent directory references with separators
+        /[\/\\]\.\.[\/\\]/, // Parent directory references in middle of path
+        /[\/\\]\.\.$/,    // Parent directory references at end
+        /^\.\.[\/\\]/,    // Parent directory references at start
+        /^\.\.$/,         // Standalone parent directory
+        /\0/,             // Null bytes
+      ]
+      
+      // Check original path for dangerous patterns
+      if (dangerousPatterns.some(pattern => pattern.test(folderPath))) {
+        return false
+      }
+      
+      // Additional Windows-specific checks
+      if (process.platform === 'win32') {
+        const windowsForbidden = /[<>:"|?*]/
+        const windowsReserved = /^(CON|PRN|AUX|NUL|COM[1-9]|LPT[1-9])$/i
+        
+        if (windowsForbidden.test(folderPath) || windowsReserved.test(path.basename(folderPath))) {
+          return false
+        }
+      }
+      
+      // Ensure the resolved path doesn't try to access system-critical directories
+      const criticalPaths = [
+        '/etc',        // System config (Unix)
+        '/bin',        // System binaries (Unix)
+        '/sbin',       // System admin binaries (Unix)
+        '/boot',       // Boot files (Unix)
+        'C:\\Windows', // Windows system (if on Windows)
+        'C:\\System32', // Windows system32 (if on Windows)
+      ]
+      
+      // Only block if trying to access critical system paths
+      const isCriticalPath = criticalPaths.some(criticalPath => {
+        const resolvedCritical = path.resolve(criticalPath)
+        return normalizedPath.startsWith(resolvedCritical)
+      })
+      
+      if (isCriticalPath) {
+        return false
+      }
+      
+      return true
+    } catch (error) {
+      // If path resolution fails, consider it unsafe
+      return false
+    }
+  }
 
   /**
    * Sanitizes a filename for cross-platform compatibility
@@ -973,21 +1085,12 @@ ipcMain.handle('transcription:saveToObsidian', async (_, transcriptContent: stri
 
     Debug.log('[TRANSCRIPT-SAVE] Using transcript folder:', transcriptFolder)
 
-    // Validate and normalize the folder path to prevent path traversal
-    const normalizedFolder = path.resolve(transcriptFolder)
-    
-    // Security validation: ensure the resolved path doesn't escape expected boundaries
-    const userDataPath = app.getPath('userData')
-    const normalizedUserData = path.normalize(userDataPath)
-    
-    // Check for path traversal attempts
-    const containsTraversal = transcriptFolder.includes('..') || transcriptFolder.includes('~')
-    const isWithinUserData = normalizedFolder.startsWith(normalizedUserData)
-    
-    // Only allow absolute paths or paths within user data directory, and no traversal
-    if (containsTraversal || (!path.isAbsolute(transcriptFolder) && !isWithinUserData)) {
-      throw new Error('Invalid folder path: path traversal or unsafe path detected')
+    // Validate path safety using robust validation
+    if (!ObsidianBriefUtils.validateSafePath(transcriptFolder)) {
+      throw new Error('Invalid folder path: unsafe path detected')
     }
+
+    const normalizedFolder = path.resolve(transcriptFolder)
 
     // Generate filename with date and sanitized title
     const dateStr = new Date().toISOString().split('T')[0]

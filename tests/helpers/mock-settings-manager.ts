@@ -17,6 +17,8 @@ interface MockSettingsSchema {
   googleCalendarTokenExpiry: string | null
   googleCalendarUserEmail: string | null
   googleCalendarConnected: boolean
+  googleClientId?: string | null
+  googleClientSecret?: string | null
   relevanceWeights: RelevanceWeights
   preferences: {
     autoScan: boolean
@@ -168,6 +170,35 @@ export class MockSettingsManager {
 
   async setGoogleCalendarConnected(connected: boolean): Promise<void> {
     this.data.googleCalendarConnected = connected
+  }
+
+  // Google credential management mock methods
+  async getGoogleClientId(): Promise<string | null> {
+    return this.data.googleClientId || null
+  }
+
+  async setGoogleClientId(clientId: string | null): Promise<void> {
+    this.data.googleClientId = clientId
+  }
+
+  async getGoogleClientSecret(): Promise<string | null> {
+    return this.data.googleClientSecret || null
+  }
+
+  async setGoogleClientSecret(clientSecret: string | null): Promise<void> {
+    this.data.googleClientSecret = clientSecret
+  }
+
+  validateGoogleClientIdFormat(clientId: string): boolean {
+    return typeof clientId === 'string' && 
+           clientId.length > 20 && 
+           clientId.endsWith('.apps.googleusercontent.com')
+  }
+
+  validateGoogleClientSecretFormat(clientSecret: string): boolean {
+    return typeof clientSecret === 'string' && 
+           clientSecret.length >= 20 && 
+           /^[A-Za-z0-9_-]+$/.test(clientSecret)
   }
 
   // Utility methods

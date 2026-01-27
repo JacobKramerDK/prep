@@ -5,6 +5,7 @@ import express, { Request, Response } from 'express'
 import { Server } from 'http'
 import { GoogleCalendarError, GoogleCalendarCredentials, GoogleOAuthConfig } from '../../shared/types/google-calendar'
 import { Debug } from '../../shared/utils/debug'
+import { SettingsManager } from './settings-manager'
 
 // Load environment variables in development and production
 // This allows users to create a .env file to override bundled credentials
@@ -16,8 +17,8 @@ try {
 }
 
 export class GoogleOAuthManager {
-  private readonly CLIENT_ID: string | null
-  private readonly CLIENT_SECRET: string | null
+  private CLIENT_ID: string | null
+  private CLIENT_SECRET: string | null
   private isConfigured: boolean
   private readonly SCOPES = ['https://www.googleapis.com/auth/calendar.readonly']
   private readonly REDIRECT_URI = 'http://localhost:8080/oauth/callback'
@@ -37,6 +38,39 @@ export class GoogleOAuthManager {
     if (!this.isConfigured) {
       Debug.log('[GOOGLE-OAUTH] OAuth credentials not configured - Google Calendar features will be disabled')
     }
+  }
+
+  async initialize(settingsManager: SettingsManager): Promise<void> {
+    try {
+      // Priority: 1. Stored credentials, 2. Environment variables
+      const storedClientId = await settingsManager.getGoogleClientId()
+      const storedClientSecret = await settingsManager.getGoogleClientSecret()
+      
+      if (storedClientId && storedClientSecret) {
+        this.CLIENT_ID = storedClientId
+        this.CLIENT_SECRET = storedClientSecret
+        this.isConfigured = true
+        Debug.log('[GOOGLE-OAUTH] Using stored credentials')
+      } else {
+        // Keep existing environment variable logic as fallback
+        Debug.log('[GOOGLE-OAUTH] No stored credentials, using environment variables')
+      }
+    } catch (error) {
+      Debug.log('[GOOGLE-OAUTH] Failed to load stored credentials, using environment variables:', error)
+    }
+  }
+
+  // Add method to update credentials at runtime
+  async updateCredentials(clientId: string, clientSecret: string, settingsManager: SettingsManager): Promise<void> {
+    this.CLIENT_ID = clientId
+    this.CLIENT_SECRET = clientSecret
+    this.isConfigured = !!(clientId && clientSecret)
+    
+    // Store credentials securely
+    await settingsManager.setGoogleClientId(clientId)
+    await settingsManager.setGoogleClientSecret(clientSecret)
+    
+    Debug.log('[GOOGLE-OAUTH] Credentials updated and stored')
   }
 
   private ensureConfigured(): void {

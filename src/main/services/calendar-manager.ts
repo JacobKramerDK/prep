@@ -46,11 +46,24 @@ export class CalendarManager {
     this.googleOAuthManager = new GoogleOAuthManager()
     this.googleCalendarManager = new GoogleCalendarManager(this.googleOAuthManager)
     this.platformDetector = new PlatformDetector()
+    
+    // Initialize Google OAuth with stored credentials
+    this.initializeGoogleOAuth()
+    
     if (process.env.NODE_ENV !== 'test') {
       process.on('exit', () => this.dispose())
       // Ensure cleanup on process termination
       process.on('SIGTERM', () => this.cleanup())
       process.on('SIGINT', () => this.cleanup())
+    }
+  }
+
+  // Add initialization method after constructor
+  private async initializeGoogleOAuth(): Promise<void> {
+    try {
+      await this.googleOAuthManager.initialize(this.settingsManager)
+    } catch (error) {
+      Debug.log('[CALENDAR-MANAGER] Failed to initialize Google OAuth:', error)
     }
   }
 
@@ -772,10 +785,42 @@ end tell`
       Debug.log('[GOOGLE-CALENDAR] OAuth flow initiated, auth URL generated')
       
       // Start the OAuth server and handle the callback
-      this.googleOAuthManager.startOAuthServer().catch(error => {
-        Debug.error('[GOOGLE-CALENDAR] OAuth server error:', error instanceof Error ? error.message : 'Unknown error')
-        console.error('OAuth server error:', error)
-      })
+      this.googleOAuthManager.startOAuthServer()
+        .then(async () => {
+          Debug.log('[GOOGLE-CALENDAR] OAuth completed, fetching events automatically')
+          
+          // Auto-sync with retry mechanism
+          let retryCount = 0
+          const maxRetries = 3
+          
+          while (retryCount <= maxRetries) {
+            try {
+              // Automatically fetch events after successful authentication
+              const result = await this.getGoogleCalendarEvents()
+              Debug.log(`[GOOGLE-CALENDAR] Auto-sync completed: ${result.events.length} events fetched`)
+              break // Success, exit retry loop
+            } catch (error) {
+              retryCount++
+              const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+              Debug.error(`[GOOGLE-CALENDAR] Auto-sync attempt ${retryCount} failed:`, errorMessage)
+              
+              if (retryCount <= maxRetries) {
+                // Exponential backoff: 2s, 4s, 8s
+                const delay = Math.pow(2, retryCount) * 1000
+                Debug.log(`[GOOGLE-CALENDAR] Retrying auto-sync in ${delay}ms...`)
+                await new Promise(resolve => setTimeout(resolve, delay))
+              } else {
+                Debug.error('[GOOGLE-CALENDAR] Auto-sync failed after all retries:', errorMessage)
+                console.error('Google Calendar auto-sync failed after authentication. Please try manual sync.')
+                // Don't throw here - authentication was successful, sync failure is secondary
+              }
+            }
+          }
+        })
+        .catch(error => {
+          Debug.error('[GOOGLE-CALENDAR] OAuth server error:', error instanceof Error ? error.message : 'Unknown error')
+          console.error('OAuth server error:', error)
+        })
       
       Debug.log('[GOOGLE-CALENDAR] OAuth server started, waiting for callback')
       return authUrl
@@ -858,6 +903,16 @@ end tell`
       return await this.googleCalendarManager.getUserInfo(refreshToken)
     } catch (error) {
       return null
+    }
+  }
+
+  // Add method to update Google credentials (around line 870)
+  async updateGoogleCredentials(clientId: string, clientSecret: string): Promise<void> {
+    try {
+      await this.googleOAuthManager.updateCredentials(clientId, clientSecret, this.settingsManager)
+    } catch (error) {
+      console.error('Failed to update Google credentials:', error)
+      throw error
     }
   }
 

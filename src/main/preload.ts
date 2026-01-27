@@ -167,6 +167,13 @@ const electronAPI: ElectronAPI = {
   isGoogleCalendarConnected: () => ipcRenderer.invoke('calendar:isGoogleConnected'),
   disconnectGoogleCalendar: () => ipcRenderer.invoke('calendar:disconnectGoogle'),
   getGoogleCalendarUserInfo: () => ipcRenderer.invoke('calendar:getGoogleUserInfo'),
+  // Google credential management methods
+  getGoogleClientId: () => ipcRenderer.invoke('settings:getGoogleClientId'),
+  setGoogleClientId: (clientId: string | null) => ipcRenderer.invoke('settings:setGoogleClientId', clientId),
+  getGoogleClientSecret: () => ipcRenderer.invoke('settings:getGoogleClientSecret'),
+  setGoogleClientSecret: (clientSecret: string | null) => ipcRenderer.invoke('settings:setGoogleClientSecret', clientSecret),
+  validateGoogleCredentials: (clientId: string, clientSecret: string) => 
+    ipcRenderer.invoke('settings:validateGoogleCredentials', clientId, clientSecret),
   // Apple Calendar methods
   getAppleCalendarStatus: async () => {
     const result = await ipcRenderer.invoke('calendar:getAppleCalendarStatus')

@@ -11,6 +11,7 @@ export interface CalendarEvent {
   isAllDay: boolean
   source: CalendarSource
   calendarName?: string
+  calendarId?: string
 }
 
 // IPC-safe version with string dates for serialization
@@ -25,6 +26,7 @@ export interface CalendarEventIPC {
   isAllDay: boolean
   source: CalendarSource
   calendarName?: string
+  calendarId?: string
 }
 
 export interface CalendarImportResult {

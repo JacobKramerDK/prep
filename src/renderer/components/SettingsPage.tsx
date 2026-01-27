@@ -23,6 +23,7 @@ import { VaultIndexingLoader } from './VaultIndexingLoader'
 import { PromptTemplateEditor } from './PromptTemplateEditor'
 import { RelevanceWeightSettings } from './RelevanceWeightSettings'
 import { AppleCalendarAuth } from './AppleCalendarAuth'
+import { GoogleCalendarAuth } from './GoogleCalendarAuth'
 import { useOSDetection } from '../hooks/useOSDetection'
 
 interface SettingsPageProps {
@@ -719,31 +720,7 @@ export function SettingsPage({ onBack, vaultFileCount }: SettingsPageProps) {
                   Google Calendar Integration
                 </h3>
                 <div className="bg-surface-hover rounded-lg p-6 border border-border">
-                  <p className="text-secondary mb-4">
-                    Connect your Google Calendar to automatically import events
-                    for meeting preparation.
-                  </p>
-                  <button 
-                    onClick={handleConnectGoogleCalendar}
-                    className="flex items-center gap-2 px-4 py-2 bg-surface border border-border rounded-lg shadow-sm text-sm font-medium text-primary hover:bg-surface-hover transition-colors mb-6">
-                    <CalendarIcon className="w-4 h-4" />
-                    Connect Google Calendar
-                  </button>
-
-                  <ul className="space-y-2 text-sm text-secondary">
-                    <li className="flex items-start gap-2">
-                      <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-tertiary"></span>
-                      Prep will access your Google Calendar events (read-only)
-                    </li>
-                    <li className="flex items-start gap-2">
-                      <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-tertiary"></span>
-                      Events will be imported automatically
-                    </li>
-                    <li className="flex items-start gap-2">
-                      <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-tertiary"></span>
-                      Your data stays private and local
-                    </li>
-                  </ul>
+                  <GoogleCalendarAuth />
                 </div>
               </div>
 

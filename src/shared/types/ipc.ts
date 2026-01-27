@@ -80,6 +80,12 @@ export interface ElectronAPI {
   isGoogleCalendarConnected: () => Promise<boolean>
   disconnectGoogleCalendar: () => Promise<void>
   getGoogleCalendarUserInfo: () => Promise<{ email: string; name?: string } | null>
+  // Google credential management
+  getGoogleClientId: () => Promise<string | null>
+  setGoogleClientId: (clientId: string | null) => Promise<void>
+  getGoogleClientSecret: () => Promise<string | null>
+  setGoogleClientSecret: (clientSecret: string | null) => Promise<void>
+  validateGoogleCredentials: (clientId: string, clientSecret: string) => Promise<boolean>
   // Apple Calendar operations
   getAppleCalendarStatus: () => Promise<AppleCalendarStatusIPC>
   getAppleCalendarPermissionState: () => Promise<AppleCalendarPermissionState>

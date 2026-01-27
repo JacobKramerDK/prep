@@ -24,13 +24,17 @@ export class TestAppFactory {
       timeout = 30000
     } = options
 
-    // Ensure unique test environment
+    // Ensure unique test environment with clean Google credentials
+    const cleanEnv = { ...process.env }
+    delete cleanEnv.GOOGLE_CLIENT_ID
+    delete cleanEnv.GOOGLE_CLIENT_SECRET
+    
     const testEnv = {
       NODE_ENV: 'test',
       TEST_ID: testId,
       ELECTRON_STORE_NAME: `prep-settings-test-${testId}`,
       ELECTRON_STORE_PATH: join(tmpdir(), `prep-test-${testId}`),
-      ...process.env
+      ...cleanEnv
     }
 
     const app = await electron.launch({

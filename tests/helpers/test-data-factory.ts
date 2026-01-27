@@ -260,4 +260,23 @@ export class TestDataFactory {
       language: 'en'
     }
   }
+
+  static generateValidGoogleClientId(): string {
+    const randomId = Math.random().toString(36).substring(2, 15)
+    return `${randomId}-test.apps.googleusercontent.com`
+  }
+
+  static generateValidGoogleClientSecret(): string {
+    // Generate a longer random string to meet the 20+ character requirement
+    const randomSecret = Math.random().toString(36).substring(2) + Math.random().toString(36).substring(2)
+    return `GOCSPX-${randomSecret.substring(0, 24)}`
+  }
+
+  static generateInvalidGoogleClientId(): string {
+    return 'invalid-client-id-format'
+  }
+
+  static generateInvalidGoogleClientSecret(): string {
+    return 'invalid-secret'
+  }
 }
