@@ -7,6 +7,7 @@ import * as crypto from 'crypto'
 import { CalendarEvent, CalendarImportResult, CalendarError } from '../../shared/types/calendar'
 import { CalendarMetadata, CalendarDiscoveryResult } from '../../shared/types/calendar-selection'
 import { AppleCalendarStatus, AppleCalendarPermissionState } from '../../shared/types/apple-calendar'
+import { GoogleCalendarError } from '../../shared/types/google-calendar'
 import { SettingsManager } from './settings-manager'
 import { SwiftCalendarManager } from './swift-calendar-manager'
 import { GoogleCalendarManager } from './google-calendar-manager'
@@ -758,6 +759,13 @@ end tell`
 
   // Google Calendar integration methods
   async authenticateGoogleCalendar(): Promise<string> {
+    if (!this.googleOAuthManager.isOAuthConfigured()) {
+      throw new GoogleCalendarError(
+        'Google OAuth credentials not configured. Please set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET environment variables.',
+        'CONFIG_MISSING'
+      )
+    }
+    
     try {
       Debug.log('[GOOGLE-CALENDAR] Starting Google Calendar authentication')
       const authUrl = await this.googleOAuthManager.initiateOAuthFlow()
@@ -782,6 +790,13 @@ end tell`
   }
 
   async getGoogleCalendarEvents(): Promise<CalendarImportResult> {
+    if (!this.googleOAuthManager.isOAuthConfigured()) {
+      throw new GoogleCalendarError(
+        'Google OAuth credentials not configured. Please set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET environment variables.',
+        'CONFIG_MISSING'
+      )
+    }
+    
     try {
       Debug.log('[GOOGLE-CALENDAR] Fetching Google Calendar events')
       const refreshToken = await this.settingsManager.getGoogleCalendarRefreshToken()

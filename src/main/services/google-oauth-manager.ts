@@ -11,28 +11,54 @@ import { Debug } from '../../shared/utils/debug'
 try {
   require('dotenv').config()
 } catch (error) {
-  // dotenv not available or .env file doesn't exist - use bundled credentials
+  // dotenv not available or .env file doesn't exist - this is expected in production builds
+  Debug.log('[ENV] dotenv not available, using system environment variables only')
 }
 
 export class GoogleOAuthManager {
-  // For desktop applications, it's safe to bundle OAuth client credentials
-  // Client ID is considered public information by Google
-  // Users can override by creating a .env file with their own credentials
-  private readonly CLIENT_ID = process.env.GOOGLE_CLIENT_ID || '447955780442-ktbnkmlm3cm5ld633tv9ckr96coipv4s.apps.googleusercontent.com'
-  private readonly CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET || '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'
+  private readonly CLIENT_ID: string | null
+  private readonly CLIENT_SECRET: string | null
+  private isConfigured: boolean
   private readonly SCOPES = ['https://www.googleapis.com/auth/calendar.readonly']
   private readonly REDIRECT_URI = 'http://localhost:8080/oauth/callback'
   
   private tempStorage = new Map<string, string>()
   private oauthServer: Server | null = null
 
-  constructor() {}
+  constructor() {
+    // Check for OAuth credentials but don't fail if missing
+    const clientId = process.env.GOOGLE_CLIENT_ID
+    const clientSecret = process.env.GOOGLE_CLIENT_SECRET
+    
+    this.CLIENT_ID = clientId || null
+    this.CLIENT_SECRET = clientSecret || null
+    this.isConfigured = !!(clientId && clientSecret)
+    
+    if (!this.isConfigured) {
+      Debug.log('[GOOGLE-OAUTH] OAuth credentials not configured - Google Calendar features will be disabled')
+    }
+  }
+
+  private ensureConfigured(): void {
+    if (!this.isConfigured || !this.CLIENT_ID || !this.CLIENT_SECRET) {
+      throw new GoogleCalendarError(
+        'Google OAuth credentials not configured. Please set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET environment variables.',
+        'CONFIG_MISSING'
+      )
+    }
+  }
+
+  isOAuthConfigured(): boolean {
+    return this.isConfigured
+  }
 
   async initiateOAuthFlow(): Promise<string> {
+    this.ensureConfigured()
+    
     try {
       const usingCustomCredentials = process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET
       Debug.log('[GOOGLE-OAUTH] Initiating OAuth flow with', usingCustomCredentials ? 'custom' : 'bundled', 'credentials')
-      Debug.log('[GOOGLE-OAUTH] Client ID:', this.CLIENT_ID.substring(0, 20) + '...')
+      Debug.log('[GOOGLE-OAUTH] Client ID:', this.CLIENT_ID!.substring(0, 20) + '...')
       const state = crypto.randomBytes(16).toString('hex')
       
       // Store state temporarily
@@ -41,7 +67,7 @@ export class GoogleOAuthManager {
       
       // For web apps, we don't need PKCE
       const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?${new URLSearchParams({
-        client_id: this.CLIENT_ID,
+        client_id: this.CLIENT_ID!,
         redirect_uri: this.REDIRECT_URI,
         response_type: 'code',
         scope: this.SCOPES.join(' '),
@@ -139,8 +165,8 @@ export class GoogleOAuthManager {
       const codeVerifier = this.tempStorage.get('codeVerifier')
       
       const oauth2Client = new google.auth.OAuth2(
-        this.CLIENT_ID,
-        this.CLIENT_SECRET,
+        this.CLIENT_ID!,
+        this.CLIENT_SECRET!,
         this.REDIRECT_URI
       )
       
@@ -191,10 +217,12 @@ export class GoogleOAuthManager {
   }
 
   async refreshAccessToken(refreshToken: string): Promise<{ accessToken: string; expiryDate: Date }> {
+    this.ensureConfigured()
+    
     try {
       const oauth2Client = new google.auth.OAuth2(
-        this.CLIENT_ID,
-        this.CLIENT_SECRET,
+        this.CLIENT_ID!,
+        this.CLIENT_SECRET!,
         this.REDIRECT_URI
       )
       

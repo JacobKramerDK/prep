@@ -36,6 +36,10 @@ export class TestEnvironment {
     process.env.MOCK_CALENDAR_API = config.mockAPIs ? 'true' : 'false'
     process.env.DISABLE_NETWORK_REQUESTS = config.networkRequests ? 'false' : 'true'
     process.env.DEBUG_MODE = config.debugMode ? 'true' : 'false'
+    
+    // Set test OAuth credentials to prevent app startup failures
+    process.env.GOOGLE_CLIENT_ID = 'test-client-id-for-testing'
+    process.env.GOOGLE_CLIENT_SECRET = 'test-client-secret-for-testing'
 
     this.currentConfig = config
     return config
@@ -52,6 +56,8 @@ export class TestEnvironment {
       delete process.env.MOCK_CALENDAR_API
       delete process.env.DISABLE_NETWORK_REQUESTS
       delete process.env.DEBUG_MODE
+      delete process.env.GOOGLE_CLIENT_ID
+      delete process.env.GOOGLE_CLIENT_SECRET
 
       this.currentConfig = null
     }

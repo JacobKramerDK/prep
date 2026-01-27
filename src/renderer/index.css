@@ -30,33 +30,32 @@
 }
 
 :root {
-  /* Default to dark mode */
-  --bg-primary: #1a1a1a;
-  --bg-secondary: #242424;
-  --bg-tertiary: #2d2d2d;
+  --bg-primary: #ffffff;
+  --bg-secondary: #f8f9fa;
+  --bg-tertiary: #f1f3f5;
   
-  --text-primary: #f3f4f6;
-  --text-secondary: #d1d5db;
+  --text-primary: #111827;
+  --text-secondary: #4b5563;
   --text-tertiary: #9ca3af;
   
-  --border-color: #374151;
+  --border-color: #e5e7eb;
   
-  --brand-primary: #3b82f6;
+  --brand-primary: #2563eb;
 }
 
-@media (prefers-color-scheme: light) {
+@media (prefers-color-scheme: dark) {
   :root {
-    --bg-primary: #ffffff;
-    --bg-secondary: #f8f9fa;
-    --bg-tertiary: #f1f3f5;
+    --bg-primary: #1a1a1a;
+    --bg-secondary: #242424;
+    --bg-tertiary: #2d2d2d;
     
-    --text-primary: #111827;
-    --text-secondary: #4b5563;
+    --text-primary: #f3f4f6;
+    --text-secondary: #d1d5db;
     --text-tertiary: #9ca3af;
     
-    --border-color: #e5e7eb;
+    --border-color: #374151;
     
-    --brand-primary: #2563eb;
+    --brand-primary: #3b82f6;
   }
 }
 
@@ -94,9 +93,9 @@ body {
 }
 
 .glass-panel {
-  background: rgba(30, 30, 30, 0.7);
+  background: rgba(255, 255, 255, 0.7);
   backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.2);
 }
 
 /* Custom range slider styling */
@@ -133,10 +132,10 @@ body {
   transform: scale(1.1);
 }
 
-@media (prefers-color-scheme: light) {
+@media (prefers-color-scheme: dark) {
   .glass-panel {
-    background: rgba(255, 255, 255, 0.7);
-    border: 1px solid rgba(255, 255, 255, 0.2);
+    background: rgba(30, 30, 30, 0.7);
+    border: 1px solid rgba(255, 255, 255, 0.05);
   }
 }
 
