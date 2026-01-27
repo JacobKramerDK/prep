@@ -2,6 +2,12 @@ import { app, BrowserWindow, ipcMain, dialog, shell, session } from 'electron'
 import path from 'path'
 import os from 'os'
 import * as fs from 'fs/promises'
+
+// Load environment variables in development
+if (process.env.NODE_ENV !== 'production') {
+  require('dotenv').config()
+}
+
 import { VaultManager } from './services/vault-manager'
 import { CalendarManager } from './services/calendar-manager'
 import { CalendarSyncScheduler } from './services/calendar-sync-scheduler'

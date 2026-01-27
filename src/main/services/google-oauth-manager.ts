@@ -6,9 +6,16 @@ import { Server } from 'http'
 import { GoogleCalendarError, GoogleCalendarCredentials, GoogleOAuthConfig } from '../../shared/types/google-calendar'
 import { Debug } from '../../shared/utils/debug'
 
+// Load environment variables in development
+if (process.env.NODE_ENV !== 'production') {
+  require('dotenv').config()
+}
+
 export class GoogleOAuthManager {
-  private readonly CLIENT_ID = process.env.GOOGLE_CLIENT_ID || ''
-  private readonly CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET || ''
+  // For desktop applications, it's safe to bundle OAuth client credentials
+  // Client ID is considered public information by Google
+  private readonly CLIENT_ID = process.env.GOOGLE_CLIENT_ID || '447955780442-ktbnkmlm3cm5ld633tv9ckr96coipv4s.apps.googleusercontent.com'
+  private readonly CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET || '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'
   private readonly SCOPES = ['https://www.googleapis.com/auth/calendar.readonly']
   private readonly REDIRECT_URI = 'http://localhost:8080/oauth/callback'
   
@@ -19,15 +26,7 @@ export class GoogleOAuthManager {
 
   async initiateOAuthFlow(): Promise<string> {
     try {
-      // Validate that we have proper credentials
-      if (!this.CLIENT_ID || this.CLIENT_ID === '') {
-        throw new GoogleCalendarError(
-          'Google OAuth not configured. Please set GOOGLE_CLIENT_ID environment variable or configure OAuth credentials in settings.',
-          'CONFIG_MISSING'
-        )
-      }
-      
-      Debug.log('[GOOGLE-OAUTH] Initiating OAuth flow')
+      Debug.log('[GOOGLE-OAUTH] Initiating OAuth flow with Client ID:', this.CLIENT_ID.substring(0, 20) + '...')
       const state = crypto.randomBytes(16).toString('hex')
       
       // Store state temporarily
