@@ -41,6 +41,15 @@ export interface ElectronAPI {
   getTodaysMeetings: () => Promise<TodaysMeetingsResult>
   hasTodaysMeetings: () => Promise<boolean>
   invalidateMeetingCache: () => Promise<void>
+  
+  // Calendar event listeners
+  onCalendarEventsUpdated: (callback: (data: { 
+    source: string; 
+    eventCount: number; 
+    action?: string; 
+    accountEmail?: string 
+  }) => void) => void
+  
   // Brief generation operations
   generateMeetingBrief: (request: BriefGenerationRequest) => Promise<BriefGenerationResult>
   getBriefGenerationStatus: (meetingId: string) => Promise<BriefGenerationStatus>
@@ -74,9 +83,13 @@ export interface ElectronAPI {
   setDebugMode: (enabled: boolean) => Promise<void>
   getDebugLogPath: () => Promise<string>
   openDebugLogFolder: () => Promise<void>
-  // Google Calendar operations
+  // Multi-Account Google Calendar operations
   authenticateGoogleCalendar: () => Promise<string>
   getGoogleCalendarEvents: () => Promise<CalendarImportResult>
+  getConnectedGoogleAccounts: () => Promise<import('./multi-account-calendar').GoogleAccount[]>
+  disconnectGoogleAccount: (accountEmail: string) => Promise<import('./multi-account-calendar').AccountDisconnectionResult>
+  getMultiAccountGoogleCalendarState: () => Promise<import('./multi-account-calendar').MultiAccountGoogleCalendarState>
+  // Legacy compatibility methods
   isGoogleCalendarConnected: () => Promise<boolean>
   disconnectGoogleCalendar: () => Promise<void>
   getGoogleCalendarUserInfo: () => Promise<{ email: string; name?: string } | null>

@@ -29,11 +29,13 @@ import { calendarSyncStatusToIPC, calendarSyncResultToIPC } from '../shared/type
 import { appleCalendarStatusToIPC } from '../shared/types/apple-calendar'
 import { RelevanceWeights } from '../shared/types/relevance-weights'
 import { VaultIndexingStatus } from '../shared/types/vault-status'
+import { NotificationService } from './services/notification-service'
 
 const isDevelopment = process.env.NODE_ENV === 'development'
 const platformDetector = new PlatformDetector()
 const vaultManager = new VaultManager()
-const calendarManager = new CalendarManager()
+const notificationService = new NotificationService()
+const calendarManager = new CalendarManager(notificationService)
 const calendarSyncScheduler = new CalendarSyncScheduler(calendarManager)
 const meetingDetector = new MeetingDetector(calendarManager)
 const settingsManager = new SettingsManager()
@@ -165,6 +167,15 @@ const createWindow = (): void => {
     show: true // Show immediately
   })
 
+  // Set the main window in the notification service
+  notificationService.setMainWindow(mainWindow)
+  
+  // Set up callback to invalidate meeting cache when calendar events are updated
+  notificationService.setCalendarEventsUpdatedCallback((data) => {
+    meetingDetector.invalidateCache()
+    Debug.log(`[MAIN] Meeting detector cache invalidated after calendar events updated: ${data.eventCount} events from ${data.source}`)
+  })
+
   // Try to set dock icon on macOS with error handling
   if (process.platform === 'darwin' && require('fs').existsSync(iconPath)) {
     try {
@@ -193,6 +204,8 @@ const createWindow = (): void => {
   mainWindow.on('closed', () => {
     // Dereference the window object
     mainWindow = null
+    // Clear the notification service reference
+    notificationService.setMainWindow(null as any)
   })
 }
 
@@ -442,6 +455,27 @@ ipcMain.handle('calendar:disconnectGoogle', async () => {
 
 ipcMain.handle('calendar:getGoogleUserInfo', async () => {
   return await calendarManager.getGoogleCalendarUserInfo()
+})
+
+// Multi-account Google Calendar IPC handlers
+ipcMain.handle('calendar:getConnectedGoogleAccounts', async () => {
+  return await calendarManager.getConnectedGoogleAccounts()
+})
+
+ipcMain.handle('calendar:disconnectGoogleAccount', async (_, accountEmail: string) => {
+  const result = await calendarManager.disconnectGoogleAccount(accountEmail)
+  
+  // Invalidate meeting cache if account was successfully disconnected
+  if (result.success) {
+    meetingDetector.invalidateCache()
+    Debug.log(`[MAIN] Meeting detector cache invalidated after disconnecting account ${accountEmail}`)
+  }
+  
+  return result
+})
+
+ipcMain.handle('calendar:getMultiAccountGoogleCalendarState', async () => {
+  return await calendarManager.getMultiAccountGoogleCalendarState()
 })
 
 // Google credential management IPC handlers

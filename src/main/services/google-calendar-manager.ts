@@ -2,6 +2,7 @@ import { google, calendar_v3 } from 'googleapis'
 import { GoogleOAuthManager } from './google-oauth-manager'
 import { CalendarEvent, CalendarError, CalendarImportResult } from '../../shared/types/calendar'
 import { GoogleCalendarError } from '../../shared/types/google-calendar'
+import { GoogleAccount, MultiAccountCalendarEvent } from '../../shared/types/multi-account-calendar'
 import { Debug } from '../../shared/utils/debug'
 
 export class GoogleCalendarManager {
@@ -13,8 +14,8 @@ export class GoogleCalendarManager {
     this.oauthManager = oauthManager
   }
 
-  async getEvents(
-    refreshToken: string,
+  async getEventsForAccount(
+    account: GoogleAccount,
     timeMin?: Date,
     timeMax?: Date,
     maxResults: number = 250
@@ -22,7 +23,7 @@ export class GoogleCalendarManager {
     try {
       const events = await this.makeRequestWithRetry(async () => {
         // Refresh access token
-        const { accessToken } = await this.oauthManager.refreshAccessToken(refreshToken)
+        const { accessToken } = await this.oauthManager.refreshAccessToken(account.refreshToken)
         
         // Set up OAuth2 client
         const oauth2Client = new google.auth.OAuth2()
@@ -38,7 +39,7 @@ export class GoogleCalendarManager {
         const defaultTimeMin = timeMin || new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000) // 30 days ago
         const defaultTimeMax = timeMax || new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000) // 30 days from now
         
-        Debug.log(`[GOOGLE-CALENDAR] Searching events from ${defaultTimeMin.toISOString()} to ${defaultTimeMax.toISOString()}`)
+        Debug.log(`[GOOGLE-CALENDAR] Searching events for ${account.email} from ${defaultTimeMin.toISOString()} to ${defaultTimeMax.toISOString()}`)
         
         // First, get list of all accessible calendars
         const calendarListResponse = await calendar.calendarList.list()
@@ -49,13 +50,10 @@ export class GoogleCalendarManager {
         const calendars = allCalendars.slice(0, MAX_CALENDARS)
         
         if (allCalendars.length > MAX_CALENDARS) {
-          Debug.log(`[GOOGLE-CALENDAR] Limited to ${MAX_CALENDARS} calendars (found ${allCalendars.length} total)`)
+          Debug.log(`[GOOGLE-CALENDAR] Limited to ${MAX_CALENDARS} calendars for ${account.email} (found ${allCalendars.length} total)`)
         }
         
-        Debug.log(`[GOOGLE-CALENDAR] Processing ${calendars.length} calendars`)
-        calendars.forEach(cal => {
-          Debug.log(`[GOOGLE-CALENDAR] Calendar: ${cal.summary || cal.id} (ID: ${cal.id})`)
-        })
+        Debug.log(`[GOOGLE-CALENDAR] Processing ${calendars.length} calendars for ${account.email}`)
         
         // Fetch events from calendars with minimum events per calendar
         const allEvents: calendar_v3.Schema$Event[] = []
@@ -66,7 +64,7 @@ export class GoogleCalendarManager {
           if (!cal.id) continue
           
           try {
-            Debug.log(`[GOOGLE-CALENDAR] Fetching events from calendar: ${cal.summary || cal.id}`)
+            Debug.log(`[GOOGLE-CALENDAR] Fetching events from calendar: ${cal.summary || cal.id} for ${account.email}`)
             const response = await calendar.events.list({
               calendarId: cal.id,
               timeMin: defaultTimeMin.toISOString(),
@@ -77,17 +75,18 @@ export class GoogleCalendarManager {
             })
             
             const eventCount = (response.data.items || []).length
-            Debug.log(`[GOOGLE-CALENDAR] Found ${eventCount} events in calendar: ${cal.summary || cal.id}`)
+            Debug.log(`[GOOGLE-CALENDAR] Found ${eventCount} events in calendar: ${cal.summary || cal.id} for ${account.email}`)
             
             const calendarEvents = (response.data.items || []).map(event => ({
               ...event,
-              // Add calendar info to event for better identification
+              // Add calendar info and account info to event for better identification
               extendedProperties: {
                 ...event.extendedProperties,
                 private: {
                   ...event.extendedProperties?.private,
                   calendarName: cal.summary || cal.id || '',
-                  calendarId: cal.id || ''
+                  calendarId: cal.id || '',
+                  accountEmail: account.email
                 }
               }
             }))
@@ -98,18 +97,17 @@ export class GoogleCalendarManager {
             await new Promise(resolve => setTimeout(resolve, 200))
           } catch (calError) {
             // Log error but continue with other calendars
-            Debug.error(`[GOOGLE-CALENDAR] Failed to fetch events from calendar ${cal.summary || cal.id}:`, calError)
-            console.warn(`Failed to fetch events from calendar ${cal.summary || cal.id}:`, calError)
+            Debug.error(`[GOOGLE-CALENDAR] Failed to fetch events from calendar ${cal.summary || cal.id} for ${account.email}:`, calError)
           }
         }
         
-        Debug.log(`[GOOGLE-CALENDAR] Total events collected: ${allEvents.length}`)
+        Debug.log(`[GOOGLE-CALENDAR] Total events collected for ${account.email}: ${allEvents.length}`)
         return allEvents
       })
       
       const transformedEvents = events
         .filter(event => event.id) // Filter out events without IDs
-        .map(event => this.transformGoogleEvent(event))
+        .map(event => this.transformGoogleEventWithAccount(event, account))
       
       return {
         events: transformedEvents,
@@ -118,14 +116,45 @@ export class GoogleCalendarManager {
         source: 'google'
       }
     } catch (error) {
-      if (error instanceof GoogleCalendarError) {
-        throw error
-      }
-      throw new GoogleCalendarError(
-        'Failed to fetch Google Calendar events',
-        'API_ERROR',
-        error as Error
+      Debug.error(`[GOOGLE-CALENDAR] Failed to fetch events for ${account.email}:`, error)
+      throw new CalendarError(
+        `Failed to fetch Google Calendar events for ${account.email}`,
+        'PARSE_ERROR',
+        error instanceof Error ? error : undefined
       )
+    }
+  }
+
+  private transformGoogleEventWithAccount(googleEvent: calendar_v3.Schema$Event, account: GoogleAccount): CalendarEvent {
+    if (!googleEvent.id) {
+      throw new GoogleCalendarError('Event missing required ID', 'API_ERROR')
+    }
+    
+    const startDate = googleEvent.start?.dateTime 
+      ? new Date(googleEvent.start.dateTime)
+      : new Date((googleEvent.start?.date || '') + 'T00:00:00')
+      
+    const endDate = googleEvent.end?.dateTime
+      ? new Date(googleEvent.end.dateTime) 
+      : new Date((googleEvent.end?.date || '') + 'T23:59:59')
+    
+    // Extract calendar name from extended properties if available
+    const calendarName = googleEvent.extendedProperties?.private?.calendarName || 'Google Calendar'
+    const calendarId = googleEvent.extendedProperties?.private?.calendarId || 'primary'
+      
+    return {
+      id: `google-${account.email}-${calendarId}-${googleEvent.id}`,
+      title: googleEvent.summary || 'Untitled Event',
+      description: googleEvent.description || undefined,
+      startDate,
+      endDate,
+      location: googleEvent.location || undefined,
+      attendees: googleEvent.attendees?.map((a) => a.email || '').filter(email => email) || [],
+      isAllDay: !googleEvent.start?.dateTime,
+      source: 'google' as const,
+      sourceAccountEmail: account.email, // NEW: Tag with account email
+      calendarName: calendarName,
+      calendarId: calendarId
     }
   }
 

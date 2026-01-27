@@ -35,7 +35,10 @@ test.describe('Google Credential Management', () => {
       await page.click('button:has-text("Settings")')
       await page.click('button:has-text("Calendar Import")')
       
-      // Should show credential configuration form
+      // Wait for the page to load
+      await page.waitForTimeout(2000)
+      
+      // Should show credential configuration form when no credentials are set
       await expect(page.locator('text=Configure Google OAuth2 Credentials')).toBeVisible()
       await expect(page.locator('input[placeholder*="apps.googleusercontent.com"]')).toBeVisible()
       await expect(page.locator('input[placeholder*="GOCSPX"]')).toBeVisible()
@@ -62,6 +65,9 @@ test.describe('Google Credential Management', () => {
       // Navigate to credential form
       await page.click('button:has-text("Settings")')
       await page.click('button:has-text("Calendar Import")')
+      
+      // Wait for credential form to appear (should be visible when no credentials are set)
+      await expect(page.locator('input[placeholder*="apps.googleusercontent.com"]')).toBeVisible({ timeout: 10000 })
       
       // Enter invalid credentials
       await page.fill('input[placeholder*="apps.googleusercontent.com"]', 'invalid-client-id')
@@ -98,6 +104,9 @@ test.describe('Google Credential Management', () => {
       // Navigate to credential form
       await page.click('button:has-text("Settings")')
       await page.click('button:has-text("Calendar Import")')
+      
+      // Wait for the page to load
+      await page.waitForTimeout(2000)
       
       // Verify we start with the credential form
       await expect(page.locator('text=Configure Google OAuth2 Credentials')).toBeVisible()
@@ -200,7 +209,13 @@ test.describe('Google Credential Management', () => {
       await page.click('button:has-text("Settings")')
       await page.click('button:has-text("Calendar Import")')
       
+      // Wait a bit for the page to load
+      await page.waitForTimeout(2000)
+      
+      // Wait for credential form to appear - the form should be visible since no credentials are set
       const secretInput = page.locator('input[placeholder*="GOCSPX"]')
+      await expect(secretInput).toBeVisible({ timeout: 10000 })
+      
       const eyeButton = page.locator('[data-testid="toggle-client-secret"]')
       
       // Initially should be password type (hidden)

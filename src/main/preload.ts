@@ -80,6 +80,15 @@ const electronAPI: ElectronAPI = {
   },
   hasTodaysMeetings: () => ipcRenderer.invoke('meeting:hasTodaysMeetings'),
   invalidateMeetingCache: () => ipcRenderer.invoke('meeting:invalidateCache'),
+  
+  // Calendar event listeners
+  onCalendarEventsUpdated: (callback: (data: { source: string; eventCount: number; action?: string; accountEmail?: string }) => void) => {
+    ipcRenderer.on('calendar:eventsUpdated', (_, data) => callback(data))
+    return () => {
+      ipcRenderer.removeAllListeners('calendar:eventsUpdated')
+    }
+  },
+  
   // Add brief generation methods
   generateMeetingBrief: (request: BriefGenerationRequest) => ipcRenderer.invoke('brief:generate', request),
   getBriefGenerationStatus: (meetingId: string) => ipcRenderer.invoke('brief:getStatus', meetingId),
@@ -167,6 +176,10 @@ const electronAPI: ElectronAPI = {
   isGoogleCalendarConnected: () => ipcRenderer.invoke('calendar:isGoogleConnected'),
   disconnectGoogleCalendar: () => ipcRenderer.invoke('calendar:disconnectGoogle'),
   getGoogleCalendarUserInfo: () => ipcRenderer.invoke('calendar:getGoogleUserInfo'),
+  // Multi-account Google Calendar methods
+  getConnectedGoogleAccounts: () => ipcRenderer.invoke('calendar:getConnectedGoogleAccounts'),
+  disconnectGoogleAccount: (accountEmail: string) => ipcRenderer.invoke('calendar:disconnectGoogleAccount', accountEmail),
+  getMultiAccountGoogleCalendarState: () => ipcRenderer.invoke('calendar:getMultiAccountGoogleCalendarState'),
   // Google credential management methods
   getGoogleClientId: () => ipcRenderer.invoke('settings:getGoogleClientId'),
   setGoogleClientId: (clientId: string | null) => ipcRenderer.invoke('settings:setGoogleClientId', clientId),

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { Edit, Eye, EyeOff } from 'lucide-react'
+import type { GoogleAccount, MultiAccountGoogleCalendarState } from '../../shared/types/multi-account-calendar'
 
 interface GoogleCalendarAuthProps {
   onAuthSuccess?: () => void
@@ -19,7 +20,8 @@ export const GoogleCalendarAuth: React.FC<GoogleCalendarAuthProps> = ({
   const [error, setError] = useState<string | null>(null)
   const [isConnected, setIsConnected] = useState(false)
   const [isAuthenticating, setIsAuthenticating] = useState(false)
-  const [userInfo, setUserInfo] = useState<{ email: string; name?: string } | null>(null)
+  const [connectedAccounts, setConnectedAccounts] = useState<GoogleAccount[]>([])
+  const [multiAccountState, setMultiAccountState] = useState<MultiAccountGoogleCalendarState | null>(null)
   const [showClientSecret, setShowClientSecret] = useState(false)
 
   useEffect(() => {
@@ -28,20 +30,39 @@ export const GoogleCalendarAuth: React.FC<GoogleCalendarAuthProps> = ({
 
   const loadCredentialsAndStatus = async () => {
     try {
-      const [storedClientId, storedClientSecret, connected, info] = await Promise.all([
+      const results = await Promise.allSettled([
         window.electronAPI.getGoogleClientId(),
         window.electronAPI.getGoogleClientSecret(),
         window.electronAPI.isGoogleCalendarConnected(),
-        window.electronAPI.getGoogleCalendarUserInfo()
+        window.electronAPI.getConnectedGoogleAccounts(),
+        window.electronAPI.getMultiAccountGoogleCalendarState()
       ])
+      
+      // Extract results with fallbacks for failed calls
+      const [clientIdResult, clientSecretResult, connectedResult, accountsResult, stateResult] = results
+      
+      const storedClientId = clientIdResult.status === 'fulfilled' ? clientIdResult.value : null
+      const storedClientSecret = clientSecretResult.status === 'fulfilled' ? clientSecretResult.value : null
+      const connected = connectedResult.status === 'fulfilled' ? connectedResult.value : false
+      const accounts = accountsResult.status === 'fulfilled' ? accountsResult.value : []
+      const state = stateResult.status === 'fulfilled' ? stateResult.value : null
       
       if (storedClientId) setClientId(storedClientId)
       if (storedClientSecret) setClientSecret(storedClientSecret)
       setIsConnected(connected)
-      setUserInfo(info)
+      setConnectedAccounts(accounts)
+      setMultiAccountState(state)
       
       // Show credential form if no credentials are configured
       setShowCredentialForm(!storedClientId || !storedClientSecret)
+      
+      // Log any failed calls for debugging
+      results.forEach((result, index) => {
+        if (result.status === 'rejected') {
+          const callNames = ['getGoogleClientId', 'getGoogleClientSecret', 'isGoogleCalendarConnected', 'getConnectedGoogleAccounts', 'getMultiAccountGoogleCalendarState']
+          console.warn(`Failed to load ${callNames[index]}:`, result.reason)
+        }
+      })
     } catch (error) {
       console.error('Failed to load Google credentials and status:', error)
       setShowCredentialForm(true)
@@ -146,11 +167,17 @@ export const GoogleCalendarAuth: React.FC<GoogleCalendarAuthProps> = ({
       attempts++
       
       try {
-        const connected = await window.electronAPI.isGoogleCalendarConnected()
-        if (connected) {
+        const [connected, accounts, state] = await Promise.all([
+          window.electronAPI.isGoogleCalendarConnected(),
+          window.electronAPI.getConnectedGoogleAccounts(),
+          window.electronAPI.getMultiAccountGoogleCalendarState()
+        ])
+        
+        if (connected && accounts.length > connectedAccounts.length) {
+          // New account was added
           setIsConnected(true)
-          const info = await window.electronAPI.getGoogleCalendarUserInfo()
-          setUserInfo(info)
+          setConnectedAccounts(accounts)
+          setMultiAccountState(state)
           onAuthSuccess?.()
           return
         }
@@ -169,7 +196,8 @@ export const GoogleCalendarAuth: React.FC<GoogleCalendarAuthProps> = ({
     try {
       await window.electronAPI.disconnectGoogleCalendar()
       setIsConnected(false)
-      setUserInfo(null)
+      setConnectedAccounts([])
+      setMultiAccountState(null)
       setError(null)
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Failed to disconnect'
@@ -177,30 +205,71 @@ export const GoogleCalendarAuth: React.FC<GoogleCalendarAuthProps> = ({
     }
   }
 
-  // Connected state UI
-  if (isConnected && userInfo && !showCredentialForm) {
+  const handleDisconnectAccount = async (accountEmail: string) => {
+    try {
+      const result = await window.electronAPI.disconnectGoogleAccount(accountEmail)
+      if (result.success) {
+        // Reload account state
+        await loadCredentialsAndStatus()
+      } else {
+        setError(result.error || 'Failed to disconnect account')
+      }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to disconnect account'
+      setError(errorMessage)
+    }
+  }
+
+  // Connected state UI with multi-account support
+  if (isConnected && connectedAccounts.length > 0 && !showCredentialForm) {
     return (
       <div className="space-y-4">
-        <div className="flex items-center justify-between p-4 bg-green-50 border border-green-200 rounded-lg">
-          <div className="flex items-center space-x-3">
-            <div className="w-3 h-3 bg-green-500 rounded-full"></div>
-            <div>
-              <p className="text-sm font-medium text-green-800">
-                Connected to Google Calendar
-              </p>
-              <p className="text-xs text-green-600">
-                {userInfo.email}
-                {userInfo.name && ` (${userInfo.name})`}
-              </p>
-            </div>
+        {/* Connected accounts list */}
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <h4 className="text-sm font-medium text-primary">Connected Google Accounts</h4>
+            <span className="text-xs text-secondary">
+              {connectedAccounts.length} of {multiAccountState?.hasReachedLimit ? '5 (limit reached)' : '5'} accounts
+            </span>
           </div>
-          <button
-            onClick={handleDisconnect}
-            className="px-3 py-1 text-xs font-medium text-red-600 bg-white border border-red-300 rounded hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2"
-          >
-            Disconnect
-          </button>
+          
+          {connectedAccounts.map(account => (
+            <div key={account.email} className="flex items-center justify-between p-3 bg-surface border border-border rounded-lg">
+              <div className="flex items-center space-x-3">
+                <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+                <div>
+                  <p className="text-sm font-medium text-primary">{account.name || account.email}</p>
+                  <p className="text-xs text-secondary">{account.email}</p>
+                </div>
+              </div>
+              <button
+                onClick={() => handleDisconnectAccount(account.email)}
+                className="px-3 py-1 text-xs font-medium text-red-600 bg-white border border-red-300 rounded hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2"
+              >
+                Disconnect
+              </button>
+            </div>
+          ))}
         </div>
+
+        {/* Add another account button */}
+        {!multiAccountState?.hasReachedLimit && (
+          <button
+            onClick={handleConnect}
+            disabled={isAuthenticating}
+            className="w-full px-4 py-2 text-sm font-medium text-brand-600 bg-white border border-brand-300 rounded-lg hover:bg-brand-50 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {isAuthenticating ? 'Connecting...' : 'Add Another Google Account'}
+          </button>
+        )}
+
+        {multiAccountState?.hasReachedLimit && (
+          <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+            <p className="text-xs text-yellow-800">
+              Maximum of 5 Google accounts allowed. Disconnect an account to add a new one.
+            </p>
+          </div>
+        )}
         
         {/* Configured credentials display with edit button */}
         <div className="p-3 bg-surface border border-border rounded-lg">
@@ -220,7 +289,7 @@ export const GoogleCalendarAuth: React.FC<GoogleCalendarAuthProps> = ({
         </div>
         
         <div className="text-xs text-tertiary">
-          Your Google Calendar events are automatically imported for meeting preparation.
+          Events from all connected Google Calendar accounts are automatically imported for meeting preparation.
         </div>
       </div>
     )

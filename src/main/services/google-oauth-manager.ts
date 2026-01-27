@@ -4,8 +4,10 @@ import * as crypto from 'crypto'
 import express, { Request, Response } from 'express'
 import { Server } from 'http'
 import { GoogleCalendarError, GoogleCalendarCredentials, GoogleOAuthConfig } from '../../shared/types/google-calendar'
+import { MultiAccountGoogleManager } from './multi-account-google-manager'
 import { Debug } from '../../shared/utils/debug'
 import { SettingsManager } from './settings-manager'
+import type { GoogleAccountUserInfo } from '../../shared/types/multi-account-calendar'
 
 // Load environment variables in development and production
 // This allows users to create a .env file to override bundled credentials
@@ -20,11 +22,20 @@ export class GoogleOAuthManager {
   private CLIENT_ID: string | null
   private CLIENT_SECRET: string | null
   private isConfigured: boolean
-  private readonly SCOPES = ['https://www.googleapis.com/auth/calendar.readonly']
+  // OAuth scopes required for multi-account Google Calendar integration:
+  // - calendar.readonly: Access to read calendar events and metadata
+  // - userinfo.email: Required to identify and differentiate between multiple accounts
+  // - userinfo.profile: Optional but provides better user experience with names/avatars
+  private readonly SCOPES = [
+    'https://www.googleapis.com/auth/calendar.readonly',
+    'https://www.googleapis.com/auth/userinfo.email',
+    'https://www.googleapis.com/auth/userinfo.profile'
+  ]
   private readonly REDIRECT_URI = 'http://localhost:8080/oauth/callback'
   
   private tempStorage = new Map<string, string>()
   private oauthServer: Server | null = null
+  private multiAccountManager?: MultiAccountGoogleManager
 
   constructor() {
     // Check for OAuth credentials but don't fail if missing
@@ -55,6 +66,9 @@ export class GoogleOAuthManager {
         // Keep existing environment variable logic as fallback
         Debug.log('[GOOGLE-OAUTH] No stored credentials, using environment variables')
       }
+      
+      // Initialize multi-account manager after credentials are loaded
+      this.multiAccountManager = new MultiAccountGoogleManager(settingsManager, this)
     } catch (error) {
       Debug.log('[GOOGLE-OAUTH] Failed to load stored credentials, using environment variables:', error)
     }
@@ -84,6 +98,13 @@ export class GoogleOAuthManager {
 
   isOAuthConfigured(): boolean {
     return this.isConfigured
+  }
+
+  getMultiAccountManager(): MultiAccountGoogleManager {
+    if (!this.multiAccountManager) {
+      throw new GoogleCalendarError('Multi-account manager not initialized', 'AUTH_FAILED')
+    }
+    return this.multiAccountManager
   }
 
   async initiateOAuthFlow(): Promise<string> {
@@ -198,9 +219,14 @@ export class GoogleOAuthManager {
     try {
       const codeVerifier = this.tempStorage.get('codeVerifier')
       
+      // Ensure we have valid credentials
+      if (!this.CLIENT_ID || !this.CLIENT_SECRET) {
+        throw new GoogleCalendarError('OAuth credentials not available during token exchange', 'AUTH_FAILED')
+      }
+      
       const oauth2Client = new google.auth.OAuth2(
-        this.CLIENT_ID!,
-        this.CLIENT_SECRET!,
+        this.CLIENT_ID,
+        this.CLIENT_SECRET,
         this.REDIRECT_URI
       )
       
@@ -212,29 +238,87 @@ export class GoogleOAuthManager {
         tokenRequest.codeVerifier = codeVerifier
       }
       
+      Debug.log(`[GOOGLE-OAUTH] Exchanging code for tokens with client ID: ${this.CLIENT_ID?.substring(0, 20)}...`)
+      
       const { tokens } = await oauth2Client.getToken(tokenRequest)
       
       if (!tokens.refresh_token) {
         throw new GoogleCalendarError('No refresh token received', 'AUTH_FAILED')
       }
       
-      // Store tokens in settings
-      const SettingsManager = require('./settings-manager').SettingsManager
-      const settingsManager = new SettingsManager()
+      // Use multi-account manager to add the new account
+      if (!this.multiAccountManager) {
+        throw new GoogleCalendarError('Multi-account manager not initialized', 'AUTH_FAILED')
+      }
       
-      await settingsManager.setGoogleCalendarRefreshToken(tokens.refresh_token)
-      await settingsManager.setGoogleCalendarTokenExpiry(
-        tokens.expiry_date ? new Date(tokens.expiry_date).toISOString() : null
+      // Use the access token we just received to get user info immediately
+      let userInfo: GoogleAccountUserInfo | null = null
+      if (tokens.access_token) {
+        try {
+          // Validate tokens before setting credentials
+          if (!tokens.access_token || typeof tokens.access_token !== 'string') {
+            throw new Error('Invalid access token received')
+          }
+          
+          // Set the tokens on the oauth2Client before making API calls
+          oauth2Client.setCredentials(tokens)
+          
+          // Use the same oauth2Client that just successfully got the tokens
+          const oauth2 = google.oauth2({ version: 'v2', auth: oauth2Client })
+          const response = await oauth2.userinfo.get()
+          
+          if (response.data.email) {
+            // Validate email format
+            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+            if (!emailRegex.test(response.data.email)) {
+              throw new Error('Invalid email format received from Google')
+            }
+            
+            userInfo = {
+              email: response.data.email,
+              name: response.data.name || undefined,
+              picture: response.data.picture || undefined
+            }
+          }
+        } catch (userInfoError) {
+          Debug.error('[GOOGLE-OAUTH] Failed to fetch user info during token exchange:', userInfoError)
+          // Make user info fetch mandatory for multi-account support
+          throw new GoogleCalendarError(
+            'Failed to fetch user information required for account identification',
+            'AUTH_FAILED',
+            userInfoError as Error
+          )
+        }
+      }
+      
+      if (!userInfo) {
+        throw new GoogleCalendarError(
+          'No user information available - required for multi-account support',
+          'AUTH_FAILED'
+        )
+      }
+      
+      // Add account with the tokens and user info
+      const result = await this.multiAccountManager.addAccountDirect(
+        tokens.refresh_token,
+        userInfo,
+        tokens.expiry_date ? new Date(tokens.expiry_date).toISOString() : undefined
       )
-      await settingsManager.setGoogleCalendarConnected(true)
       
-      // Skip user info for now - not essential for functionality
-      console.log('OAuth tokens stored successfully')
+      if (!result.success) {
+        throw new GoogleCalendarError(
+          result.error || 'Failed to add account',
+          result.isLimitReached ? 'ACCOUNT_LIMIT_REACHED' : 'AUTH_FAILED'
+        )
+      }
+      
+      Debug.log(`[GOOGLE-OAUTH] Successfully added account: ${result.account?.email}`)
       
       // Clean up temporary storage
       this.tempStorage.delete('state')
       
     } catch (error) {
+      Debug.error('[GOOGLE-OAUTH] Token exchange failed:', error)
       throw new GoogleCalendarError(
         'Failed to exchange code for tokens',
         'AUTH_FAILED',

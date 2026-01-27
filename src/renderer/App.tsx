@@ -215,6 +215,19 @@ export function App() {
     return cleanup
   }, [mounted, checkVaultStatus])
   
+  // Add calendar events update listener
+  useEffect(() => {
+    const cleanup = window.electronAPI.onCalendarEventsUpdated((data) => {
+      if (mounted) {
+        console.log(`Calendar events updated: ${data.eventCount} events from ${data.source}`)
+        // Refresh today's meetings when calendar events are updated
+        loadTodaysMeetings()
+      }
+    })
+    
+    return cleanup
+  }, [mounted]) // Remove loadTodaysMeetings from dependency array since it's stable
+  
   // Check indexing status on mount
   useEffect(() => {
     const checkIndexingStatus = async () => {

@@ -10,6 +10,7 @@ export interface CalendarEvent {
   attendees?: string[]
   isAllDay: boolean
   source: CalendarSource
+  sourceAccountEmail?: string // NEW: For multi-account Google Calendar support
   calendarName?: string
   calendarId?: string
 }
@@ -25,6 +26,7 @@ export interface CalendarEventIPC {
   attendees?: string[]
   isAllDay: boolean
   source: CalendarSource
+  sourceAccountEmail?: string // NEW: For multi-account Google Calendar support
   calendarName?: string
   calendarId?: string
 }

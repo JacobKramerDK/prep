@@ -12,8 +12,10 @@ import { SettingsManager } from './settings-manager'
 import { SwiftCalendarManager } from './swift-calendar-manager'
 import { GoogleCalendarManager } from './google-calendar-manager'
 import { GoogleOAuthManager } from './google-oauth-manager'
+import { MultiAccountGoogleManager } from './multi-account-google-manager'
 import { PlatformDetector } from './platform-detector'
 import { Debug } from '../../shared/utils/debug'
+import { NotificationService } from './notification-service'
 
 const execAsync = promisify(exec)
 
@@ -32,23 +34,28 @@ export class CalendarManager {
   private swiftCalendarManager: SwiftCalendarManager
   private googleOAuthManager: GoogleOAuthManager
   private googleCalendarManager: GoogleCalendarManager
+  private multiAccountGoogleManager: MultiAccountGoogleManager | null = null
   private platformDetector: PlatformDetector
+  private notificationService: NotificationService
   private appleScriptPromise: Promise<CalendarImportResult> | null = null
   private isExtracting = false
   private lastExtraction: Date | null = null
   private readonly CACHE_DURATION = 2 * 60 * 1000 // 2 minutes for better freshness
   private readonly useSwiftBackend = true // Must get this working!
   private tempFiles: Set<string> = new Set() // Track temp files for cleanup
+  private initializationPromise: Promise<void> | null = null
 
-  constructor() {
+  constructor(notificationService?: NotificationService) {
     this.settingsManager = new SettingsManager()
     this.swiftCalendarManager = new SwiftCalendarManager(this.settingsManager)
     this.googleOAuthManager = new GoogleOAuthManager()
+    this.notificationService = notificationService || new NotificationService()
     this.googleCalendarManager = new GoogleCalendarManager(this.googleOAuthManager)
+    // multiAccountGoogleManager will be initialized in initializeAsync after OAuth manager is ready
     this.platformDetector = new PlatformDetector()
     
-    // Initialize Google OAuth with stored credentials
-    this.initializeGoogleOAuth()
+    // Initialize Google OAuth with stored credentials and settings migration
+    this.initializationPromise = this.initializeAsync()
     
     if (process.env.NODE_ENV !== 'test') {
       process.on('exit', () => this.dispose())
@@ -58,12 +65,27 @@ export class CalendarManager {
     }
   }
 
-  // Add initialization method after constructor
+  private async ensureInitialized(): Promise<void> {
+    if (this.initializationPromise) {
+      await this.initializationPromise
+    }
+  }
+
+  private async initializeAsync(): Promise<void> {
+    try {
+      await this.settingsManager.initialize()
+      await this.initializeGoogleOAuth()
+      // Multi-account manager is now initialized in the OAuth manager
+    } catch (error) {
+      Debug.error('[CALENDAR-MANAGER] Failed to initialize:', error)
+    }
+  }
+
   private async initializeGoogleOAuth(): Promise<void> {
     try {
       await this.googleOAuthManager.initialize(this.settingsManager)
     } catch (error) {
-      Debug.log('[CALENDAR-MANAGER] Failed to initialize Google OAuth:', error)
+      Debug.error('[CALENDAR-MANAGER] Failed to initialize Google OAuth:', error)
     }
   }
 
@@ -772,6 +794,9 @@ end tell`
 
   // Google Calendar integration methods
   async authenticateGoogleCalendar(): Promise<string> {
+    // Ensure initialization is complete before OAuth operations
+    await this.ensureInitialized()
+    
     if (!this.googleOAuthManager.isOAuthConfigured()) {
       throw new GoogleCalendarError(
         'Google OAuth credentials not configured. Please set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET environment variables.',
@@ -798,6 +823,13 @@ end tell`
               // Automatically fetch events after successful authentication
               const result = await this.getGoogleCalendarEvents()
               Debug.log(`[GOOGLE-CALENDAR] Auto-sync completed: ${result.events.length} events fetched`)
+              
+              // Notify frontend to refresh today's meetings
+              this.notificationService.notifyCalendarEventsUpdated({
+                source: 'google',
+                eventCount: result.events.length
+              })
+              
               break // Success, exit retry loop
             } catch (error) {
               retryCount++
@@ -843,27 +875,69 @@ end tell`
     }
     
     try {
-      Debug.log('[GOOGLE-CALENDAR] Fetching Google Calendar events')
-      const refreshToken = await this.settingsManager.getGoogleCalendarRefreshToken()
-      if (!refreshToken) {
-        throw new CalendarError('Google Calendar not authenticated', 'PERMISSION_DENIED')
+      Debug.log('[MULTI-GOOGLE] Fetching Google Calendar events from all connected accounts')
+      
+      // Get all connected accounts
+      const manager = this.googleOAuthManager.getMultiAccountManager()
+      const connectedAccounts = await manager.getConnectedAccounts()
+      if (connectedAccounts.length === 0) {
+        throw new CalendarError('No Google Calendar accounts connected', 'PERMISSION_DENIED')
       }
 
-      Debug.log('[GOOGLE-CALENDAR] Using stored refresh token to fetch events')
-      const result = await this.googleCalendarManager.getEvents(refreshToken)
-      Debug.log(`[GOOGLE-CALENDAR] Retrieved ${result.events.length} events from Google Calendar`)
+      Debug.log(`[MULTI-GOOGLE] Found ${connectedAccounts.length} connected accounts`)
+      
+      // Fetch events from accounts with concurrency limiting
+      const allEvents: CalendarEvent[] = []
+      const errors: Array<{ event?: string; error: string }> = []
+      const MAX_CONCURRENT_REQUESTS = 2
+      
+      // Process accounts in batches to limit concurrency
+      for (let i = 0; i < connectedAccounts.length; i += MAX_CONCURRENT_REQUESTS) {
+        const batch = connectedAccounts.slice(i, i + MAX_CONCURRENT_REQUESTS)
+        
+        const batchResults = await Promise.allSettled(
+          batch.map(async (account) => {
+            Debug.log(`[MULTI-GOOGLE] Fetching events from account: ${account.email}`)
+            const result = await this.googleCalendarManager.getEventsForAccount(account)
+            Debug.log(`[MULTI-GOOGLE] Retrieved ${result.events.length} events from ${account.email}`)
+            return { account, result }
+          })
+        )
+        
+        // Process batch results
+        for (const batchResult of batchResults) {
+          if (batchResult.status === 'fulfilled') {
+            allEvents.push(...batchResult.value.result.events)
+          } else {
+            const errorMessage = batchResult.reason instanceof Error ? batchResult.reason.message : 'Unknown error'
+            Debug.error(`[MULTI-GOOGLE] Failed to fetch events from batch:`, errorMessage)
+            errors.push({
+              event: 'Batch processing',
+              error: errorMessage
+            })
+          }
+        }
+      }
+      
+      Debug.log(`[MULTI-GOOGLE] Total events retrieved from all accounts: ${allEvents.length}`)
       
       // Merge with existing events from other sources
       const existingEvents = await this.settingsManager.getCalendarEvents()
       const nonGoogleEvents = existingEvents.filter(event => event.source !== 'google')
-      const allEvents = [...nonGoogleEvents, ...result.events]
+      const mergedEvents = [...nonGoogleEvents, ...allEvents]
       
-      await this.settingsManager.setCalendarEvents(allEvents)
-      Debug.log(`[GOOGLE-CALENDAR] Successfully merged and stored ${allEvents.length} total events`)
+      await this.settingsManager.setCalendarEvents(mergedEvents)
+      Debug.log(`[MULTI-GOOGLE] Successfully merged and stored ${mergedEvents.length} total events`)
       
-      return result
+      return {
+        events: allEvents,
+        totalEvents: allEvents.length,
+        importedAt: new Date(),
+        source: 'google',
+        errors: errors.length > 0 ? errors : undefined
+      }
     } catch (error) {
-      Debug.error('[GOOGLE-CALENDAR] Failed to fetch events:', error instanceof Error ? error.message : 'Unknown error')
+      Debug.error('[MULTI-GOOGLE] Failed to fetch events:', error instanceof Error ? error.message : 'Unknown error')
       throw new CalendarError(
         'Failed to fetch Google Calendar events',
         'PARSE_ERROR',
@@ -873,17 +947,22 @@ end tell`
   }
 
   async isGoogleCalendarConnected(): Promise<boolean> {
-    return await this.settingsManager.getGoogleCalendarConnected()
+    const manager = this.googleOAuthManager.getMultiAccountManager()
+    return await manager.hasAnyConnectedAccounts()
   }
 
   async disconnectGoogleCalendar(): Promise<void> {
     try {
+      // Clear all Google accounts (legacy method for backward compatibility)
+      await this.settingsManager.setGoogleAccounts([])
       await this.settingsManager.clearGoogleCalendarSettings()
       
       // Remove Google Calendar events from stored events
       const existingEvents = await this.settingsManager.getCalendarEvents()
       const nonGoogleEvents = existingEvents.filter(event => event.source !== 'google')
       await this.settingsManager.setCalendarEvents(nonGoogleEvents)
+      
+      Debug.log('[MULTI-GOOGLE] Disconnected all Google Calendar accounts')
     } catch (error) {
       throw new CalendarError(
         'Failed to disconnect Google Calendar',
@@ -893,14 +972,65 @@ end tell`
     }
   }
 
+  // New multi-account methods
+  async getConnectedGoogleAccounts() {
+    const manager = this.googleOAuthManager.getMultiAccountManager()
+    return await manager.getConnectedAccounts()
+  }
+
+  async disconnectGoogleAccount(accountEmail: string) {
+    try {
+      const manager = this.googleOAuthManager.getMultiAccountManager()
+      const result = await manager.removeAccount(accountEmail)
+      
+      if (result.success) {
+        // Remove events from this specific account
+        const existingEvents = await this.settingsManager.getCalendarEvents()
+        const filteredEvents = existingEvents.filter(event => 
+          event.source !== 'google' || event.sourceAccountEmail !== accountEmail
+        )
+        await this.settingsManager.setCalendarEvents(filteredEvents)
+        
+        Debug.log(`[MULTI-GOOGLE] Disconnected account ${accountEmail} and removed its events`)
+        
+        // Notify frontend to refresh today's meetings
+        const removedEventCount = existingEvents.length - filteredEvents.length
+        this.notificationService.notifyCalendarEventsUpdated({
+          source: 'google',
+          eventCount: -removedEventCount, // Negative to indicate removal
+          action: 'disconnect',
+          accountEmail
+        })
+      }
+      
+      return result
+    } catch (error) {
+      Debug.error(`[MULTI-GOOGLE] Failed to disconnect account ${accountEmail}:`, error)
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      }
+    }
+  }
+
+  async getMultiAccountGoogleCalendarState() {
+    const manager = this.googleOAuthManager.getMultiAccountManager()
+    return await manager.getMultiAccountState()
+  }
+
   async getGoogleCalendarUserInfo(): Promise<{ email: string; name?: string } | null> {
     try {
-      const refreshToken = await this.settingsManager.getGoogleCalendarRefreshToken()
-      if (!refreshToken) {
+      // Return primary account info for backward compatibility
+      const manager = this.googleOAuthManager.getMultiAccountManager()
+      const primaryAccount = await manager.getPrimaryAccount()
+      if (!primaryAccount) {
         return null
       }
 
-      return await this.googleCalendarManager.getUserInfo(refreshToken)
+      return {
+        email: primaryAccount.email,
+        name: primaryAccount.name
+      }
     } catch (error) {
       return null
     }

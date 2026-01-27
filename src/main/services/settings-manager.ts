@@ -8,6 +8,7 @@ import { CalendarEvent } from '../../shared/types/calendar'
 import { CalendarSelectionSettings } from '../../shared/types/calendar-selection'
 import { RelevanceWeights, DEFAULT_RELEVANCE_WEIGHTS } from '../../shared/types/relevance-weights'
 import { ObsidianBriefSettings } from '../../shared/types/obsidian-settings'
+import { GoogleAccount, LegacySingleAccountData } from '../../shared/types/multi-account-calendar'
 import { Debug } from '../../shared/utils/debug'
 
 // API key validation constants
@@ -29,6 +30,8 @@ interface SettingsSchema {
   googleCalendarTokenExpiry: string | null
   googleCalendarUserEmail: string | null
   googleCalendarConnected: boolean
+  googleAccounts: GoogleAccount[]  // New multi-account storage
+  multiAccountMigrationCompleted: boolean // Migration tracking
   relevanceWeights: RelevanceWeights
   preferences: {
     autoScan: boolean
@@ -65,6 +68,8 @@ export class SettingsManager {
       googleCalendarTokenExpiry: null,
       googleCalendarUserEmail: null,
       googleCalendarConnected: false,
+      googleAccounts: [],  // New multi-account storage
+      multiAccountMigrationCompleted: false, // Migration tracking
       debugMode: false,
       relevanceWeights: DEFAULT_RELEVANCE_WEIGHTS,
       preferences: {
@@ -108,6 +113,53 @@ export class SettingsManager {
     // Initialize debug mode
     const debugMode = this.store.get('debugMode', false)
     Debug.setDebugMode(debugMode)
+  }
+
+  async initialize(): Promise<void> {
+    // Migrate from single-account to multi-account storage
+    await this.migrateToMultiAccount()
+  }
+
+  private async migrateToMultiAccount(): Promise<void> {
+    try {
+      // Check if migration is needed
+      const existingAccounts = this.store.get('googleAccounts', [])
+      const migrationCompleted = this.store.get('multiAccountMigrationCompleted', false)
+      
+      if (migrationCompleted || existingAccounts.length > 0) {
+        return // Already migrated
+      }
+
+      // Check for legacy single-account data
+      const legacyData: LegacySingleAccountData = {
+        refreshToken: this.store.get('googleCalendarRefreshToken') || undefined,
+        tokenExpiry: this.store.get('googleCalendarTokenExpiry') || undefined,
+        userEmail: this.store.get('googleCalendarUserEmail') || undefined,
+        connected: this.store.get('googleCalendarConnected') || false
+      }
+
+      if (legacyData.refreshToken && legacyData.userEmail && legacyData.connected) {
+        // Migrate single account to multi-account format
+        const migratedAccount: GoogleAccount = {
+          email: legacyData.userEmail,
+          refreshToken: legacyData.refreshToken,
+          tokenExpiry: legacyData.tokenExpiry || undefined,
+          connectedAt: new Date().toISOString() // Use current date as connected date
+        }
+
+        // Atomic migration: set both accounts and migration flag
+        await this.setGoogleAccounts([migratedAccount])
+        this.store.set('multiAccountMigrationCompleted', true)
+        
+        Debug.log(`[SETTINGS] Migrated single account to multi-account: ${legacyData.userEmail}`)
+      } else {
+        // No legacy data to migrate, mark as completed
+        this.store.set('multiAccountMigrationCompleted', true)
+      }
+    } catch (error) {
+      Debug.error('[SETTINGS] Failed to migrate to multi-account:', error)
+      // Don't mark as completed on failure, allow retry on next startup
+    }
   }
 
   private getOrCreateEncryptionKey(): string {
@@ -419,5 +471,26 @@ export class SettingsManager {
 
   setCleanupRecordingFiles(enabled: boolean): void {
     this.store.set('cleanupRecordingFiles', enabled)
+  }
+
+  // Multi-account Google Calendar methods
+  async getGoogleAccounts(): Promise<GoogleAccount[]> {
+    return this.store.get('googleAccounts', [])
+  }
+
+  async setGoogleAccounts(accounts: GoogleAccount[]): Promise<void> {
+    this.store.set('googleAccounts', accounts)
+  }
+
+  async addGoogleAccount(account: GoogleAccount): Promise<void> {
+    const accounts = await this.getGoogleAccounts()
+    const updatedAccounts = [...accounts, account]
+    await this.setGoogleAccounts(updatedAccounts)
+  }
+
+  async removeGoogleAccount(accountEmail: string): Promise<void> {
+    const accounts = await this.getGoogleAccounts()
+    const updatedAccounts = accounts.filter(account => account.email !== accountEmail)
+    await this.setGoogleAccounts(updatedAccounts)
   }
 }
