@@ -61,6 +61,12 @@ The app comes with **built-in Google OAuth credentials** for immediate Google Ca
 2. Add your custom `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET`
 3. See `.env.example` for detailed instructions
 
+**Why use custom credentials?**
+- Control your own API quotas and billing
+- Use company-managed Google Cloud Projects
+- Enhanced privacy and security for enterprise use
+- Compliance with organizational policies
+
 ### How It Works
 
 1. **Audio Capture**: Records meeting audio through your microphone or system audio (full meeting capture)
