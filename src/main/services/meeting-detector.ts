@@ -82,6 +82,7 @@ export class MeetingDetector {
 
     Debug.log(`[MEETING-DETECTOR] Filtering for today: ${todayStart.toISOString()} to ${todayEnd.toISOString()}`)
     
+    let foundCount = 0
     const todaysEvents = events.filter(event => {
       const eventStart = new Date(event.startDate)
       const eventEnd = new Date(event.endDate)
@@ -90,8 +91,9 @@ export class MeetingDetector {
                       (eventStart < todayStart && eventEnd > todayStart)
       
       // Only log first few events to avoid spam
-      if (isToday && todaysEvents.length < 5) {
+      if (isToday && foundCount < 5) {
         Debug.log(`[MEETING-DETECTOR] Found today's event: "${event.title}" at ${eventStart.toISOString()}`)
+        foundCount++
       }
 
       return isToday
