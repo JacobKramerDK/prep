@@ -25,6 +25,8 @@ export function App() {
   const [isInitializing, setIsInitializing] = useState(true)
   const [vaultIndexingStatus, setVaultIndexingStatus] = useState<VaultIndexingStatus>({ isIndexing: false })
   const [vaultIndexingProgress, setVaultIndexingProgress] = useState<VaultIndexingProgress | null>(null)
+  const [calendarSyncLoading, setCalendarSyncLoading] = useState(false)
+  const [calendarSyncError, setCalendarSyncError] = useState<string | null>(null)
 
   // Cleanup on unmount
   useEffect(() => {
@@ -159,27 +161,41 @@ export function App() {
     }
 
     const performAutoSync = async (): Promise<void> => {
+      setCalendarSyncLoading(true)
+      setCalendarSyncError(null)
       try {
-        await window.electronAPI.startDailyCalendarSync()
+        const result = await window.electronAPI.startDailyCalendarSync()
+        if (!result.success && result.error) {
+          console.warn('Calendar sync failed but continuing:', result.error)
+          setCalendarSyncError(result.error)
+          // Don't throw - allow app to continue with cached/existing events
+        }
         const events = await window.electronAPI.getCalendarEvents()
         if (events && events.length > 0) {
           setCalendarError(null)
         }
       } catch (error) {
         console.error('Auto sync failed:', error)
+        setCalendarSyncError('Calendar sync failed')
+        // Don't throw - allow app to continue
+      } finally {
+        setCalendarSyncLoading(false)
       }
     }
 
     const initializeApp = async (): Promise<void> => {
       try {
-        // Run all initialization tasks in parallel
+        // Run non-blocking operations in parallel
         await Promise.all([
           getVersion(),
           loadExistingEvents(),
-          performAutoSync(),
           checkVaultStatus(),
           checkCalendarStatus()
         ])
+        
+        // Wait for calendar sync to complete before proceeding
+        await performAutoSync()
+        
       } catch (error) {
         console.error('App initialization failed:', error)
       } finally {
@@ -265,7 +281,10 @@ export function App() {
     <div className="min-h-screen max-w-full overflow-x-hidden bg-background text-primary selection:bg-brand-200 selection:text-brand-900 dark:selection:bg-brand-900 dark:selection:text-brand-100" data-testid="app">
       {/* Show loading screen during initialization */}
       {isInitializing ? (
-        <LoadingScreen />
+        <LoadingScreen 
+          calendarSyncLoading={calendarSyncLoading}
+          calendarSyncError={calendarSyncError}
+        />
       ) : (
         <>
           {/* Titlebar Drag Region (simulated for Electron) */}

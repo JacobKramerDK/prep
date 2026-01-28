@@ -35,7 +35,7 @@ export interface ElectronAPI {
   // Calendar sync scheduler operations
   getCalendarSyncStatus: () => Promise<CalendarSyncStatusIPC>
   performManualCalendarSync: () => Promise<CalendarSyncResultIPC>
-  startDailyCalendarSync: () => Promise<void>
+  startDailyCalendarSync: () => Promise<CalendarSyncResultIPC>
   stopDailyCalendarSync: () => Promise<void>
   // Meeting operations
   getTodaysMeetings: () => Promise<TodaysMeetingsResult>

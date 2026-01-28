@@ -37,9 +37,10 @@ export class CalendarSyncScheduler {
     })
   }
 
-  async startDailySync(): Promise<void> {
+  async startDailySync(): Promise<CalendarSyncResult> {
     if (this.isEnabled) {
-      return
+      // Already enabled, return success without sync
+      return { success: true, eventsCount: 0, syncTime: new Date(), error: null }
     }
 
     // Initialize last sync time from settings before proceeding
@@ -61,14 +62,22 @@ export class CalendarSyncScheduler {
       this.lastSyncTime.toDateString() !== today.toDateString()
 
     if (shouldPerformInitialSync) {
-      // Perform sync in background without blocking
-      setImmediate(async () => {
-        try {
-          await this.performSync()
-        } catch (error) {
-          console.error('Initial sync failed:', error)
-        }
+      // Return promise that resolves when initial sync completes
+      return new Promise((resolve) => {
+        setImmediate(async () => {
+          try {
+            const result = await this.performSync()
+            resolve(result)
+          } catch (error) {
+            console.error('Initial sync failed:', error)
+            const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+            resolve({ success: false, eventsCount: 0, syncTime: new Date(), error: errorMessage })
+          }
+        })
       })
+    } else {
+      // No sync needed, resolve immediately
+      return Promise.resolve({ success: true, eventsCount: 0, syncTime: new Date(), error: null })
     }
   }
 

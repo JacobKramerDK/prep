@@ -417,7 +417,7 @@ ipcMain.handle('calendar:performManualSync', async () => {
 })
 
 ipcMain.handle('calendar:startDailySync', async () => {
-  return await calendarSyncScheduler.startDailySync()
+  return calendarSyncResultToIPC(await calendarSyncScheduler.startDailySync())
 })
 
 ipcMain.handle('calendar:stopDailySync', async () => {
