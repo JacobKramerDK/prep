@@ -324,6 +324,34 @@ export const MeetingTranscription: React.FC<MeetingTranscriptionProps> = ({ onNa
             noiseSuppression: true
           }
         })
+        
+        // Set up audio level monitoring for microphone-only recording
+        try {
+          const audioContext = new AudioContext()
+          if (audioContext.state === 'suspended') {
+            await audioContext.resume()
+          }
+          
+          const micSource = audioContext.createMediaStreamSource(stream)
+          const micAnalyser = audioContext.createAnalyser()
+          micAnalyser.fftSize = 256
+          micSource.connect(micAnalyser)
+          
+          const micDataArray = new Uint8Array(micAnalyser.frequencyBinCount)
+          
+          const updateAudioLevels = () => {
+            micAnalyser.getByteFrequencyData(micDataArray)
+            const micLevel = Math.max(...micDataArray) / 255
+            setAudioLevels({ mic: micLevel, system: 0 })
+          }
+          
+          updateAudioLevelsRef.current = updateAudioLevels
+          setAudioContext(audioContext)
+        } catch (audioError) {
+          console.warn('Failed to set up audio level monitoring for microphone-only recording:', audioError)
+          // Continue without audio level monitoring - recording will still work
+          updateAudioLevelsRef.current = null
+        }
         setAudioStream(stream)
       }
       
