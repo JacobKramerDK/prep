@@ -136,6 +136,12 @@ export interface ElectronAPI {
   // Recording file cleanup settings
   getCleanupRecordingFiles: () => Promise<boolean>
   setCleanupRecordingFiles: (enabled: boolean) => Promise<void>
+  // Debug mode
+  isDebugMode: () => Promise<boolean>
+  // Dictation methods for voice input
+  saveTempAudio: (buffer: Uint8Array, path: string) => Promise<string>
+  transcribeAudio: (audioFilePath: string, model?: string) => Promise<import('./transcription').TranscriptionResult>
+  cleanupTempAudio: (tempPath: string) => Promise<void>
   // Event listeners
   onTranscriptionChunkProgress: (callback: (progress: import('./transcription').ChunkProgress) => void) => () => void
 }

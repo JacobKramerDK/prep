@@ -28,9 +28,11 @@ For EACH task in "Step by Step Tasks":
 
 #### b. Implement the task
 - Follow the detailed specifications exactly
-- Maintain consistency with existing code patterns
+- Maintain consistency with existing code patterns using Context7 MCP for best practices
+- Use existing design system with Tailwind v4 classes and patterns
 - Include proper type hints and documentation
-- Add structured logging where appropriate
+- Add structured logging using `src/renderer/utils/debug.ts` for renderer or `Debug` class for main process
+- Ensure cross-platform compatibility (Windows and macOS)
 
 #### c. Verify as you go
 - After each file change, check syntax
@@ -60,7 +62,10 @@ npm run test:helpers
 # Level 3: Stable E2E Testing
 npm run test:e2e:stable
 
-# Level 4: Specific Feature Testing (if applicable)
+# Level 4: Cross-Platform Build Testing
+npm run package  # Test packaging for both Windows and macOS
+
+# Level 5: Specific Feature Testing (if applicable)
 npm run test:e2e:stable -- --grep "feature-pattern"
 
 # Run any additional commands specified in the plan
@@ -109,6 +114,10 @@ Provide summary:
 
 ## Notes
 
+- Use Context7 MCP to query best practices for code patterns and implementation approaches
+- Follow existing Tailwind v4 design system patterns from the codebase
+- Use proper debug logging: `debugLog('PREFIX', 'message', data)` in renderer, `Debug.log()` in main process
+- Ensure all features work on both Windows and macOS platforms
 - If you encounter issues not addressed in the plan, document them
 - If you need to deviate from the plan, explain why
 - If tests fail, fix implementation until they pass

@@ -4,6 +4,7 @@ import type { Meeting } from '../../shared/types/meeting'
 import { BriefGenerationRequest } from '../../shared/types/brief'
 import { ContextPreview } from './ContextPreview'
 import { useContextRetrieval } from '../hooks/useContextRetrieval'
+import { VoiceDictationButton } from './VoiceDictationButton'
 
 interface Props {
   meeting: Meeting
@@ -87,6 +88,30 @@ export const BriefGenerator: React.FC<Props> = ({
     setFormData(prev => ({ ...prev, [field]: value }))
   }
 
+  const handleDictationTranscript = (transcript: string) => {
+    // Debug logging for dictation integration
+    if (window.electronAPI?.isDebugMode) {
+      console.log('[BRIEF-GENERATOR] Dictation transcript received', JSON.stringify({
+        transcriptLength: transcript.length,
+        transcriptPreview: transcript.substring(0, 100),
+        currentContextLength: formData.userContext.length,
+        willAppend: !!formData.userContext
+      }, null, 2))
+    }
+    
+    setFormData(prev => ({ 
+      ...prev, 
+      userContext: prev.userContext ? `${prev.userContext} ${transcript}` : transcript 
+    }))
+    
+    // Log final result
+    if (window.electronAPI?.isDebugMode) {
+      console.log('[BRIEF-GENERATOR] Context updated after dictation', JSON.stringify({
+        newContextLength: formData.userContext.length + transcript.length + (formData.userContext ? 1 : 0)
+      }, null, 2))
+    }
+  }
+
   if (inline) {
     return (
       <div className="mt-4 p-4 bg-surface border border-border rounded-lg">
@@ -138,15 +163,21 @@ export const BriefGenerator: React.FC<Props> = ({
               <label className="block text-sm font-medium text-primary mb-1">
                 Context <span className="text-tertiary font-normal">(Optional)</span>
               </label>
-              <textarea
-                value={formData.userContext}
-                onChange={(e) => handleInputChange('userContext', e.target.value)}
-                placeholder="Provide any relevant context for your meeting: purpose, key topics, attendees, objectives, or any other details that would help generate a comprehensive brief."
-                className="w-full p-2 border border-border rounded-lg text-sm bg-background text-primary placeholder-tertiary resize-vertical min-h-[80px] disabled:opacity-60"
-                disabled={isGenerating}
-                rows={4}
-                data-testid="context-textarea"
-              />
+              <div className="relative">
+                <textarea
+                  value={formData.userContext}
+                  onChange={(e) => handleInputChange('userContext', e.target.value)}
+                  placeholder="Provide any relevant context for your meeting: purpose, key topics, attendees, objectives, or any other details that would help generate a comprehensive brief."
+                  className="w-full p-2 pr-12 border border-border rounded-lg text-sm bg-background text-primary placeholder-tertiary resize-vertical min-h-[80px] disabled:opacity-60"
+                  disabled={isGenerating}
+                  rows={4}
+                  data-testid="context-textarea"
+                />
+                <VoiceDictationButton 
+                  onTranscript={handleDictationTranscript}
+                  disabled={isGenerating}
+                />
+              </div>
             </div>
 
             {/* Context Integration Section */}

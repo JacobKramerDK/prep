@@ -1174,10 +1174,158 @@ ipcMain.handle('transcription:saveToObsidian', async (_, transcriptContent: stri
   }
 })
 
+// Dictation IPC handlers for voice input
+ipcMain.handle('transcription:save-temp-audio', async (_, { buffer, path: tempPath }: { buffer: Uint8Array, path: string }) => {
+  Debug.log('[DICTATION-IPC] Save temp audio request received', {
+    bufferSize: buffer.length,
+    tempPath,
+    bufferSizeMB: (buffer.length / 1024 / 1024).toFixed(2)
+  })
+  
+  try {
+    const tempDir = path.join(os.tmpdir(), 'prep-dictation')
+    Debug.log('[DICTATION-IPC] Creating temp directory:', tempDir)
+    await fs.mkdir(tempDir, { recursive: true })
+    
+    const fullPath = path.join(tempDir, tempPath)
+    Debug.log('[DICTATION-IPC] Writing audio file to:', fullPath)
+    
+    // Convert Uint8Array to Buffer for file writing
+    const nodeBuffer = Buffer.from(buffer)
+    await fs.writeFile(fullPath, nodeBuffer)
+    
+    // Verify file was written
+    const stats = await fs.stat(fullPath)
+    Debug.log('[DICTATION-IPC] Audio file saved successfully', {
+      fullPath,
+      fileSize: stats.size,
+      fileSizeMB: (stats.size / 1024 / 1024).toFixed(2)
+    })
+    
+    return fullPath
+  } catch (error) {
+    Debug.error('[DICTATION-IPC] Failed to save temp audio file:', error)
+    throw error
+  }
+})
+
+ipcMain.handle('transcription:transcribe-audio', async (_, { audioFilePath, model }: { audioFilePath: string, model?: string }) => {
+  Debug.log('[DICTATION-IPC] Transcribe audio request received', {
+    audioFilePath,
+    model: model || 'default',
+    hasTranscriptionService: !!transcriptionService
+  })
+  
+  try {
+    if (!transcriptionService) {
+      const errorMsg = 'Transcription service not available. Please configure OpenAI API key.'
+      Debug.error('[DICTATION-IPC] Transcription service not available')
+      throw new Error(errorMsg)
+    }
+    
+    // Check if file exists and get stats
+    const stats = await fs.stat(audioFilePath)
+    Debug.log('[DICTATION-IPC] Audio file stats', {
+      exists: true,
+      size: stats.size,
+      sizeMB: (stats.size / 1024 / 1024).toFixed(2),
+      isFile: stats.isFile()
+    })
+    
+    Debug.log('[DICTATION-IPC] Starting transcription with service...')
+    const result = await transcriptionService.transcribeFile(audioFilePath, model)
+    
+    Debug.log('[DICTATION-IPC] Transcription completed', {
+      hasText: !!result.text,
+      textLength: result.text?.length || 0,
+      textPreview: result.text?.substring(0, 100) || 'No text',
+      model: result.model,
+      language: result.language,
+      duration: result.duration
+    })
+    
+    return result
+  } catch (error) {
+    Debug.error('[DICTATION-IPC] Failed to transcribe audio for dictation:', error)
+    throw error
+  }
+})
+
+ipcMain.handle('transcription:cleanup-temp-audio', async (_, tempPath: string) => {
+  Debug.log('[DICTATION-IPC] Cleanup temp audio request received', { tempPath })
+  
+  try {
+    // tempPath is now the full path, use it directly
+    Debug.log('[DICTATION-IPC] Attempting to delete temp file:', tempPath)
+    
+    // Check if file exists before trying to delete
+    try {
+      await fs.access(tempPath)
+      Debug.log('[DICTATION-IPC] Temp file exists, proceeding with deletion')
+    } catch {
+      Debug.log('[DICTATION-IPC] Temp file does not exist, skipping deletion')
+      return
+    }
+    
+    await fs.unlink(tempPath)
+    Debug.log('[DICTATION-IPC] Temp file deleted successfully')
+  } catch (error) {
+    // Ignore cleanup errors but log them for debugging
+    Debug.log('[DICTATION-IPC] Temp audio cleanup failed (non-critical):', error)
+  }
+})
+
+// Debug mode IPC handler
+ipcMain.handle('debug:isEnabled', async () => {
+  return Debug.isEnabled()
+})
+
+// Periodic cleanup of old temp files (run every 10 minutes)
+const cleanupOldTempFiles = async () => {
+  try {
+    const tempDir = path.join(os.tmpdir(), 'prep-dictation')
+    const files = await fs.readdir(tempDir).catch(() => [])
+    const now = Date.now()
+    
+    for (const file of files) {
+      if (file.startsWith('temp-dictation-')) {
+        const filePath = path.join(tempDir, file)
+        const stats = await fs.stat(filePath).catch(() => null)
+        if (stats && (now - stats.mtime.getTime()) > 10 * 60 * 1000) { // 10 minutes old
+          Debug.log('[DICTATION-CLEANUP] Removing old temp file:', filePath)
+          await fs.unlink(filePath).catch(() => {})
+        }
+      }
+    }
+  } catch (error) {
+    Debug.log('[DICTATION-CLEANUP] Periodic cleanup failed (non-critical):', error)
+  }
+}
+
+// Start periodic cleanup
+const cleanupInterval = setInterval(cleanupOldTempFiles, 10 * 60 * 1000) // Every 10 minutes
+
 // Cleanup on app exit
 app.on('before-quit', async () => {
+  // Clear periodic cleanup interval
+  clearInterval(cleanupInterval)
+  
   calendarSyncScheduler.dispose()
   if (transcriptionService) {
     await transcriptionService.cleanup()
+  }
+  
+  // Final cleanup of all temp dictation files
+  try {
+    const tempDir = path.join(os.tmpdir(), 'prep-dictation')
+    const files = await fs.readdir(tempDir).catch(() => [])
+    Debug.log('[DICTATION-CLEANUP] Final cleanup of temp files:', files.length)
+    for (const file of files) {
+      if (file.startsWith('temp-dictation-')) {
+        await fs.unlink(path.join(tempDir, file)).catch(() => {})
+      }
+    }
+  } catch (error) {
+    Debug.log('[DICTATION-CLEANUP] Final cleanup failed (non-critical):', error)
   }
 })

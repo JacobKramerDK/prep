@@ -46,6 +46,33 @@ export class TestDataFactory {
     }
   }
 
+  static generateVoiceDictationMocks() {
+    return {
+      mockAudioBlob: new Blob(['test-audio-data'], { type: 'audio/webm' }),
+      mockTranscriptionResult: {
+        id: `transcription-${randomUUID()}`,
+        text: 'This is a test transcription from voice dictation',
+        model: 'whisper-1',
+        language: 'en',
+        duration: 5.2,
+        createdAt: new Date()
+      },
+      mockDictationCapabilities: {
+        hasOpenAIConfig: true,
+        hasMicrophonePermission: true,
+        isAvailable: true
+      },
+      mockDictationState: {
+        isRecording: false,
+        isProcessing: false,
+        error: null,
+        transcript: '',
+        isPartialResult: false,
+        hasPermissions: true
+      }
+    }
+  }
+
   static generateCalendarEvent(overrides: Partial<CalendarEvent> = {}): CalendarEvent {
     const baseEvent: CalendarEvent = {
       id: randomUUID(),

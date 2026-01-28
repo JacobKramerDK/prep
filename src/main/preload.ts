@@ -268,6 +268,12 @@ const electronAPI: ElectronAPI = {
   // Recording file cleanup settings
   getCleanupRecordingFiles: () => ipcRenderer.invoke('transcription:getCleanupRecordingFiles'),
   setCleanupRecordingFiles: (enabled: boolean) => ipcRenderer.invoke('transcription:setCleanupRecordingFiles', enabled),
+  // Debug mode
+  isDebugMode: () => ipcRenderer.invoke('debug:isEnabled'),
+  // Dictation methods for voice input
+  saveTempAudio: (buffer: Uint8Array, path: string) => ipcRenderer.invoke('transcription:save-temp-audio', { buffer, path }),
+  transcribeAudio: (audioFilePath: string, model?: string) => ipcRenderer.invoke('transcription:transcribe-audio', { audioFilePath, model }),
+  cleanupTempAudio: (tempPath: string) => ipcRenderer.invoke('transcription:cleanup-temp-audio', tempPath),
   // Event listeners
   onTranscriptionChunkProgress: (callback: (progress: any) => void) => {
     const listener = (_event: any, progress: any) => callback(progress)

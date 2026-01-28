@@ -92,11 +92,12 @@ So that <benefit/value>
 
 **Documentation Gathering:**
 
-- Research latest library versions and best practices if possible use the context 7 mcp
+- Research latest library versions and best practices using Context7 MCP for established patterns
 - Find official documentation with specific section anchors
 - Locate implementation examples and tutorials
 - Identify common gotchas and known issues
 - Check for breaking changes and migration guides
+- Query Context7 MCP for framework-specific best practices and implementation patterns
 
 **Technology Trends:**
 
@@ -136,6 +137,9 @@ So that <benefit/value>
 - Design for extensibility and future modifications
 - Plan for backward compatibility if needed
 - Consider scalability implications
+- Ensure cross-platform compatibility (Windows and macOS)
+- Use existing Tailwind v4 design system patterns and classes
+- Follow established UI/UX patterns from the codebase
 
 ### Phase 5: Plan Structure Generation
 
@@ -206,11 +210,21 @@ So that <benefit/value>
 
 <Specific patterns extracted from codebase - include actual code examples from the project>
 
+**Cross-Platform Considerations:**
+- Windows and macOS compatibility requirements
+- Platform-specific file paths and system calls
+- Native module compatibility
+
+**Design System Patterns:**
+- Existing Tailwind v4 classes and component patterns
+- UI consistency with established design system
+- Responsive design patterns
+
 **Naming Conventions:** (for example)
 
 **Error Handling:** (for example)
 
-**Logging Pattern:** (for example)
+**Logging Pattern:** (Use `debugLog('PREFIX', 'message', data)` in renderer, `Debug.log()` in main process)
 
 **Other Relevant Patterns:** (for example)
 
@@ -370,6 +384,13 @@ Execute every command to ensure zero regressions and 100% feature correctness.
 ## NOTES
 
 <Additional context, design decisions, trade-offs>
+
+**Implementation Guidelines:**
+- Use Context7 MCP for researching best practices and implementation patterns
+- Follow existing Tailwind v4 design system patterns and classes
+- Ensure cross-platform compatibility (Windows and macOS)
+- Use proper debug logging: `debugLog('PREFIX', 'message', data)` in renderer, `Debug.log()` in main process
+- Maintain consistency with existing codebase patterns and conventions
 ```
 
 ## Output Format
