@@ -96,6 +96,29 @@
 3. Click **stop** when finished
 4. Review and edit the transcribed text
 
+## 🎯 Context Retrieval & Relevance Scoring
+
+### How It Works
+Prep uses **FlexSearch** to intelligently find relevant notes from your Obsidian vault:
+
+1. **Full-Text Indexing**: All markdown files are indexed by title, content, tags, and frontmatter
+2. **Smart Search**: Combines meeting participants, topics, and keywords to find relevant context
+3. **Relevance Scoring**: Each match gets a score based on customizable weights:
+   - **Title Match** (40%): Keywords found in note titles
+   - **Content Match** (30%): Keywords found in note content  
+   - **Tags Match** (20%): Matching tags or categories
+   - **Attendees Match** (10%): Meeting participants mentioned in notes
+   - **FlexSearch Bonus** (20%): Boost for high-quality search matches
+   - **Recency Bonus** (15%): Newer notes get slight preference
+
+### Customizing Relevance Weights
+1. Go to **Settings > Context Retrieval**
+2. Adjust sliders for each scoring factor
+3. Click **"Save Weights"**
+4. **Changes apply immediately** to new meeting brief generations
+
+**Tip**: Increase "Title Match" weight if you use descriptive note titles, or boost "Tags Match" if you rely heavily on tagging.
+
 ## ⚙️ Configuration
 
 ### System Requirements
