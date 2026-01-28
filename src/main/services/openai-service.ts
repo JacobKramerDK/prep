@@ -113,7 +113,7 @@ export class OpenAIService {
         messages: [
           {
             role: 'system',
-            content: 'You are a professional meeting preparation assistant. Generate comprehensive, well-structured meeting briefs that help users prepare effectively.'
+            content: 'You are a professional meeting preparation assistant. Generate comprehensive, well-structured meeting briefs using this context hierarchy:\n\n1. PRIORITIZE user-provided context as the primary source of meeting objectives and focus areas\n2. USE historical context as supporting background information to enrich the brief\n3. INTEGRATE insights by connecting relevant historical information to current meeting goals\n4. FOCUS on actionable preparation items based on the user\'s stated context\n\nAlways distinguish between what the user wants to accomplish (primary) and what historical information supports that goal (secondary).'
           },
           {
             role: 'user',
@@ -203,19 +203,19 @@ export class OpenAIService {
       sections.push(customTemplate)
     } else {
       sections.push(
-        'Please generate a comprehensive meeting brief that includes:',
-        '1. **Executive Summary** - Brief overview of the meeting purpose and expected outcomes',
-        '2. **Key Discussion Points** - Main topics to be covered based on the context provided',
-        '3. **Preparation Checklist** - Specific items the user should prepare or review beforehand',
-        '4. **Questions to Consider** - Thoughtful questions to drive productive discussion',
-        '5. **Success Metrics** - How to measure if the meeting was successful',
+        'Generate a comprehensive meeting brief with these sections:',
+        '1. **Executive Summary** - Brief overview focusing on user-stated objectives',
+        '2. **Key Discussion Points** - Main topics based on user context, enhanced by historical insights',
+        '3. **Preparation Checklist** - Specific items to prepare based on user goals and relevant background',
+        '4. **Strategic Questions** - Thoughtful questions connecting current objectives with historical context',
+        '5. **Success Metrics** - How to measure meeting success based on user-stated goals',
         '',
-        'Pay special attention to:',
-        '- **User-provided context**: Direct input from the user about meeting goals and expectations',
-        '- **Historical context**: Relevant information from past notes that may inform this meeting',
-        '- **Integration**: Connect historical insights with current meeting objectives',
+        'Context Usage Guidelines:',
+        '- **User Context = Primary**: This defines the meeting focus and objectives',
+        '- **Historical Context = Supporting**: Use this to enrich and inform the primary objectives',
+        '- **Integration**: Connect past insights to current goals, don\'t just summarize history',
         '',
-        'Format the response in clear markdown with proper headings and bullet points. Keep it professional, actionable, and tailored to the specific meeting context provided.'
+        'Format in clear markdown with proper headings and bullet points. Provide a complete, self-contained brief without offering additional services or asking for further input.'
       )
     }
     
@@ -233,8 +233,8 @@ export class OpenAIService {
                          request.additionalNotes
     
     if (hasUserInputs) {
-      sections.push('', '## User-Provided Context')
-      sections.push('The following context and details were provided by the user:')
+      sections.push('', '## 🎯 PRIMARY CONTEXT: Your Meeting Focus')
+      sections.push('This represents your main objectives and context for this meeting:')
       sections.push('')
       
       if (request.userContext) {
@@ -262,8 +262,8 @@ export class OpenAIService {
     
     // 3. Historical context from Obsidian vault
     if (request.includeContext && request.contextMatches && request.contextMatches.length > 0) {
-      sections.push('', '## Historical Context from Your Notes')
-      sections.push('The following information was automatically retrieved from your Obsidian vault based on meeting participants, topics, and timing:')
+      sections.push('', '## 📚 SUPPORTING CONTEXT: Relevant Historical Information')
+      sections.push('Use this background information to enrich your meeting preparation:')
       sections.push('')
       
       request.contextMatches.forEach((match, index) => {
@@ -280,6 +280,10 @@ export class OpenAIService {
         }
         sections.push('')
       })
+      
+      // Add integration guidance at the end of historical context section
+      sections.push('', '## 🔗 Integration Instructions')
+      sections.push('Connect the historical insights above with your primary meeting objectives. Focus on how past information can help achieve today\'s goals rather than just summarizing history.')
     }
     
     const finalPrompt = sections.filter(line => line !== null).join('\n')
