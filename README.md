@@ -8,11 +8,181 @@
 
 ### Key Features
 - **Obsidian Vault Integration**: Direct connection to existing markdown note systems
-- **Calendar Parsing**: Automatic meeting detection and context association  
+- **Calendar Integration**: Google Calendar (multi-account) and Apple Calendar support
 - **AI-Powered Meeting Briefs**: Comprehensive preparation summaries using OpenAI
 - **Meeting Transcription**: Real-time audio recording and AI-powered transcription using Whisper
-- **Audio Transcription**: Post-meeting summary generation using Whisper
+- **Voice Dictation**: Real-time voice input for meeting brief generation
 - **Cross-Platform**: Native desktop experience on macOS and Windows
+
+## 📦 Installation
+
+### Download Latest Release
+
+**Current Version: v0.1.0**
+
+#### macOS
+- **Universal Binary**: [Prep-0.1.0-arm64.dmg](https://github.com/JacobKramerDK/prep/releases/latest) (139 MB)
+- **Requirements**: macOS 10.12+ (Sierra or later)
+
+#### Windows
+- **Installer**: [Prep Setup 0.1.0.exe](https://github.com/JacobKramerDK/prep/releases/latest) (219 MB)
+- **Requirements**: Windows 10 or later (x64)
+
+### Installation Steps
+
+1. **Download** the appropriate installer for your platform
+2. **Install** by running the downloaded file
+3. **Launch** Prep from Applications (macOS) or Start Menu (Windows)
+
+## 🚀 Getting Started
+
+### First-Time Setup
+
+#### 1. Connect Your Obsidian Vault
+1. Open Prep and go to **Settings**
+2. Click **"Select Vault Folder"**
+3. Choose your Obsidian vault directory
+4. Wait for indexing to complete (shows progress)
+
+#### 2. Set Up Calendar Integration
+
+**Google Calendar:**
+1. **Get Google OAuth Credentials** (Required):
+   - Visit [Google Cloud Console](https://console.cloud.google.com/)
+   - Create a new project or select existing one
+   - Enable Google Calendar API
+   - Create OAuth 2.0 credentials (Desktop application)
+   - Add `http://localhost:8080/oauth/callback` as redirect URI
+2. Go to **Settings > Calendar** in Prep
+3. Add your **Client ID** and **Client Secret**
+4. Click **"Connect Google Calendar"**
+5. Sign in and grant permissions
+6. Select which calendars to sync
+
+**Apple Calendar (macOS only):**
+1. Go to **Settings > Calendar**
+2. Click **"Connect Apple Calendar"**
+3. Grant calendar access when prompted
+4. Select calendars to include
+
+#### 3. Configure AI Features
+1. Go to **Settings > AI Integration**
+2. Add your **OpenAI API Key**
+3. Choose transcription model (whisper-1 recommended)
+4. Set transcript save location (ideally in your vault)
+
+### Basic Usage
+
+#### Generate Meeting Briefs
+1. Go to **Home** tab
+2. Select an upcoming meeting
+3. Click **"Generate Brief"**
+4. Review AI-generated context and talking points
+5. Save to your vault or copy to clipboard
+
+#### Record and Transcribe Meetings
+1. Go to **Transcription** tab
+2. Choose recording type:
+   - **Microphone Only**: Your voice only
+   - **Full Meeting**: Capture all audio (requires permissions)
+3. Click **"Start Recording"**
+4. Click **"Stop Recording"** when done
+5. Wait for AI transcription
+6. Save transcript to your vault
+
+#### Voice Dictation
+1. In any text field, click the **microphone icon**
+2. Speak your input
+3. Click **stop** when finished
+4. Review and edit the transcribed text
+
+## ⚙️ Configuration
+
+### System Requirements
+
+**macOS:**
+- macOS 10.12+ (Sierra or later)
+- 4GB RAM minimum, 8GB recommended
+- 500MB free disk space
+
+**Windows:**
+- Windows 10 or later
+- 4GB RAM minimum, 8GB recommended
+- 500MB free disk space
+
+### Required API Keys
+
+**OpenAI API Key** (Required for AI features):
+1. Visit [OpenAI API Keys](https://platform.openai.com/api-keys)
+2. Create new secret key
+3. Add to Prep Settings > AI Integration
+4. Estimated cost: $0.10-$1.00 per hour of transcription
+
+**Google OAuth Credentials** (Required for Google Calendar):
+1. Visit [Google Cloud Console](https://console.cloud.google.com/)
+2. Create project and enable Google Calendar API
+3. Create OAuth 2.0 credentials (Desktop application)
+4. Add `http://localhost:8080/oauth/callback` as redirect URI
+5. Add Client ID and Secret to Prep Settings > Calendar
+
+### Optional Enhancements
+
+**FFmpeg** (For long audio recordings):
+```bash
+# macOS
+brew install ffmpeg
+
+# Windows (via Chocolatey)
+choco install ffmpeg
+```
+
+**Custom Google OAuth** (Alternative credentials):
+1. Create `.env` file next to Prep executable
+2. Add your credentials:
+   ```
+   GOOGLE_CLIENT_ID=your_client_id
+   GOOGLE_CLIENT_SECRET=your_client_secret
+   ```
+
+## 🔧 Troubleshooting
+
+### Common Issues
+
+**Calendar Not Syncing:**
+- Check internet connection
+- Re-authenticate in Settings > Calendar
+- Ensure calendar permissions are granted
+
+**Transcription Fails:**
+- Verify OpenAI API key is valid
+- Check audio file size (<25MB limit)
+- Ensure microphone permissions granted
+
+**Vault Not Loading:**
+- Verify folder contains .md files
+- Check folder permissions
+- Try re-selecting vault folder
+
+**App Won't Start:**
+- Restart your computer
+- Check antivirus isn't blocking the app
+- Run as administrator (Windows)
+
+### Getting Help
+
+- **Bug Reports**: [GitHub Issues](https://github.com/JacobKramerDK/prep/issues)
+- **Feature Requests**: [GitHub Discussions](https://github.com/JacobKramerDK/prep/discussions)
+
+## 🔒 Privacy & Security
+
+- **Local Processing**: Vault indexing happens locally
+- **API Calls**: Only OpenAI for transcription/briefs
+- **No Data Collection**: No analytics or tracking
+- **Secure Storage**: API keys encrypted locally
+
+---
+
+## 👨‍💻 Development
 
 ## Prerequisites
 
@@ -51,21 +221,6 @@ npm run package
 ## Meeting Transcription
 
 **Prep** includes real-time meeting transcription capabilities powered by OpenAI's Whisper API.
-
-### Google Calendar Integration
-
-The app comes with **built-in Google OAuth credentials** for immediate Google Calendar access. No setup required!
-
-**Want to use your own Google credentials?** 
-1. Create a `.env` file next to the Prep executable
-2. Add your custom `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET`
-3. See `.env.example` for detailed instructions
-
-**Why use custom credentials?**
-- Control your own API quotas and billing
-- Use company-managed Google Cloud Projects
-- Enhanced privacy and security for enterprise use
-- Compliance with organizational policies
 
 ### How It Works
 
@@ -186,7 +341,7 @@ The project uses TypeScript project references for optimal build performance:
 
 #### Stable E2E Testing
 ```bash
-# Run all stable e2e tests (23 tests, 100% pass rate)
+# Run all stable e2e tests (49 tests, 100% pass rate)
 npm run test:e2e:stable
 
 # Install Playwright browsers (first time only)
@@ -302,9 +457,9 @@ This project was built for the **Dynamous Kiro Hackathon** (January 5-23, 2026) 
 
 ### Development Timeline
 - **Phase 1**: Electron application scaffolding ✅
-- **Phase 2**: Obsidian vault integration (planned)
-- **Phase 3**: Calendar parsing functionality (planned)  
-- **Phase 4**: AI meeting brief generation (planned)
-- **Phase 5**: Audio transcription features (planned)
+- **Phase 2**: Obsidian vault integration ✅
+- **Phase 3**: Calendar integration functionality ✅  
+- **Phase 4**: AI meeting brief generation ✅
+- **Phase 5**: Audio transcription features ✅
 
-**Ready to build something amazing?** The foundation is set - time to implement the core meeting preparation features! 🚀
+**Ready to build something amazing?** The foundation is set and core features are implemented! 🚀

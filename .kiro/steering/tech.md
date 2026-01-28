@@ -1,14 +1,19 @@
 # Technical Architecture
 
 ## Technology Stack
-- **Frontend**: React with TypeScript, Tailwind CSS for styling
+- **Frontend**: React 19 with TypeScript, Tailwind CSS v4 for styling
 - **Backend**: Node.js with TypeScript for main process logic
-- **Desktop Framework**: Electron for cross-platform desktop application
+- **Desktop Framework**: Electron v35.7.5 for cross-platform desktop application
 - **Data Storage**: electron-store for local settings and preferences persistence
-- **Calendar Integration**: node-ical for parsing ICS calendar files
-- **AI Services**: OpenAI API for meeting brief generation, Whisper API for audio transcription
-- **Build System**: electron-builder for packaging and distribution
-- **Development Tools**: TypeScript, ESLint, Prettier for code quality
+- **Calendar Integration**: googleapis for Google Calendar, ical.js for parsing, applescript for macOS
+- **AI Services**: OpenAI API v6.16.0 for meeting brief generation, Whisper API for audio transcription
+- **Audio Processing**: fluent-ffmpeg, ffmpeg-static, node-record-lpcm16 for recording and chunking
+- **Search & Indexing**: flexsearch for vault content indexing and retrieval
+- **File Processing**: gray-matter for markdown frontmatter, react-markdown for rendering
+- **Scheduling**: node-schedule for calendar sync automation, chokidar for file watching
+- **Native Integration**: Swift calendar helper for macOS system calendar access
+- **Build System**: electron-builder for packaging and distribution, Vite for renderer bundling
+- **Development Tools**: TypeScript v5.6.0, Playwright for E2E testing, Jest for unit tests
 
 ## Architecture Overview
 **Electron Multi-Process Architecture**:
@@ -18,10 +23,14 @@
 
 **Core Components**:
 - **Vault Manager**: Indexes and searches Obsidian markdown files
-- **Calendar Parser**: Processes ICS files to extract meeting information
+- **Calendar Manager**: Processes Google Calendar and Apple Calendar integration
+- **Multi-Account Google Manager**: Handles multiple Google accounts with real-time notifications
 - **Context Engine**: Matches meeting participants/topics with relevant vault content
 - **AI Brief Generator**: Creates meeting preparation documents using OpenAI
-- **Audio Processor**: Handles post-meeting transcription via Whisper API
+- **Audio Processor**: Handles post-meeting transcription via Whisper API with chunking support
+- **Swift Calendar Manager**: Native macOS calendar access via compiled Swift helper
+- **Notification Service**: Real-time calendar event notifications
+- **Calendar Sync Scheduler**: Automated daily calendar synchronization
 - **Settings Manager**: Persists user preferences and vault/calendar configurations
 
 ## Development Environment
@@ -42,7 +51,7 @@
 - **Documentation**: JSDoc comments for complex functions and APIs
 
 ## Testing Strategy
-- **Stable E2E Testing**: Playwright tests in `tests/e2e-stable/` with proper test isolation and mocked dependencies (23 tests, 100% pass rate)
+- **Stable E2E Testing**: Playwright tests in `tests/e2e-stable/` with proper test isolation and mocked dependencies (49 tests, 100% pass rate)
 - **Helper Utilities Testing**: Jest tests for test utilities and factories in `tests/helpers/` (18 tests)
 - **Test Isolation**: Each test gets fresh Electron app instance to prevent state pollution
 - **Mocked Dependencies**: External APIs (OpenAI, Calendar) mocked to eliminate network dependencies

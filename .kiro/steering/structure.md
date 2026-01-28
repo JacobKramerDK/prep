@@ -6,29 +6,36 @@ prep/
 ├── src/
 │   ├── main/                 # Electron main process
 │   │   ├── index.ts         # Main entry point
-│   │   ├── vault-manager.ts # Obsidian vault operations
-│   │   ├── calendar-parser.ts # ICS file processing
-│   │   ├── ai-service.ts    # OpenAI/Whisper integration
-│   │   └── ipc-handlers.ts  # IPC communication handlers
+│   │   ├── preload.ts       # Secure IPC preload script
+│   │   └── services/        # 20 specialized services
+│   │       ├── vault-manager.ts # Obsidian vault operations
+│   │       ├── calendar-manager.ts # Calendar integration
+│   │       ├── multi-account-google-manager.ts # Multi-account Google
+│   │       ├── openai-service.ts # AI integration
+│   │       ├── transcription-service.ts # Audio transcription
+│   │       ├── swift-calendar-manager.ts # macOS native calendar
+│   │       ├── notification-service.ts # Real-time notifications
+│   │       ├── calendar-sync-scheduler.ts # Automated sync
+│   │       └── ... # 12 additional services
 │   ├── renderer/            # React frontend
-│   │   ├── components/      # React components
-│   │   ├── pages/          # Main application pages
-│   │   ├── hooks/          # Custom React hooks
+│   │   ├── components/      # 26 React components
+│   │   ├── hooks/          # 7 custom React hooks
 │   │   ├── utils/          # Frontend utilities
-│   │   ├── types/          # TypeScript type definitions
 │   │   └── index.tsx       # React entry point
 │   └── shared/             # Shared types and utilities
-│       ├── types/          # Common TypeScript interfaces
-│       └── constants/      # Shared constants
+│       ├── types/          # 24 TypeScript interfaces
+│       └── utils/          # Shared utilities
+├── native/                 # Swift calendar helper
+│   ├── CalendarHelper.swift # macOS calendar integration
+│   ├── build.sh           # Build script
+│   └── precompiled/       # Pre-built binaries
 ├── tests/
 │   ├── e2e-stable/        # Stable, isolated E2E tests (recommended)
 │   ├── helpers/           # Test utilities and factories
-│   ├── config/           # Test environment configuration
-│   └── fixtures/         # Test fixtures
+│   └── config/           # Test environment configuration
+├── resources/             # Native binaries and assets
 ├── build/                 # Build configuration
 ├── dist/                  # Compiled output
-├── assets/               # Static assets (icons, images)
-├── docs/                 # Documentation
 └── .kiro/               # Kiro CLI configuration
 ```
 
@@ -45,6 +52,7 @@ prep/
 - **Shared**: Common types, utilities, and constants used by both processes
 - **IPC Layer**: Secure communication bridge between main and renderer
 - **Services**: Modular services for vault management, AI integration, calendar parsing
+- **Native**: Swift calendar helper for macOS system integration
 
 ## Configuration Files
 - **package.json**: Dependencies and build scripts
@@ -78,3 +86,10 @@ prep/
 - **.env.production**: Production build configuration
 - **src/shared/config.ts**: Environment-aware configuration
 - **build/**: Platform-specific build configurations
+
+## Testing Infrastructure
+- **Stable E2E Tests**: `tests/e2e-stable/` - Reliable, isolated tests using `npm run test:e2e:stable`
+- **Helper Utilities**: `tests/helpers/` - Test utilities and factories using `npm run test:helpers`
+- **Test Isolation**: Each test gets fresh Electron app instance to prevent state pollution
+- **Mocked Dependencies**: External APIs (OpenAI, Calendar) are mocked to eliminate network dependencies
+- **Data Test IDs**: UI components use `data-testid` attributes for reliable test selectors
