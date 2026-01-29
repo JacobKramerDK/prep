@@ -45,6 +45,12 @@ export class AudioProcessor {
     sampleRate: process.env.AUDIO_SAMPLE_RATE || '44100'
   }
 
+  // Configurable WebM bitrate estimation (in bps)
+  private static readonly WEBM_BITRATE_ESTIMATES = {
+    mono: parseInt(process.env.WEBM_MONO_BITRATE || '48000'),
+    stereo: parseInt(process.env.WEBM_STEREO_BITRATE || '96000')
+  }
+
   /**
    * Initialize FFmpeg path
    */
@@ -157,7 +163,7 @@ export class AudioProcessor {
    */
   static async getAudioMetadata(filePath: string): Promise<AudioMetadata> {
     if (!this.isFFmpegAvailable()) {
-      // Fallback to basic metadata
+      Debug.log('FFmpeg not available, using basic metadata')
       const stats = fs.statSync(filePath)
       return {
         duration: 0,
@@ -175,6 +181,7 @@ export class AudioProcessor {
 
     for (const ffprobePath of possiblePaths) {
       try {
+        Debug.log(`Trying FFprobe: ${ffprobePath}`)
         const result = await this.runCommand(ffprobePath, [
           '-v', 'quiet',
           '-print_format', 'json',
@@ -183,28 +190,115 @@ export class AudioProcessor {
           filePath
         ])
 
-        if (result.success && result.stdout.trim()) {
-          const metadata = JSON.parse(result.stdout)
-          const audioStream = metadata.streams?.find((s: any) => s.codec_type === 'audio')
-          const stats = fs.statSync(filePath)
+        Debug.log(`FFprobe result - success: ${result.success}, stdout length: ${result.stdout.length}, stderr: ${result.stderr}`)
 
-          return {
-            duration: parseFloat(metadata.format?.duration || '0'),
-            format: metadata.format?.format_name || 'unknown',
-            size: stats.size,
-            bitrate: audioStream?.bit_rate ? parseInt(audioStream.bit_rate) : undefined,
-            sampleRate: audioStream?.sample_rate ? parseInt(audioStream.sample_rate) : undefined,
-            channels: audioStream?.channels || undefined
+        if (result.success && result.stdout.trim()) {
+          try {
+            const metadata = JSON.parse(result.stdout)
+            Debug.log('FFprobe metadata parsed successfully')
+            
+            const audioStream = metadata.streams?.find((s: any) => s.codec_type === 'audio')
+            const stats = fs.statSync(filePath)
+
+            // Try multiple duration sources
+            let duration = 0
+            if (metadata.format?.duration) {
+              duration = parseFloat(metadata.format.duration)
+              Debug.log(`Duration from format: ${duration}s`)
+            } else if (audioStream?.duration) {
+              duration = parseFloat(audioStream.duration)
+              Debug.log(`Duration from audio stream: ${duration}s`)
+            } else {
+              // Try additional duration sources for WebM/container formats
+              if (metadata.format?.tags?.DURATION) {
+                const durationStr = metadata.format.tags.DURATION
+                Debug.log(`Found DURATION tag: ${durationStr}`)
+                // Validate input length to prevent ReDoS attacks
+                if (durationStr.length > 50) {
+                  Debug.log('DURATION tag too long, skipping regex parsing')
+                } else {
+                  // Parse duration strings like "00:21:14.735000000"
+                  const match = durationStr.match(/(\d+):(\d+):(\d+)\.?(\d+)?/)
+                  if (match) {
+                    const hours = parseInt(match[1])
+                    const minutes = parseInt(match[2])
+                    const seconds = parseInt(match[3])
+                    const milliseconds = match[4] ? parseInt(match[4].substring(0, Math.min(3, match[4].length))) : 0
+                    duration = hours * 3600 + minutes * 60 + seconds + milliseconds / 1000
+                    Debug.log(`Parsed duration from tag: ${duration}s`)
+                  }
+                }
+              }
+              
+              // Try calculating from bitrate and size
+              if (duration === 0 && audioStream?.bit_rate && metadata.format?.size) {
+                const bitrate = parseInt(audioStream.bit_rate)
+                const sizeBytes = parseInt(metadata.format.size)
+                if (!isNaN(bitrate) && !isNaN(sizeBytes) && bitrate > 0 && sizeBytes > 0) {
+                  duration = (sizeBytes * 8) / bitrate
+                  Debug.log(`Calculated duration from bitrate: ${duration}s (${bitrate} bps, ${sizeBytes} bytes)`)
+                } else {
+                  Debug.log('Invalid bitrate or size values, skipping bitrate calculation')
+                }
+              }
+              
+              // For WebM files without duration, estimate from file size and codec
+              if (duration === 0 && metadata.format?.format_name?.includes('webm') && metadata.format?.size) {
+                const sizeBytes = parseInt(metadata.format.size)
+                if (!isNaN(sizeBytes) && sizeBytes > 0) {
+                  // Use configurable bitrate estimates based on channel count
+                  const channels = audioStream?.channels || 1
+                  const estimatedBitrate = channels === 1 ? this.WEBM_BITRATE_ESTIMATES.mono : this.WEBM_BITRATE_ESTIMATES.stereo
+                  duration = (sizeBytes * 8) / estimatedBitrate
+                  Debug.log(`Estimated WebM duration from file size: ${duration}s (${sizeBytes} bytes, ${channels} channels, ~${estimatedBitrate/1000}kbps estimated)`)
+                } else {
+                  Debug.log('Invalid size value for WebM estimation')
+                }
+              }
+              
+              if (duration === 0) {
+                Debug.log('No duration found in format or audio stream')
+                Debug.log('Format keys:', Object.keys(metadata.format || {}))
+                Debug.log('Audio stream keys:', Object.keys(audioStream || {}))
+                Debug.log('All streams:', metadata.streams?.map((s: any) => ({ codec_type: s.codec_type, duration: s.duration })))
+              }
+            }
+
+            if (duration > 0) {
+              Debug.log(`FFprobe extracted duration: ${duration}s`)
+              return {
+                duration,
+                format: metadata.format?.format_name || 'unknown',
+                size: stats.size,
+                bitrate: audioStream?.bit_rate ? parseInt(audioStream.bit_rate) : undefined,
+                sampleRate: audioStream?.sample_rate ? parseInt(audioStream.sample_rate) : undefined,
+                channels: audioStream?.channels || undefined
+              }
+            } else {
+              Debug.log('FFprobe returned zero or invalid duration, but metadata is valid - using estimated duration')
+              // Use the estimated duration even if it's from WebM estimation
+              return {
+                duration,
+                format: metadata.format?.format_name || 'unknown',
+                size: stats.size,
+                bitrate: audioStream?.bit_rate ? parseInt(audioStream.bit_rate) : undefined,
+                sampleRate: audioStream?.sample_rate ? parseInt(audioStream.sample_rate) : undefined,
+                channels: audioStream?.channels || undefined
+              }
+            }
+          } catch (parseError) {
+            Debug.log(`Failed to parse FFprobe JSON: ${parseError}`)
           }
+        } else {
+          Debug.log(`FFprobe command failed: ${result.stderr}`)
         }
       } catch (error) {
-        Debug.log(`Failed to use ${ffprobePath}:`, error)
+        Debug.log(`Failed to execute ${ffprobePath}:`, error)
         continue
       }
     }
 
-    // Fallback to basic metadata if ffprobe fails
-    Debug.log('FFprobe not available, using basic metadata')
+    Debug.log('All FFprobe attempts failed, using basic metadata')
     const stats = fs.statSync(filePath)
     return {
       duration: 0,
@@ -280,8 +374,10 @@ export class AudioProcessor {
       const metadata = await this.getAudioMetadata(filePath)
       const totalDuration = metadata.duration
       
+      Debug.log(`Audio metadata - duration: ${totalDuration}s, size: ${(metadata.size / 1024 / 1024).toFixed(2)}MB, format: ${metadata.format}`)
+      
       if (totalDuration <= this.SEGMENT_DURATION_SECONDS && metadata.size <= this.MAX_FILE_SIZE_MB * 1024 * 1024) {
-        // No segmentation needed
+        Debug.log('No segmentation needed - file is small enough')
         return {
           segments: [{
             filePath,
@@ -307,11 +403,16 @@ export class AudioProcessor {
 
       // Use time-based segmentation if FFmpeg is available
       if (this.isFFmpegAvailable()) {
-        // If duration is unknown (0), estimate based on file size for segmentation
-        const effectiveDuration = totalDuration > 0 ? totalDuration : this.estimateDurationFromSize(metadata.size)
-        return await this.createTimeBasedSegments(workingFile, effectiveDuration)
+        if (totalDuration > 0) {
+          Debug.log(`Using FFprobe duration for time-based segmentation: ${totalDuration}s`)
+          return await this.createTimeBasedSegments(workingFile, totalDuration)
+        } else {
+          Debug.log('FFprobe duration unavailable, falling back to size estimation')
+          const effectiveDuration = this.estimateDurationFromSize(metadata.size)
+          return await this.createTimeBasedSegments(workingFile, effectiveDuration)
+        }
       } else {
-        // Fallback to improved byte-based segmentation
+        Debug.log('FFmpeg not available, using byte-based segmentation')
         return await this.createByteBasedSegments(workingFile)
       }
     } catch (error) {
