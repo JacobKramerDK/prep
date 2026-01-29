@@ -26,6 +26,7 @@ interface SettingsSchema {
   openaiApiKey: string | null
   openaiModel: string
   promptTemplate: string | null
+  transcriptionSummaryPrompt: string | null
   googleCalendarRefreshToken: string | null
   googleCalendarTokenExpiry: string | null
   googleCalendarUserEmail: string | null
@@ -421,6 +422,18 @@ export class SettingsManager {
 
   clearPromptTemplate(): void {
     this.store.delete('promptTemplate')
+  }
+
+  getTranscriptionSummaryPrompt(): string | null {
+    return this.store.get('transcriptionSummaryPrompt', null)
+  }
+
+  setTranscriptionSummaryPrompt(template: string): void {
+    this.store.set('transcriptionSummaryPrompt', template)
+  }
+
+  clearTranscriptionSummaryPrompt(): void {
+    this.store.delete('transcriptionSummaryPrompt')
   }
 
   // Obsidian brief folder methods

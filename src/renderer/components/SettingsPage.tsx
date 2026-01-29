@@ -21,6 +21,7 @@ import {
 import type { VaultIndexingProgress } from '../../shared/types/vault-status'
 import { VaultIndexingLoader } from './VaultIndexingLoader'
 import { PromptTemplateEditor } from './PromptTemplateEditor'
+import { SummaryPromptEditor } from './SummaryPromptEditor'
 import { RelevanceWeightSettings } from './RelevanceWeightSettings'
 import { AppleCalendarAuth } from './AppleCalendarAuth'
 import { GoogleCalendarAuth } from './GoogleCalendarAuth'
@@ -794,6 +795,38 @@ export function SettingsPage({ onBack, vaultFileCount }: SettingsPageProps) {
                 </ul>
               </div>
               <PromptTemplateEditor />
+            </div>
+
+            {/* Summary Prompt Template Section */}
+            <div className="bg-surface border border-border rounded-xl p-6 shadow-sm">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="p-2 bg-brand-50 dark:bg-brand-900/20 rounded-lg">
+                  <FileText className="w-5 h-5 text-brand-600" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold text-primary">Summary Prompt Template</h3>
+                  <p className="text-sm text-secondary">
+                    Customize how AI generates meeting summaries from transcriptions
+                  </p>
+                </div>
+              </div>
+              <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+                <ul className="text-sm text-blue-700 dark:text-blue-300 space-y-1">
+                  <li className="flex items-center gap-2">
+                    <span className="w-1 h-1 rounded-full bg-tertiary"></span>
+                    Controls the structure and content of AI-generated meeting summaries
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <span className="w-1 h-1 rounded-full bg-tertiary"></span>
+                    Applied when generating summaries from completed transcriptions
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <span className="w-1 h-1 rounded-full bg-tertiary"></span>
+                    Focus on actionable insights, decisions, and follow-up items
+                  </li>
+                </ul>
+              </div>
+              <SummaryPromptEditor />
             </div>
           </div>
         )}

@@ -24,6 +24,7 @@ import { PlatformDetector } from './services/platform-detector'
 import { Debug } from '../shared/utils/debug'
 import { CalendarSelectionSettings } from '../shared/types/calendar-selection'
 import { BriefGenerationRequest, BriefGenerationStatus } from '../shared/types/brief'
+import { SummaryRequest } from '../shared/types/summary'
 import { contextRetrievalResultToIPC } from '../shared/types/context'
 import { calendarSyncStatusToIPC, calendarSyncResultToIPC } from '../shared/types/calendar-sync'
 import { appleCalendarStatusToIPC } from '../shared/types/apple-calendar'
@@ -72,7 +73,7 @@ const initializeOpenAIService = async (): Promise<void> => {
     }
     
     if (apiKey) {
-      openaiService = new OpenAIService(apiKey)
+      openaiService = new OpenAIService(apiKey, settingsManager)
       // Initialize transcription service when OpenAI service is available
       transcriptionService = new TranscriptionService(audioRecordingService, openaiService)
       await transcriptionService.initialize() // Initialize async components
@@ -653,7 +654,7 @@ ipcMain.handle('settings:setOpenAIApiKey', async (_, apiKey: string | null) => {
   
   // Reinitialize OpenAI service with new key
   if (apiKey) {
-    openaiService = new OpenAIService(apiKey)
+    openaiService = new OpenAIService(apiKey, settingsManager)
     transcriptionService = new TranscriptionService(audioRecordingService, openaiService)
     
     // Set up chunk progress event listener
@@ -673,7 +674,7 @@ ipcMain.handle('settings:validateOpenAIApiKey', async (_, apiKey: string) => {
     return false
   }
   
-  const testService = new OpenAIService(apiKey)
+  const testService = new OpenAIService(apiKey, settingsManager)
   return await testService.validateApiKey(apiKey)
 })
 
@@ -686,7 +687,7 @@ ipcMain.handle('settings:setOpenAIModel', async (_, model: string) => {
 })
 
 ipcMain.handle('settings:getAvailableModels', async (_, apiKey: string) => {
-  const testService = new OpenAIService(apiKey)
+  const testService = new OpenAIService(apiKey, settingsManager)
   return await testService.getAvailableModels(apiKey)
 })
 
@@ -744,6 +745,40 @@ ipcMain.handle('clear-prompt-template', async () => {
   } catch (error) {
     console.error('Failed to clear prompt template:', error)
     throw error
+  }
+})
+
+// Summary generation IPC handlers
+ipcMain.handle('transcription:generateSummary', async (_, request: SummaryRequest, model?: string) => {
+  try {
+    if (!openaiService) {
+      throw new Error('OpenAI service not initialized. Please configure your API key in settings.')
+    }
+    return await openaiService.generateTranscriptionSummary(request, model)
+  } catch (error) {
+    throw error
+  }
+})
+
+ipcMain.handle('get-transcription-summary-prompt', async () => {
+  return settingsManager.getTranscriptionSummaryPrompt()
+})
+
+ipcMain.handle('set-transcription-summary-prompt', async (_, template: string) => {
+  try {
+    settingsManager.setTranscriptionSummaryPrompt(template)
+    return { success: true }
+  } catch (error) {
+    return { success: false, error: (error as Error).message }
+  }
+})
+
+ipcMain.handle('clear-transcription-summary-prompt', async () => {
+  try {
+    settingsManager.clearTranscriptionSummaryPrompt()
+    return { success: true }
+  } catch (error) {
+    return { success: false, error: (error as Error).message }
   }
 })
 

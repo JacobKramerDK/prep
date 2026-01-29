@@ -113,6 +113,11 @@ export interface ElectronAPI {
   getPromptTemplate(): Promise<string | null>
   setPromptTemplate(template: string): Promise<{ success: boolean }>
   clearPromptTemplate(): Promise<{ success: boolean }>
+  // Summary generation
+  generateTranscriptionSummary(request: import('./summary').SummaryRequest, model?: string): Promise<import('./summary').SummaryResult>
+  getTranscriptionSummaryPrompt(): Promise<string | null>
+  setTranscriptionSummaryPrompt(template: string): Promise<{ success: boolean }>
+  clearTranscriptionSummaryPrompt(): Promise<{ success: boolean }>
   // Obsidian brief saving operations
   selectObsidianBriefFolder: () => Promise<string | null>
   getObsidianBriefFolder: () => Promise<string | null>

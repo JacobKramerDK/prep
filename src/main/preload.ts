@@ -2,6 +2,7 @@ import { contextBridge, ipcRenderer } from 'electron'
 import type { ElectronAPI } from '../shared/types/ipc'
 import type { CalendarSelectionSettings } from '../shared/types/calendar-selection'
 import type { BriefGenerationRequest } from '../shared/types/brief'
+import type { SummaryRequest } from '../shared/types/summary'
 import type { RelevanceWeights } from '../shared/types/relevance-weights'
 
 // Expose protected methods that allow the renderer process to use
@@ -242,6 +243,14 @@ const electronAPI: ElectronAPI = {
   getPromptTemplate: () => ipcRenderer.invoke('get-prompt-template'),
   setPromptTemplate: (template: string) => ipcRenderer.invoke('set-prompt-template', template),
   clearPromptTemplate: () => ipcRenderer.invoke('clear-prompt-template'),
+  generateTranscriptionSummary: (request: SummaryRequest, model?: string) => 
+    ipcRenderer.invoke('transcription:generateSummary', request, model),
+  getTranscriptionSummaryPrompt: () => 
+    ipcRenderer.invoke('get-transcription-summary-prompt'),
+  setTranscriptionSummaryPrompt: (template: string) => 
+    ipcRenderer.invoke('set-transcription-summary-prompt', template),
+  clearTranscriptionSummaryPrompt: () => 
+    ipcRenderer.invoke('clear-transcription-summary-prompt'),
   // Obsidian brief saving operations
   selectObsidianBriefFolder: () => ipcRenderer.invoke('obsidian:selectBriefFolder'),
   getObsidianBriefFolder: () => ipcRenderer.invoke('obsidian:getBriefFolder'),

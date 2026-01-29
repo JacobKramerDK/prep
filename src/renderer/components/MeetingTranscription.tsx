@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react'
-import { Mic, Square, Save, FolderOpen, AlertCircle, Clock, Users } from 'lucide-react'
+import { Mic, Square, Save, FolderOpen, AlertCircle, Clock, Users, Sparkles, Loader2 } from 'lucide-react'
+import ReactMarkdown from 'react-markdown'
 import { TranscriptionResult, TranscriptionStatus, ChunkProgress } from '../../shared/types/transcription'
+import { SummaryResult, SummaryStatus } from '../../shared/types/summary'
 import { RecordingTypeSelector } from './RecordingTypeSelector'
 
 interface MeetingTranscriptionProps {
@@ -29,6 +31,8 @@ export const MeetingTranscription: React.FC<MeetingTranscriptionProps> = ({ onNa
   const [currentTime, setCurrentTime] = useState<number>(Date.now())
   const [showRecordingSelector, setShowRecordingSelector] = useState(false)
   const [chunkProgress, setChunkProgress] = useState<ChunkProgress | null>(null)
+  const [isGeneratingSummary, setIsGeneratingSummary] = useState(false)
+  const [summaryResult, setSummaryResult] = useState<SummaryResult | null>(null)
   const intervalRef = useRef<NodeJS.Timeout | null>(null)
 
   const cleanupTimer = () => {
@@ -569,6 +573,29 @@ export const MeetingTranscription: React.FC<MeetingTranscriptionProps> = ({ onNa
     }
   }
 
+  const handleGenerateSummary = async () => {
+    if (!transcriptionResult) return
+
+    try {
+      setIsGeneratingSummary(true)
+      setError(null)
+
+      const summaryRequest = {
+        transcriptionId: transcriptionResult.id,
+        transcriptionText: transcriptionResult.text
+      }
+
+      const result = await window.electronAPI.generateTranscriptionSummary(summaryRequest)
+      setSummaryResult(result)
+      setSaveMessage('Summary generated successfully!')
+    } catch (error) {
+      setError(error instanceof Error ? error.message : 'Failed to generate summary')
+    } finally {
+      setIsGeneratingSummary(false)
+      setTimeout(() => setSaveMessage(null), 3000)
+    }
+  }
+
   const handleSelectFolder = async () => {
     try {
       const folderPath = await window.electronAPI.selectTranscriptFolder()
@@ -689,6 +716,23 @@ export const MeetingTranscription: React.FC<MeetingTranscriptionProps> = ({ onNa
                 </button>
               )}
               <button
+                onClick={handleGenerateSummary}
+                disabled={isGeneratingSummary}
+                className="flex items-center gap-1 px-3 py-1 bg-brand-600 hover:bg-brand-700 disabled:bg-gray-400 text-white text-xs font-medium rounded transition-colors"
+              >
+                {isGeneratingSummary ? (
+                  <>
+                    <Loader2 className="w-3 h-3 animate-spin" />
+                    Summarizing...
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="w-3 h-3" />
+                    Generate Summary
+                  </>
+                )}
+              </button>
+              <button
                 onClick={handleSaveTranscript}
                 disabled={isSaving || !transcriptFolder}
                 className="flex items-center gap-1 px-3 py-1 bg-brand-600 hover:bg-brand-700 disabled:bg-gray-400 text-white text-xs font-medium rounded transition-colors"
@@ -703,6 +747,41 @@ export const MeetingTranscription: React.FC<MeetingTranscriptionProps> = ({ onNa
           </div>
           <div className="mt-2 text-xs text-secondary">
             Model: {transcriptionResult.model} • Created: {transcriptionResult.createdAt.toLocaleString()}
+          </div>
+        </div>
+      )}
+
+      {/* Summary Display */}
+      {summaryResult && (
+        <div className="mb-4">
+          <div className="flex items-center justify-between mb-2">
+            <h4 className="text-sm font-medium text-primary">Meeting Summary</h4>
+          </div>
+          <div className="p-3 bg-surface-hover border border-border rounded-lg text-sm text-primary max-h-60 overflow-y-auto">
+            <div className="prose prose-sm max-w-none">
+              <ReactMarkdown
+                className="text-primary"
+                components={{
+                  h1: ({ children }) => <h1 className="text-lg font-bold mt-4 mb-2 text-primary">{children}</h1>,
+                  h2: ({ children }) => <h2 className="text-base font-semibold mt-4 mb-2 text-primary">{children}</h2>,
+                  h3: ({ children }) => <h3 className="text-sm font-medium mt-3 mb-1 text-primary">{children}</h3>,
+                  p: ({ children }) => <p className="mb-2 text-primary">{children}</p>,
+                  ul: ({ children }) => <ul className="ml-4 mb-2">{children}</ul>,
+                  li: ({ children }) => <li className="text-primary mb-1">{children}</li>,
+                  table: ({ children }) => <div className="overflow-x-auto mb-4"><table className="w-full border-collapse">{children}</table></div>,
+                  thead: ({ children }) => <thead className="border-b border-border">{children}</thead>,
+                  tbody: ({ children }) => <tbody>{children}</tbody>,
+                  tr: ({ children }) => <tr className="border-b border-border">{children}</tr>,
+                  th: ({ children }) => <th className="text-left py-1 px-2 text-xs font-medium text-primary">{children}</th>,
+                  td: ({ children }) => <td className="py-1 px-2 text-xs text-primary">{children}</td>,
+                }}
+              >
+                {summaryResult.content}
+              </ReactMarkdown>
+            </div>
+          </div>
+          <div className="mt-2 text-xs text-secondary">
+            Model: {summaryResult.model} • Generated: {summaryResult.generatedAt.toLocaleString()}
           </div>
         </div>
       )}

@@ -5,6 +5,7 @@ import * as path from 'path'
 import { BriefGenerationRequest, MeetingBrief, BriefGenerationStatus } from '../../shared/types/brief'
 import { Meeting } from '../../shared/types/meeting'
 import { TranscriptionRequest, TranscriptionResult } from '../../shared/types/transcription'
+import { SummaryRequest, SummaryResult, SummaryStatus } from '../../shared/types/summary'
 import { Debug } from '../../shared/utils/debug'
 import { SettingsManager } from './settings-manager'
 
@@ -13,8 +14,10 @@ export class OpenAIService {
   private apiKey: string | null = null
   private validationCache: { key: string; isValid: boolean; timestamp: number } | null = null
   private readonly VALIDATION_CACHE_TTL = 5 * 60 * 1000 // 5 minutes
+  private settingsManager: SettingsManager
 
-  constructor(apiKey?: string) {
+  constructor(apiKey?: string, settingsManager?: SettingsManager) {
+    this.settingsManager = settingsManager || new SettingsManager()
     if (apiKey) {
       this.setApiKey(apiKey)
     }
@@ -185,8 +188,7 @@ export class OpenAIService {
 
   private buildPrompt(request: BriefGenerationRequest, meeting: Meeting): string {
     // Get custom template or use default
-    const settingsManager = new SettingsManager()
-    const customTemplate = settingsManager.getPromptTemplate()
+    const customTemplate = this.settingsManager.getPromptTemplate()
     
     // Clean meeting data to remove Zoom/Teams noise
     const cleanedMeeting = this.cleanMeetingData(meeting)
@@ -509,5 +511,140 @@ export class OpenAIService {
       }
       throw new Error(`Transcription failed: ${error instanceof Error ? error.message : 'Unknown error'}`)
     }
+  }
+
+  async generateTranscriptionSummary(request: SummaryRequest, model: string = 'gpt-4o-mini'): Promise<SummaryResult> {
+    if (!this.isConfigured()) {
+      throw new Error('OpenAI API key not configured. Please set your API key in settings.')
+    }
+
+    // Use cached validation
+    try {
+      const isValid = await this.isApiKeyValidCached()
+      if (!isValid) {
+        throw new Error('Invalid OpenAI API key. Please verify your API key is correct and has sufficient credits.')
+      }
+    } catch (validationError) {
+      if (validationError instanceof Error && validationError.message.includes('Invalid OpenAI API key')) {
+        throw validationError
+      }
+      throw new Error('Failed to validate OpenAI API key. Please check your internet connection and try again.')
+    }
+
+    // Get custom template or use default
+    const customTemplate = this.settingsManager.getTranscriptionSummaryPrompt()
+    
+    const prompt = customTemplate || this.getDefaultSummaryTemplate()
+    
+    try {
+      interface RequestParams {
+        model: string
+        messages: Array<{
+          role: 'system' | 'user' | 'assistant'
+          content: string
+        }>
+        max_tokens?: number
+        max_completion_tokens?: number
+        temperature?: number
+      }
+
+      const requestParams: RequestParams = {
+        model: model,
+        messages: [
+          {
+            role: 'system',
+            content: 'You are a professional meeting summarization assistant. Generate structured, actionable meeting summaries from transcripts. Focus on key insights, decisions, and action items.'
+          },
+          {
+            role: 'user',
+            content: `${prompt}\n\n---\n\nTranscript to summarize:\n\n${request.transcriptionText}`
+          }
+        ]
+      }
+
+      // Use correct parameters based on model capabilities
+      const modelCapabilities = this.getModelCapabilities(model)
+      if (modelCapabilities.usesCompletionTokens) {
+        requestParams.max_completion_tokens = 32000
+      } else {
+        requestParams.max_tokens = 2000
+        requestParams.temperature = 0.7
+      }
+
+      Debug.log('Making OpenAI summary request with params:', {
+        model: requestParams.model,
+        transcriptionLength: request.transcriptionText.length,
+        maxTokens: requestParams.max_tokens || requestParams.max_completion_tokens,
+        temperature: requestParams.temperature,
+        usesCompletionTokens: modelCapabilities.usesCompletionTokens
+      })
+
+      const response = await this.client!.chat.completions.create(requestParams)
+
+      Debug.log('OpenAI summary response received:', {
+        choices: response.choices?.length || 0,
+        firstChoiceContent: response.choices?.[0]?.message?.content ? 'present' : 'missing',
+        usage: response.usage
+      })
+
+      const content = response.choices[0]?.message?.content
+      if (!content) {
+        Debug.error('No content in OpenAI summary response:', {
+          response: JSON.stringify(response, null, 2)
+        })
+        throw new Error('No content generated from OpenAI')
+      }
+
+      return {
+        id: randomUUID(),
+        transcriptionId: request.transcriptionId,
+        content: content.trim(),
+        generatedAt: new Date(),
+        model: model,
+        status: SummaryStatus.SUCCESS
+      }
+    } catch (error) {
+      Debug.error('OpenAI summary API error details:', {
+        error: error instanceof Error ? error.message : 'Unknown error',
+        stack: error instanceof Error ? error.stack : undefined,
+        transcriptionId: request.transcriptionId,
+        model: model
+      })
+
+      const classifiedError = this.classifyOpenAIError(error as Error, model)
+      throw new Error(classifiedError)
+    }
+  }
+
+  private getDefaultSummaryTemplate(): string {
+    return `Analyze this meeting transcript and create a structured summary with the following sections:
+
+## Executive Summary
+Brief 2-3 sentence overview of the meeting's main purpose and outcomes.
+
+## Key Discussion Points
+- Main topics discussed with specific details
+- Important decisions made during the meeting
+- Any concerns or issues raised
+
+## Action Items
+| Task | Owner | Due Date | Priority |
+|------|-------|----------|----------|
+| [Extract specific tasks with owners and deadlines] |
+
+## Decisions Made
+- List all concrete decisions with rationale
+- Include who made the decision and when
+
+## Follow-up Items
+- Next steps identified
+- Future meetings scheduled
+- Items requiring additional discussion
+
+## Key Quotes
+- Important statements or commitments made
+- Direct quotes that capture essential points
+
+Focus on actionable insights and specific details. Avoid generic summaries.`
   }
 }
