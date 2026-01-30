@@ -1,6 +1,6 @@
 # Prep - Meeting Assistant
 
-🚀 **Desktop meeting preparation assistant that connects to Obsidian vaults and calendars** - Built with Electron, React 19, and TypeScript for the Dynamous Kiro Hackathon.
+🚀 **Desktop meeting preparation assistant that connects to Obsidian vaults and calendars** - Built with Electron, React 19, and TypeScript.
 
 ## About This Project
 
@@ -11,7 +11,6 @@
 - **Calendar Integration**: Google Calendar (multi-account) and Apple Calendar support
 - **AI-Powered Meeting Briefs**: Comprehensive preparation summaries using OpenAI
 - **Meeting Transcription**: Real-time audio recording and AI-powered transcription using Whisper
-- **Intelligent Summarization**: Automatic meeting summaries with configurable AI models and storage
 - **Voice Dictation**: Real-time voice input for meeting brief generation
 - **Cross-Platform**: Native desktop experience on macOS and Windows
 
@@ -24,16 +23,17 @@
 #### macOS
 - **Universal Binary**: [Prep-0.2.0-arm64.dmg](https://github.com/JacobKramerDK/prep/releases/latest) (139 MB)
 - **Requirements**: macOS 10.12+ (Sierra or later)
+- **Installation**: Download the .dmg file, open it, and drag Prep to your Applications folder
 
 #### Windows
 - **Installer**: [Prep Setup 0.2.0.exe](https://github.com/JacobKramerDK/prep/releases/latest) (219 MB)
 - **Requirements**: Windows 10 or later (x64)
+- **Installation**: Download and run the .exe installer, follow the setup wizard
 
-### Installation Steps
-
-1. **Download** the appropriate installer for your platform
-2. **Install** by running the downloaded file
-3. **Launch** Prep from Applications (macOS) or Start Menu (Windows)
+### System Requirements
+- **Memory**: 4GB RAM minimum, 8GB recommended
+- **Storage**: 500MB free disk space
+- **Network**: Internet connection required for AI features and calendar sync
 
 ## 🚀 Getting Started
 
@@ -43,36 +43,29 @@
 1. Open Prep and go to **Settings**
 2. Click **"Select Vault Folder"**
 3. Choose your Obsidian vault directory
-4. Wait for indexing to complete (shows progress)
+4. Wait for indexing to complete
 
 #### 2. Set Up Calendar Integration
 
 **Google Calendar:**
-1. **Get Google OAuth Credentials** (Required):
+1. Get Google OAuth Credentials:
    - Visit [Google Cloud Console](https://console.cloud.google.com/)
-   - Create a new project or select existing one
-   - Enable Google Calendar API
+   - Create a project and enable Google Calendar API
    - Create OAuth 2.0 credentials (Desktop application)
    - Add `http://localhost:8080/oauth/callback` as redirect URI
 2. Go to **Settings > Calendar** in Prep
 3. Add your **Client ID** and **Client Secret**
 4. Click **"Connect Google Calendar"**
-5. Sign in and grant permissions
-6. Select which calendars to sync
 
 **Apple Calendar (macOS only):**
 1. Go to **Settings > Calendar**
 2. Click **"Connect Apple Calendar"**
 3. Grant calendar access when prompted
-4. Select calendars to include
 
 #### 3. Configure AI Features
 1. Go to **Settings > AI Integration**
 2. Add your **OpenAI API Key**
-3. Choose transcription model (whisper-1 recommended)
-4. Choose summary model (gpt-4o-mini recommended for cost efficiency)
-5. Set transcript save location (ideally in your vault)
-6. Set summary save location (can be separate from transcripts)
+3. Choose models and save locations
 
 ### Basic Usage
 
@@ -81,46 +74,12 @@
 2. Select an upcoming meeting
 3. Click **"Generate Brief"**
 4. Review AI-generated context and talking points
-5. Save to your vault or copy to clipboard
 
 #### Record and Transcribe Meetings
-1. Go to **Transcription** tab (now positioned at top of Home page)
-2. Choose recording type:
-   - **Microphone Only**: Your voice only
-   - **Full Meeting**: Capture all audio (requires permissions)
-3. Click **"Start Recording"**
-4. Click **"Stop Recording"** when done
-5. Wait for AI transcription and automatic summary generation
-6. Save transcript and summary to your configured vault folders
-
-#### Voice Dictation
-1. In any text field, click the **microphone icon**
-2. Speak your input
-3. Click **stop** when finished
-4. Review and edit the transcribed text
-
-## 🎯 Context Retrieval & Relevance Scoring
-
-### How It Works
-Prep uses **FlexSearch** to intelligently find relevant notes from your Obsidian vault:
-
-1. **Full-Text Indexing**: All markdown files are indexed by title, content, tags, and frontmatter
-2. **Smart Search**: Combines meeting participants, topics, and keywords to find relevant context
-3. **Relevance Scoring**: Each match gets a score based on customizable weights:
-   - **Title Match** (40%): Keywords found in note titles
-   - **Content Match** (30%): Keywords found in note content  
-   - **Tags Match** (20%): Matching tags or categories
-   - **Attendees Match** (10%): Meeting participants mentioned in notes
-   - **FlexSearch Bonus** (20%): Boost for high-quality search matches
-   - **Recency Bonus** (15%): Newer notes get slight preference
-
-### Customizing Relevance Weights
-1. Go to **Settings > Context Retrieval**
-2. Adjust sliders for each scoring factor
-3. Click **"Save Weights"**
-4. **Changes apply immediately** to new meeting brief generations
-
-**Tip**: Increase "Title Match" weight if you use descriptive note titles, or boost "Tags Match" if you rely heavily on tagging.
+1. Go to **Transcription** tab
+2. Choose recording type (microphone only or full meeting)
+3. Click **"Start Recording"** → **"Stop Recording"**
+4. Wait for AI transcription and automatic summary
 
 ## ⚙️ Configuration
 
@@ -151,6 +110,29 @@ Prep uses **FlexSearch** to intelligently find relevant notes from your Obsidian
 4. Add `http://localhost:8080/oauth/callback` as redirect URI
 5. Add Client ID and Secret to Prep Settings > Calendar
 
+### Configuration Options
+
+**AI Model Selection:**
+- **Transcription Models**: whisper-1 (recommended), whisper-1-large
+- **Summary Models**: gpt-4o-mini (cost-effective), gpt-4o (higher quality)
+- **Brief Generation**: gpt-4o (recommended for best context understanding)
+
+**Storage Configuration:**
+- **Vault Location**: Choose your Obsidian vault directory for indexing
+- **Transcript Folder**: Configure where meeting transcripts are saved
+- **Summary Folder**: Set separate location for AI-generated summaries
+- **Brief Storage**: Save meeting briefs to vault or separate folder
+
+**Context Retrieval Settings:**
+- **Relevance Weights**: Customize how context is scored and ranked
+- **Search Depth**: Configure how many vault files to search
+- **Context Limits**: Set maximum context length for AI processing
+
+**Calendar Sync Options:**
+- **Sync Frequency**: Configure how often calendars are refreshed
+- **Calendar Selection**: Choose which calendars to include
+- **Event Filtering**: Set time ranges and event types to sync
+
 ### Optional Enhancements
 
 **FFmpeg** (For long audio recordings):
@@ -175,24 +157,15 @@ choco install ffmpeg
 ### Common Issues
 
 **Calendar Not Syncing:**
-- Check internet connection
-- Re-authenticate in Settings > Calendar
-- Ensure calendar permissions are granted
+- Check internet connection and re-authenticate in Settings
 
 **Transcription Fails:**
 - Verify OpenAI API key is valid
 - Check audio file size (<25MB limit)
-- Ensure microphone permissions granted
 
 **Vault Not Loading:**
 - Verify folder contains .md files
-- Check folder permissions
 - Try re-selecting vault folder
-
-**App Won't Start:**
-- Restart your computer
-- Check antivirus isn't blocking the app
-- Run as administrator (Windows)
 
 ### Getting Help
 
@@ -208,43 +181,7 @@ choco install ffmpeg
 
 ---
 
-## 👨‍💻 Development
-
-## Prerequisites
-
-- **Node.js**: v18+ (for Electron compatibility)
-- **npm**: Latest version
-- **Operating System**: macOS or Windows
-
-## Quick Start
-
-### 1. Clone and Install
-```bash
-git clone <repository-url>
-cd prep
-npm install
-```
-
-### 2. Development Mode
-```bash
-# Start both renderer and main processes
-npm run dev
-
-# Or start individually:
-npm run dev:renderer  # Vite dev server on http://localhost:5173
-npm run dev:main      # Electron main process
-```
-
-### 3. Build for Production
-```bash
-# Build all processes
-npm run build
-
-# Package for distribution
-npm run package
-```
-
-## Meeting Transcription
+## 🎯 Meeting Transcription
 
 **Prep** includes real-time meeting transcription capabilities powered by OpenAI's Whisper API.
 
@@ -253,12 +190,14 @@ npm run package
 1. **Audio Capture**: Records meeting audio through your microphone or system audio (full meeting capture)
 2. **Real-time Processing**: Captures audio in WebM format for optimal Whisper compatibility
 3. **AI Transcription**: Uses OpenAI Whisper models to convert speech to text
-4. **Obsidian Integration**: Saves transcripts as markdown files with frontmatter metadata
+4. **Automatic Summaries**: Generates AI-powered meeting summaries with configurable models
+5. **Obsidian Integration**: Saves transcripts and summaries as markdown files with frontmatter metadata
 
 ### Setup Requirements
 
 - **OpenAI API Key**: Required for Whisper transcription service
 - **Transcript Folder**: Configure where transcripts are saved (ideally within your Obsidian vault)
+- **Summary Folder**: Set separate location for AI-generated summaries (optional)
 - **Browser Permissions**: Microphone access for audio recording
 
 ### Optional: Enhanced Audio Processing
@@ -271,9 +210,6 @@ brew install ffmpeg
 
 # Windows (via Chocolatey)
 choco install ffmpeg
-
-# Linux (Ubuntu/Debian)
-sudo apt update && sudo apt install ffmpeg
 ```
 
 **Benefits of FFmpeg installation:**
@@ -284,33 +220,47 @@ sudo apt update && sudo apt install ffmpeg
 
 **Without FFmpeg**: The app works perfectly for most recordings using fallback processing, but very long recordings (>30 minutes) may take longer to process.
 
-### Current Limitations
-
-- **Audio Quality**: Transcription accuracy depends on audio clarity and speaker proximity
-- **File Size**: Maximum 25MB audio file limit (OpenAI Whisper constraint)
-- **Language Support**: Primarily optimized for English, though Whisper supports multiple languages
-- **Real-time Processing**: Transcription occurs after recording stops, not during the meeting
-- **System Audio**: Full meeting capture requires browser display media permissions (may not work in all environments)
-- **Network Dependency**: Requires internet connection for OpenAI API calls
-
 ### Usage
 
 1. Navigate to the transcription section on the home page
 2. Choose recording type: microphone only or full meeting audio
 3. Click "Start Recording" to begin capture
 4. Click "Stop Recording" to end and automatically transcribe
-5. Review and save transcript to your configured Obsidian folder
+5. Review and save transcript and summary to your configured vault folders
 
-The transcription feature integrates seamlessly with your existing note-taking workflow, creating searchable meeting records alongside your preparation briefs.
+---
 
-## Architecture Overview
+## 🏗️ Architecture Overview
 
 ### Technology Stack
-- **Frontend**: React 19 with TypeScript
-- **Backend**: Node.js with TypeScript (Electron main process)
-- **Desktop Framework**: Electron with security best practices
-- **Build System**: Vite for renderer, TypeScript compiler for main process
-- **Testing**: Playwright for e2e testing
+- **Frontend**: React 19 with TypeScript, Tailwind CSS v4 for styling
+- **Backend**: Node.js with TypeScript for main process logic
+- **Desktop Framework**: Electron v35.7.5 for cross-platform desktop application
+- **Data Storage**: electron-store for local settings and preferences persistence
+- **Calendar Integration**: googleapis for Google Calendar, ical.js for parsing, applescript for macOS
+- **AI Services**: OpenAI API v6.16.0 for meeting brief generation, Whisper API for audio transcription
+- **Audio Processing**: fluent-ffmpeg, ffmpeg-static, node-record-lpcm16 for recording and chunking
+- **Search & Indexing**: flexsearch for vault content indexing and retrieval
+- **File Processing**: gray-matter for markdown frontmatter, react-markdown for rendering
+- **Build System**: electron-builder for packaging and distribution, Vite for renderer bundling
+
+### Core Components
+- **Vault Manager**: Indexes and searches Obsidian markdown files
+- **Calendar Manager**: Processes Google Calendar and Apple Calendar integration
+- **Multi-Account Google Manager**: Handles multiple Google accounts with real-time notifications
+- **Context Engine**: Matches meeting participants/topics with relevant vault content
+- **AI Brief Generator**: Creates meeting preparation documents using OpenAI
+- **Audio Processor**: Handles post-meeting transcription via Whisper API with chunking support
+- **Swift Calendar Manager**: Native macOS calendar access via compiled Swift helper
+- **Notification Service**: Real-time calendar event notifications
+- **Settings Manager**: Persists user preferences and vault/calendar configurations
+
+### Security Features
+- **Context Isolation**: Enabled for all renderer processes
+- **No Node Integration**: Renderer processes cannot access Node.js APIs directly
+- **Secure IPC**: All communication through validated preload scripts
+- **Encrypted Storage**: API keys and sensitive data encrypted using electron-store
+- **CSP Headers**: Content Security Policy for additional protection
 
 ### Project Structure
 ```
@@ -318,158 +268,53 @@ prep/
 ├── src/
 │   ├── main/                 # Electron main process
 │   │   ├── index.ts         # Main entry point
-│   │   └── preload.ts       # Secure IPC preload script
+│   │   ├── preload.ts       # Secure IPC preload script
+│   │   └── services/        # 20 specialized services
 │   ├── renderer/            # React frontend
-│   │   ├── index.tsx        # React entry point
-│   │   ├── App.tsx          # Main React component
-│   │   └── index.html       # HTML template
-│   └── shared/              # Shared types and utilities
-│       └── types/           # TypeScript type definitions
-├── dist/                    # Compiled output
-├── out/                     # Packaged applications
-└── e2e-tests/              # End-to-end tests
+│   │   ├── components/      # 26 React components
+│   │   ├── hooks/          # 7 custom React hooks
+│   │   └── index.tsx       # React entry point
+│   └── shared/             # Shared types and utilities
+│       ├── types/          # 24 TypeScript interfaces
+│       └── utils/          # Shared utilities
+├── native/                 # Swift calendar helper
+├── tests/                  # E2E and helper tests
+├── dist/                   # Compiled output
+└── out/                    # Packaged applications
 ```
 
-### Security Features
-- **Context Isolation**: Enabled for all renderer processes
-- **No Node Integration**: Renderer processes cannot access Node.js APIs directly
-- **Secure IPC**: All communication through validated preload scripts
-- **CSP Headers**: Content Security Policy for additional protection
+---
 
-## Development Workflow
+## 👨💻 Development
+
+### Prerequisites
+
+- **Node.js**: v18+
+- **npm**: Latest version
+
+### Quick Start
+
+```bash
+git clone https://github.com/JacobKramerDK/prep.git
+cd prep
+npm install
+npm run dev
+```
 
 ### Available Scripts
+
 ```bash
-npm run dev              # Start development mode (both processes)
-npm run dev:renderer     # Start Vite dev server only
-npm run dev:main         # Build and run main process only
-npm run build            # Build both processes for production
-npm run build:renderer   # Build renderer process only
-npm run build:main       # Build main process only
-npm run package          # Package application for distribution
-npm run test:e2e:stable  # Run stable E2E tests (recommended)
-npm run test:helpers     # Run helper utility tests
+npm run dev              # Start development mode
+npm run build            # Build for production
+npm run package          # Package for distribution
+npm run test:e2e:stable  # Run E2E tests
 ```
 
-### TypeScript Configuration
-The project uses TypeScript project references for optimal build performance:
-- **Root config**: Coordinates main and renderer builds
-- **Main process**: CommonJS modules for Node.js compatibility
-- **Renderer process**: ESNext modules for modern browser features
-
-### Hot Reload
-- **Renderer**: Automatic hot reload via Vite
-- **Main process**: Manual restart required after changes
-
-## Testing
-
-### Testing
-
-#### Stable E2E Testing
-```bash
-# Run all stable e2e tests (49 tests, 100% pass rate)
-npm run test:e2e:stable
-
-# Install Playwright browsers (first time only)
-npx playwright install
-```
-
-The stable test suite validates:
-- Application startup and window creation
-- Basic IPC communication  
-- Settings management without data persistence
-- UI component rendering and interaction
-- MCP integration functionality
-- Brief generation form handling
-
-#### Helper Utilities Testing
-```bash
-# Run helper utility tests (18 tests)
-npm run test:helpers
-```
-
-Tests the test infrastructure itself:
-- Test data factories
-- Mock managers
-- Security validation helpers
-
-**Note:** All legacy and flaky tests have been removed. The project now maintains a clean, reliable test suite with 100% pass rate.
-
-## Building and Distribution
-
-### Development Build
-```bash
-npm run build
-```
-
-### Package for Distribution
-```bash
-npm run package
-```
-
-Creates platform-specific installers in the `out/` directory:
-- **macOS**: `.dmg` installer (supports both Intel and Apple Silicon)
-- **Windows**: `.exe` NSIS installer
-- **Linux**: `.AppImage` portable application
-
-### Cross-Platform Builds
-The electron-builder configuration supports:
-- **macOS**: Universal binaries (x64 + arm64)
-- **Windows**: x64 architecture
-- **Linux**: x64 AppImage format
-
-## Troubleshooting
-
-### Common Issues
-
-**Build Failures**
-```bash
-# Clear build cache and reinstall
-rm -rf node_modules dist out
-npm install
-npm run build
-```
-
-**Electron Won't Start**
-```bash
-# Ensure main process is built
-npm run build:main
-# Check for TypeScript errors
-npx tsc -p tsconfig.main.json --noEmit
-```
-
-**Vite Dev Server Issues**
-```bash
-# Restart Vite dev server
-npm run dev:renderer
-# Check port 5173 is available
-```
-
-**IPC Communication Errors**
-- Verify preload script is loaded correctly
-- Check contextBridge API exposure
-- Ensure main process IPC handlers are registered
-
-### Performance Optimization
-- Use `npm run build` for production builds (includes optimizations)
-- Enable source maps for debugging: already configured
-- Monitor memory usage in development tools
-
-## Contributing
-
-### Code Standards
-- **TypeScript**: Strict mode enabled, explicit return types
-- **React**: Functional components with hooks, proper prop typing
-- **File Naming**: kebab-case for files, PascalCase for React components
-- **Security**: Follow Electron security best practices
-
-### Development Setup
-1. Fork and clone the repository
-2. Install dependencies: `npm install`
-3. Start development mode: `npm run dev`
-4. Make changes and test thoroughly
-5. Run e2e tests: `npm run test:e2e`
-6. Submit pull request with clear description
+### Technology Stack
+- **Frontend**: React 19 with TypeScript
+- **Backend**: Node.js with TypeScript (Electron main process)
+- **Desktop Framework**: Electron with security best practices
+- **Build System**: Vite for renderer, TypeScript compiler for main process
 
 ## License
 
@@ -479,7 +324,7 @@ MIT License - see LICENSE file for details.
 
 ## Hackathon Context
 
-This project was built for the **Dynamous Kiro Hackathon** (January 5-23, 2026) using Kiro CLI for AI-assisted development. The scaffolding demonstrates modern Electron application architecture with security best practices, TypeScript project references, and comprehensive testing infrastructure.
+This project was built for the **Dynamous Kiro Hackathon** (January 5-30, 2026) using Kiro CLI for AI-assisted development.
 
 ### Development Timeline
 - **Phase 1**: Electron application scaffolding ✅
