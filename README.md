@@ -19,14 +19,14 @@
 
 ### Download Latest Release
 
-**Current Version: v0.1.0**
+**Current Version: v0.2.0**
 
 #### macOS
-- **Universal Binary**: [Prep-0.1.0-arm64.dmg](https://github.com/JacobKramerDK/prep/releases/latest) (139 MB)
+- **Universal Binary**: [Prep-0.2.0-arm64.dmg](https://github.com/JacobKramerDK/prep/releases/latest) (139 MB)
 - **Requirements**: macOS 10.12+ (Sierra or later)
 
 #### Windows
-- **Installer**: [Prep Setup 0.1.0.exe](https://github.com/JacobKramerDK/prep/releases/latest) (219 MB)
+- **Installer**: [Prep Setup 0.2.0.exe](https://github.com/JacobKramerDK/prep/releases/latest) (219 MB)
 - **Requirements**: Windows 10 or later (x64)
 
 ### Installation Steps

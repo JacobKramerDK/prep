@@ -1,3 +1,36 @@
+# Prep v0.2.0 - Enhanced Summarization & Performance 🚀
+
+**Desktop meeting preparation assistant with enhanced AI summarization and improved performance**
+
+## 🎯 What's New in v0.2.0
+
+### Enhanced AI Summarization
+- **Configurable Summary Models**: Choose different AI models for summarization vs transcription
+- **Separate Summary Storage**: Configure dedicated folders for meeting summaries, separate from transcripts  
+- **Automatic Summary Generation**: Summaries are automatically created and saved after transcription
+- **Markdown Formatting**: Summaries saved with proper frontmatter metadata for Obsidian integration
+
+### Improved User Experience
+- **Better Recording Access**: MeetingTranscription component moved above meetings for easier discovery
+- **Performance Boost**: Fixed calendar sync issue that caused 40+ second startup delays
+- **Enhanced Settings**: New AI Configuration options for summary model and folder selection
+
+### Technical Improvements
+- **Calendar Sync Optimization**: Non-blocking calendar operations for faster app startup
+- **Comprehensive Test Coverage**: Added regression tests for new features
+- **Better Error Handling**: Improved error messages and graceful fallbacks
+
+## 📦 Downloads
+
+### macOS
+- **Universal Binary (Intel + Apple Silicon)**: `Prep-0.2.0-arm64.dmg` (139 MB)
+- **Zip Archive**: `Prep-0.2.0-arm64-mac.zip` (134 MB)
+
+### Windows
+- **Installer**: `Prep Setup 0.2.0.exe` (219 MB)
+
+---
+
 # Prep v0.1.0 - First Release 🚀
 
 **Desktop meeting preparation assistant that connects to Obsidian vaults and calendars**
