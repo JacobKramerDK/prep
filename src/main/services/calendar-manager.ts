@@ -137,12 +137,24 @@ export class CalendarManager {
           throw swiftError
         }
         
-        // Merge with existing Google Calendar events
+        // Merge with existing Google Calendar events, filtering out old events
         const existingEvents = await this.settingsManager.getCalendarEvents()
-        const googleEvents = existingEvents.filter(event => event.source === 'google')
-        const mergedEvents = [...googleEvents, ...result.events]
+        const now = new Date()
+        const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
         
-        Debug.log(`[CALENDAR-MANAGER] Merging ${googleEvents.length} Google events with ${result.events.length} Swift events = ${mergedEvents.length} total`)
+        // Keep only recent Google events (last 7 days and future)
+        const recentGoogleEvents = existingEvents.filter(event => 
+          event.source === 'google' && new Date(event.endDate) >= sevenDaysAgo
+        )
+        
+        // Filter new Swift events to same timeframe
+        const recentSwiftEvents = result.events.filter(event => 
+          new Date(event.endDate) >= sevenDaysAgo
+        )
+        
+        const mergedEvents = [...recentGoogleEvents, ...recentSwiftEvents]
+        
+        Debug.log(`[CALENDAR-MANAGER] Filtered and merged ${recentGoogleEvents.length} recent Google events with ${recentSwiftEvents.length} recent Swift events = ${mergedEvents.length} total`)
         
         await this.settingsManager.setCalendarEvents(mergedEvents)
         this.lastExtraction = new Date()
@@ -654,7 +666,19 @@ end tell`
   async getStoredEvents(): Promise<CalendarEvent[]> {
     const events = await this.settingsManager.getCalendarEvents()
     Debug.log(`[CALENDAR-MANAGER] getStoredEvents() found ${events.length} events in settings`)
-    return events
+    
+    // Filter out old events (older than 7 days)
+    const now = new Date()
+    const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
+    const recentEvents = events.filter(event => new Date(event.endDate) >= sevenDaysAgo)
+    
+    // If we filtered out events, update storage
+    if (recentEvents.length !== events.length) {
+      Debug.log(`[CALENDAR-MANAGER] Filtered out ${events.length - recentEvents.length} old events, keeping ${recentEvents.length} recent events`)
+      await this.settingsManager.setCalendarEvents(recentEvents)
+    }
+    
+    return recentEvents
   }
 
   async clearEvents(): Promise<void> {
@@ -921,17 +945,29 @@ end tell`
       
       Debug.log(`[MULTI-GOOGLE] Total events retrieved from all accounts: ${allEvents.length}`)
       
-      // Merge with existing events from other sources
+      // Merge with existing events from other sources, filtering out old events
       const existingEvents = await this.settingsManager.getCalendarEvents()
-      const nonGoogleEvents = existingEvents.filter(event => event.source !== 'google')
-      const mergedEvents = [...nonGoogleEvents, ...allEvents]
+      const now = new Date()
+      const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
+      
+      // Keep only recent non-Google events (last 7 days and future)
+      const recentNonGoogleEvents = existingEvents.filter(event => 
+        event.source !== 'google' && new Date(event.endDate) >= sevenDaysAgo
+      )
+      
+      // Filter new Google events to same timeframe
+      const recentGoogleEvents = allEvents.filter(event => 
+        new Date(event.endDate) >= sevenDaysAgo
+      )
+      
+      const mergedEvents = [...recentNonGoogleEvents, ...recentGoogleEvents]
       
       await this.settingsManager.setCalendarEvents(mergedEvents)
-      Debug.log(`[MULTI-GOOGLE] Successfully merged and stored ${mergedEvents.length} total events`)
+      Debug.log(`[MULTI-GOOGLE] Filtered and merged ${recentNonGoogleEvents.length} recent non-Google events with ${recentGoogleEvents.length} recent Google events = ${mergedEvents.length} total`)
       
       return {
-        events: allEvents,
-        totalEvents: allEvents.length,
+        events: recentGoogleEvents,
+        totalEvents: recentGoogleEvents.length,
         importedAt: new Date(),
         source: 'google',
         errors: errors.length > 0 ? errors : undefined

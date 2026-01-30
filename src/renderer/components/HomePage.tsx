@@ -349,8 +349,13 @@ Location: ${meeting.location || 'No location specified'}`,
         </div>
       )}
 
+      {/* Meeting Transcription Section */}
+      <div className="mt-8">
+        <MeetingTranscription onNavigate={onNavigate} />
+      </div>
+
       {/* Meetings List */}
-      <div className="space-y-6">
+      <div className="mt-12 space-y-6" data-testid="meetings-container">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="p-2 bg-brand-50 dark:bg-brand-900/20 rounded-lg shadow-sm">
@@ -448,11 +453,6 @@ Location: ${meeting.location || 'No location specified'}`,
             ))}
           </div>
         )}
-      </div>
-
-      {/* Meeting Transcription Section */}
-      <div className="mt-8">
-        <MeetingTranscription onNavigate={onNavigate} />
       </div>
 
       {/* Brief Display Modal */}

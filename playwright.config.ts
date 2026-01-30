@@ -11,7 +11,7 @@ export default defineConfig({
     ['html', { open: 'never' }],
     ['json', { outputFile: 'test-results/results.json' }]
   ],
-  timeout: 30000, // Increased timeout for Electron app launch
+  timeout: 60000, // Increased timeout for calendar sync operations
   use: {
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',

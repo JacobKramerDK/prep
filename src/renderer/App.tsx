@@ -125,8 +125,17 @@ export function App() {
     }
   }, [mounted])
 
-  const handleRefreshMeetings = useCallback(() => {
-    loadTodaysMeetings()
+  const handleRefreshMeetings = useCallback(async () => {
+    try {
+      // Trigger fresh Apple Calendar sync and wait for it to complete
+      await window.electronAPI.extractCalendarEvents()
+      // Then load the updated meetings
+      await loadTodaysMeetings()
+    } catch (error) {
+      console.error('Failed to refresh calendar:', error)
+      // Still try to load stored meetings even if sync fails
+      loadTodaysMeetings()
+    }
   }, [loadTodaysMeetings])
 
   const refreshCalendarStatus = useCallback(() => {
@@ -164,12 +173,19 @@ export function App() {
       setCalendarSyncLoading(true)
       setCalendarSyncError(null)
       try {
+        // Start daily sync (handles Google Calendar and scheduling)
         const result = await window.electronAPI.startDailyCalendarSync()
         if (!result.success && result.error) {
           console.warn('Calendar sync failed but continuing:', result.error)
           setCalendarSyncError(result.error)
           // Don't throw - allow app to continue with cached/existing events
         }
+        
+        // Extract Apple Calendar events in background (non-blocking)
+        window.electronAPI.extractCalendarEvents().catch(appleError => {
+          console.warn('Apple Calendar sync failed but continuing:', appleError)
+        })
+        
         const events = await window.electronAPI.getCalendarEvents()
         if (events && events.length > 0) {
           setCalendarError(null)
@@ -278,7 +294,7 @@ export function App() {
   }, [vaultPath, hasVault, mounted, loadTodaysMeetings])
 
   return (
-    <div className="min-h-screen max-w-full overflow-x-hidden bg-background text-primary selection:bg-brand-200 selection:text-brand-900 dark:selection:bg-brand-900 dark:selection:text-brand-100" data-testid="app">
+    <div className="min-h-screen max-w-full overflow-x-hidden bg-background text-primary selection:bg-brand-200 selection:text-brand-900 dark:selection:bg-brand-900 dark:selection:text-brand-100" data-testid={isInitializing ? "app-initializing" : "app-initialized"}>
       {/* Show loading screen during initialization */}
       {isInitializing ? (
         <LoadingScreen 

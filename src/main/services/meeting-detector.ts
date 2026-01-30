@@ -87,8 +87,8 @@ export class MeetingDetector {
       const eventStart = new Date(event.startDate)
       const eventEnd = new Date(event.endDate)
 
-      const isToday = (eventStart >= todayStart && eventStart < todayEnd) ||
-                      (eventStart < todayStart && eventEnd > todayStart)
+      // Only include events that start today, not events that just overlap
+      const isToday = eventStart >= todayStart && eventStart < todayEnd
       
       // Only log first few events to avoid spam
       if (isToday && foundCount < 5) {

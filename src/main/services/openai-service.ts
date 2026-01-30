@@ -513,10 +513,13 @@ export class OpenAIService {
     }
   }
 
-  async generateTranscriptionSummary(request: SummaryRequest, model: string = 'gpt-4o-mini'): Promise<SummaryResult> {
+  async generateTranscriptionSummary(request: SummaryRequest, model?: string): Promise<SummaryResult> {
     if (!this.isConfigured()) {
       throw new Error('OpenAI API key not configured. Please set your API key in settings.')
     }
+
+    // Use provided model or get configured summary model
+    const summaryModel = model || this.settingsManager.getSummaryModel()
 
     // Use cached validation
     try {
@@ -549,7 +552,7 @@ export class OpenAIService {
       }
 
       const requestParams: RequestParams = {
-        model: model,
+        model: summaryModel,
         messages: [
           {
             role: 'system',
@@ -563,7 +566,7 @@ export class OpenAIService {
       }
 
       // Use correct parameters based on model capabilities
-      const modelCapabilities = this.getModelCapabilities(model)
+      const modelCapabilities = this.getModelCapabilities(summaryModel)
       if (modelCapabilities.usesCompletionTokens) {
         requestParams.max_completion_tokens = 32000
       } else {
@@ -595,23 +598,28 @@ export class OpenAIService {
         throw new Error('No content generated from OpenAI')
       }
 
-      return {
+      const summaryResult = {
         id: randomUUID(),
         transcriptionId: request.transcriptionId,
         content: content.trim(),
         generatedAt: new Date(),
-        model: model,
+        model: summaryModel,
         status: SummaryStatus.SUCCESS
       }
+
+      // Save summary to file if folder is configured
+      await this.saveSummaryToFile(summaryResult, request.transcriptionText)
+
+      return summaryResult
     } catch (error) {
       Debug.error('OpenAI summary API error details:', {
         error: error instanceof Error ? error.message : 'Unknown error',
         stack: error instanceof Error ? error.stack : undefined,
         transcriptionId: request.transcriptionId,
-        model: model
+        model: summaryModel
       })
 
-      const classifiedError = this.classifyOpenAIError(error as Error, model)
+      const classifiedError = this.classifyOpenAIError(error as Error, summaryModel)
       throw new Error(classifiedError)
     }
   }
@@ -646,5 +654,67 @@ Brief 2-3 sentence overview of the meeting's main purpose and outcomes.
 - Direct quotes that capture essential points
 
 Focus on actionable insights and specific details. Avoid generic summaries.`
+  }
+
+  private async saveSummaryToFile(summaryResult: SummaryResult, originalTranscript: string): Promise<void> {
+    try {
+      const summaryFolder = this.settingsManager.getSummaryFolder()
+      if (!summaryFolder) {
+        Debug.log('No summary folder configured, skipping file save')
+        return
+      }
+
+      Debug.log('Saving summary to folder:', summaryFolder)
+
+      // Validate path safety
+      const normalizedFolder = path.resolve(summaryFolder)
+      if (!fs.existsSync(normalizedFolder)) {
+        Debug.log('Creating summary folder:', normalizedFolder)
+        fs.mkdirSync(normalizedFolder, { recursive: true })
+      }
+
+      // Generate filename with date and time
+      const dateStr = new Date().toISOString().split('T')[0]
+      const timeStr = new Date().toISOString().split('T')[1].split('.')[0].replace(/:/g, '-')
+      const fileName = `${dateStr}_${timeStr} - Meeting Summary.md`
+      
+      // Handle filename conflicts
+      let filePath = path.join(normalizedFolder, fileName)
+      let counter = 2
+      while (fs.existsSync(filePath)) {
+        const baseName = `${dateStr}_${timeStr} - Meeting Summary (${counter})`
+        filePath = path.join(normalizedFolder, `${baseName}.md`)
+        counter++
+      }
+
+      // Create markdown content with frontmatter
+      const markdownContent = `---
+title: Meeting Summary
+date: ${summaryResult.generatedAt.toISOString()}
+transcription_id: ${summaryResult.transcriptionId}
+summary_id: ${summaryResult.id}
+model: ${summaryResult.model}
+type: meeting_summary
+---
+
+# Meeting Summary
+
+${summaryResult.content}
+
+---
+
+## Original Transcript
+
+${originalTranscript}
+`
+
+      // Write file
+      fs.writeFileSync(filePath, markdownContent, 'utf8')
+      Debug.log('Summary saved successfully to:', filePath)
+
+    } catch (error) {
+      Debug.error('Failed to save summary to file:', error)
+      // Don't throw error - file saving is optional
+    }
   }
 }

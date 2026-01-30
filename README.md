@@ -11,6 +11,7 @@
 - **Calendar Integration**: Google Calendar (multi-account) and Apple Calendar support
 - **AI-Powered Meeting Briefs**: Comprehensive preparation summaries using OpenAI
 - **Meeting Transcription**: Real-time audio recording and AI-powered transcription using Whisper
+- **Intelligent Summarization**: Automatic meeting summaries with configurable AI models and storage
 - **Voice Dictation**: Real-time voice input for meeting brief generation
 - **Cross-Platform**: Native desktop experience on macOS and Windows
 
@@ -69,7 +70,9 @@
 1. Go to **Settings > AI Integration**
 2. Add your **OpenAI API Key**
 3. Choose transcription model (whisper-1 recommended)
-4. Set transcript save location (ideally in your vault)
+4. Choose summary model (gpt-4o-mini recommended for cost efficiency)
+5. Set transcript save location (ideally in your vault)
+6. Set summary save location (can be separate from transcripts)
 
 ### Basic Usage
 
@@ -81,14 +84,14 @@
 5. Save to your vault or copy to clipboard
 
 #### Record and Transcribe Meetings
-1. Go to **Transcription** tab
+1. Go to **Transcription** tab (now positioned at top of Home page)
 2. Choose recording type:
    - **Microphone Only**: Your voice only
    - **Full Meeting**: Capture all audio (requires permissions)
 3. Click **"Start Recording"**
 4. Click **"Stop Recording"** when done
-5. Wait for AI transcription
-6. Save transcript to your vault
+5. Wait for AI transcription and automatic summary generation
+6. Save transcript and summary to your configured vault folders
 
 #### Voice Dictation
 1. In any text field, click the **microphone icon**

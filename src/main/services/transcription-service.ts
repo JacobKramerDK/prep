@@ -10,11 +10,11 @@ import * as fs from 'fs'
 
 export class TranscriptionService extends EventEmitter {
   private audioService: AudioRecordingService
-  private openaiService: OpenAIService
+  private openaiService: OpenAIService | null
   private settingsManager: SettingsManager
   private initialized: boolean = false
 
-  constructor(audioService: AudioRecordingService, openaiService: OpenAIService) {
+  constructor(audioService: AudioRecordingService, openaiService: OpenAIService | null) {
     super()
     this.audioService = audioService
     this.openaiService = openaiService
@@ -80,6 +80,9 @@ export class TranscriptionService extends EventEmitter {
         result = await this.transcribeWithSegmentation(recordingState.filePath, transcriptionModel)
       } else {
         Debug.log('Small file, using direct transcription')
+        if (!this.openaiService) {
+          throw new Error('OpenAI service not available. Please configure your API key in settings.')
+        }
         const transcriptionRequest: TranscriptionRequest = {
           audioFilePath: recordingState.filePath,
           model: transcriptionModel
@@ -117,6 +120,9 @@ export class TranscriptionService extends EventEmitter {
         Debug.log('Large/long file detected, using time-based segmentation')
         return await this.transcribeWithSegmentation(filePath, transcriptionModel)
       } else {
+        if (!this.openaiService) {
+          throw new Error('OpenAI service not available. Please configure your API key in settings.')
+        }
         const transcriptionRequest: TranscriptionRequest = {
           audioFilePath: filePath,
           model: transcriptionModel
@@ -160,6 +166,9 @@ export class TranscriptionService extends EventEmitter {
 
         try {
           const segmentStartTime = Date.now()
+          if (!this.openaiService) {
+            throw new Error('OpenAI service not available. Please configure your API key in settings.')
+          }
           const transcriptionRequest: TranscriptionRequest = {
             audioFilePath: segment.filePath,
             model
@@ -272,6 +281,9 @@ export class TranscriptionService extends EventEmitter {
 
         try {
           const chunkStartTime = Date.now()
+          if (!this.openaiService) {
+            throw new Error('OpenAI service not available. Please configure your API key in settings.')
+          }
           const transcriptionRequest: TranscriptionRequest = {
             audioFilePath: chunk.filePath,
             model

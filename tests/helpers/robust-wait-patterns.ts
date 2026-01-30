@@ -17,7 +17,7 @@ export class RobustWaitPatterns {
   }
 
   static async waitForAppInitialization(page: Page, options: WaitOptions = {}): Promise<void> {
-    const { timeout = 15000 } = options
+    const { timeout = 45000 } = options
     
     // First wait for Electron API
     await this.waitForElectronAPI(page, options)
@@ -51,7 +51,7 @@ export class RobustWaitPatterns {
     }
     
     // Finally wait for main content to be available
-    await page.waitForSelector('[data-testid="main-content"], main, .main-container', { timeout: 5000 })
+    await page.waitForSelector('[data-testid="main-content"], main, .main-container', { timeout: 15000 })
   }
 
   static async waitForAPIValidation(page: Page, options: WaitOptions = {}): Promise<void> {

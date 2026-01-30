@@ -41,6 +41,8 @@ interface SettingsSchema {
   obsidianBriefFolder: string | null
   transcriptionModel: string
   transcriptFolder: string | null
+  summaryModel: string
+  summaryFolder: string | null
 }
 
 export class SettingsManager {
@@ -475,6 +477,26 @@ export class SettingsManager {
 
   setTranscriptFolder(folderPath: string | null): void {
     this.store.set('transcriptFolder', folderPath)
+  }
+
+  getSummaryModel(): string {
+    return this.store.get('summaryModel', 'gpt-4o-mini')
+  }
+
+  setSummaryModel(model: string): void {
+    // Validate model before setting - reuse existing validation
+    if (!this.isValidModelName(model)) {
+      throw new Error(`Invalid model name: ${model}`)
+    }
+    this.store.set('summaryModel', model)
+  }
+
+  getSummaryFolder(): string | null {
+    return this.store.get('summaryFolder', null)
+  }
+
+  setSummaryFolder(folderPath: string | null): void {
+    this.store.set('summaryFolder', folderPath)
   }
 
   // Recording file cleanup settings

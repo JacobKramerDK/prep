@@ -272,6 +272,12 @@ const electronAPI: ElectronAPI = {
   getTranscriptFolder: () => ipcRenderer.invoke('transcription:getFolder'),
   setTranscriptFolder: (folderPath: string | null) => ipcRenderer.invoke('transcription:setFolder', folderPath),
   selectTranscriptFolder: () => ipcRenderer.invoke('transcription:selectFolder'),
+  // Summary settings
+  getSummaryModel: () => ipcRenderer.invoke('summary:getModel'),
+  setSummaryModel: (model: string) => ipcRenderer.invoke('summary:setModel', model),
+  getSummaryFolder: () => ipcRenderer.invoke('summary:getFolder'),
+  setSummaryFolder: (folderPath: string | null) => ipcRenderer.invoke('summary:setFolder', folderPath),
+  selectSummaryFolder: () => ipcRenderer.invoke('summary:selectFolder'),
   saveTranscriptToObsidian: (transcriptContent: string, meetingTitle: string, transcriptionId: string) => 
     ipcRenderer.invoke('transcription:saveToObsidian', transcriptContent, meetingTitle, transcriptionId),
   // Recording file cleanup settings

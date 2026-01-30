@@ -51,6 +51,8 @@ export function SettingsPage({ onBack, vaultFileCount }: SettingsPageProps) {
   const [vaultIndexingProgress, setVaultIndexingProgress] = useState<VaultIndexingProgress | null>(null)
   const [transcriptionModel, setTranscriptionModel] = useState('whisper-1')
   const [transcriptFolder, setTranscriptFolder] = useState<string | null>(null)
+  const [summaryModel, setSummaryModel] = useState('gpt-4o-mini')
+  const [summaryFolder, setSummaryFolder] = useState<string | null>(null)
   const [cleanupRecordingFiles, setCleanupRecordingFiles] = useState(true)
 
   useEffect(() => {
@@ -63,10 +65,12 @@ export function SettingsPage({ onBack, vaultFileCount }: SettingsPageProps) {
           window.electronAPI.getDebugMode(),
           window.electronAPI.getTranscriptionModel(),
           window.electronAPI.getTranscriptFolder(),
+          window.electronAPI.getSummaryModel(),
+          window.electronAPI.getSummaryFolder(),
           window.electronAPI.getCleanupRecordingFiles()
         ])
         
-        const [apiKeyResult, modelResult, briefFolderResult, debugModeResult, transcriptionModelResult, transcriptFolderResult, cleanupResult] = results
+        const [apiKeyResult, modelResult, briefFolderResult, debugModeResult, transcriptionModelResult, transcriptFolderResult, summaryModelResult, summaryFolderResult, cleanupResult] = results
         
         if (apiKeyResult.status === 'fulfilled' && apiKeyResult.value) {
           setApiKey(apiKeyResult.value)
@@ -101,6 +105,14 @@ export function SettingsPage({ onBack, vaultFileCount }: SettingsPageProps) {
         
         if (transcriptFolderResult.status === 'fulfilled' && transcriptFolderResult.value) {
           setTranscriptFolder(transcriptFolderResult.value)
+        }
+        
+        if (summaryModelResult.status === 'fulfilled' && summaryModelResult.value) {
+          setSummaryModel(summaryModelResult.value)
+        }
+        
+        if (summaryFolderResult.status === 'fulfilled' && summaryFolderResult.value) {
+          setSummaryFolder(summaryFolderResult.value)
         }
         
         if (cleanupResult.status === 'fulfilled') {
@@ -184,6 +196,7 @@ export function SettingsPage({ onBack, vaultFileCount }: SettingsPageProps) {
         window.electronAPI.setOpenAIApiKey(apiKey.trim() || null),
         window.electronAPI.setOpenAIModel(selectedModel),
         window.electronAPI.setTranscriptionModel(transcriptionModel),
+        window.electronAPI.setSummaryModel(summaryModel),
         window.electronAPI.setCleanupRecordingFiles(cleanupRecordingFiles)
       ])
       setSaveMessage('Settings saved successfully!')
@@ -277,6 +290,18 @@ export function SettingsPage({ onBack, vaultFileCount }: SettingsPageProps) {
       }
     } catch (error) {
       console.error('Failed to select transcript folder:', error)
+    }
+  }
+
+  const handleSelectSummaryFolder = async () => {
+    try {
+      const folderPath = await window.electronAPI.selectSummaryFolder()
+      if (folderPath) {
+        await window.electronAPI.setSummaryFolder(folderPath)
+        setSummaryFolder(folderPath)
+      }
+    } catch (error) {
+      console.error('Failed to select summary folder:', error)
     }
   }
 
@@ -493,6 +518,39 @@ export function SettingsPage({ onBack, vaultFileCount }: SettingsPageProps) {
 
               <div>
                 <label className="block text-sm font-medium text-primary mb-2">
+                  Summary Model
+                </label>
+                <select
+                  value={summaryModel}
+                  onChange={(e) => setSummaryModel(e.target.value)}
+                  disabled={isLoadingModels}
+                  className="w-full h-11 px-4 rounded-lg border border-border bg-background text-primary focus:ring-2 focus:ring-brand-500 focus:border-transparent transition-all appearance-none disabled:opacity-50"
+                  data-testid="summary-model-select"
+                >
+                  {isLoadingModels ? (
+                    <option>Loading models...</option>
+                  ) : (
+                    availableModels.map(model => (
+                      <option key={model} value={model}>
+                        {model === 'gpt-4-turbo' ? 'GPT-4 Turbo' : 
+                         model === 'gpt-4' ? 'GPT-4' :
+                         model === 'gpt-3.5-turbo' ? 'GPT-3.5 Turbo' : 
+                         model === 'o1-preview' ? 'O1 Preview' :
+                         model === 'o1-mini' ? 'O1 Mini' :
+                         model === 'gpt-4o' ? 'GPT-4o' :
+                         model === 'gpt-4o-mini' ? 'GPT-4o Mini (Recommended)' :
+                         model}
+                      </option>
+                    ))
+                  )}
+                </select>
+                <p className="text-xs text-secondary mt-2">
+                  Choose the AI model for generating meeting summaries from transcripts. GPT-4o Mini offers the best balance of quality and cost.
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-primary mb-2">
                   Transcript Folder
                 </label>
                 <div className="flex items-center gap-3">
@@ -511,6 +569,29 @@ export function SettingsPage({ onBack, vaultFileCount }: SettingsPageProps) {
                 </div>
                 <p className="text-xs text-secondary mt-2">
                   Choose where to save meeting transcripts. Transcripts will be saved as Markdown files with metadata.
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-primary mb-2">
+                  Summary Folder
+                </label>
+                <div className="flex items-center gap-3">
+                  <div className="flex-1 h-11 px-4 rounded-lg border border-border bg-surface text-primary flex items-center">
+                    <span className="text-sm truncate">
+                      {summaryFolder || 'No folder selected'}
+                    </span>
+                  </div>
+                  <button
+                    onClick={handleSelectSummaryFolder}
+                    className="flex items-center gap-2 px-4 py-2.5 bg-surface border border-border hover:bg-surface-hover text-secondary hover:text-primary rounded-lg transition-colors"
+                  >
+                    <FolderOpen className="w-4 h-4" />
+                    Select
+                  </button>
+                </div>
+                <p className="text-xs text-secondary mt-2">
+                  Choose where to save meeting summaries. Summaries will be saved as Markdown files with structured content.
                 </p>
               </div>
 

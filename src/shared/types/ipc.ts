@@ -137,6 +137,12 @@ export interface ElectronAPI {
   getTranscriptFolder: () => Promise<string | null>
   setTranscriptFolder: (folderPath: string | null) => Promise<void>
   selectTranscriptFolder: () => Promise<string | null>
+  // Summary settings
+  getSummaryModel: () => Promise<string>
+  setSummaryModel: (model: string) => Promise<void>
+  getSummaryFolder: () => Promise<string | null>
+  setSummaryFolder: (folderPath: string | null) => Promise<void>
+  selectSummaryFolder: () => Promise<string | null>
   saveTranscriptToObsidian: (transcriptContent: string, meetingTitle: string, transcriptionId: string) => Promise<import('./transcription').SaveTranscriptResult>
   // Recording file cleanup settings
   getCleanupRecordingFiles: () => Promise<boolean>

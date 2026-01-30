@@ -74,17 +74,18 @@ const initializeOpenAIService = async (): Promise<void> => {
     
     if (apiKey) {
       openaiService = new OpenAIService(apiKey, settingsManager)
-      // Initialize transcription service when OpenAI service is available
-      transcriptionService = new TranscriptionService(audioRecordingService, openaiService)
-      await transcriptionService.initialize() // Initialize async components
-      
-      // Set up chunk progress event listener
-      transcriptionService.on('chunkProgress', (progress) => {
-        if (mainWindow) {
-          mainWindow.webContents.send('transcription:chunkProgress', progress)
-        }
-      })
     }
+    
+    // Always initialize transcription service - it can work without OpenAI for recording
+    transcriptionService = new TranscriptionService(audioRecordingService, openaiService)
+    await transcriptionService.initialize() // Initialize async components
+    
+    // Set up chunk progress event listener
+    transcriptionService.on('chunkProgress', (progress) => {
+      if (mainWindow) {
+        mainWindow.webContents.send('transcription:chunkProgress', progress)
+      }
+    })
   } catch (error) {
     console.error('Failed to initialize OpenAI service:', error instanceof Error ? error.message : 'Unknown error')
     // Continue without OpenAI service - user can configure it later in settings
@@ -1114,6 +1115,42 @@ ipcMain.handle('transcription:getFolder', async () => {
 
 ipcMain.handle('transcription:setFolder', async (_, folderPath: string | null) => {
   return settingsManager.setTranscriptFolder(folderPath)
+})
+
+// Summary settings IPC handlers
+ipcMain.handle('summary:getModel', async () => {
+  return settingsManager.getSummaryModel()
+})
+
+ipcMain.handle('summary:setModel', async (_, model: string) => {
+  return settingsManager.setSummaryModel(model)
+})
+
+ipcMain.handle('summary:getFolder', async () => {
+  return settingsManager.getSummaryFolder()
+})
+
+ipcMain.handle('summary:setFolder', async (_, folderPath: string | null) => {
+  return settingsManager.setSummaryFolder(folderPath)
+})
+
+ipcMain.handle('summary:selectFolder', async () => {
+  const currentVaultPath = await settingsManager.getVaultPath()
+  const defaultPath = currentVaultPath || (process.platform === 'darwin' 
+    ? path.join(os.homedir(), 'Documents')
+    : os.homedir())
+    
+  const result = await dialog.showOpenDialog({
+    properties: ['openDirectory'],
+    title: 'Select Summary Folder',
+    defaultPath
+  })
+  
+  if (result.canceled || result.filePaths.length === 0) {
+    return null
+  }
+  
+  return result.filePaths[0]
 })
 
 // Recording file cleanup settings

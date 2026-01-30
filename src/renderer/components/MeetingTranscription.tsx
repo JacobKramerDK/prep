@@ -573,6 +573,31 @@ export const MeetingTranscription: React.FC<MeetingTranscriptionProps> = ({ onNa
     }
   }
 
+  const handleSaveSummary = async () => {
+    if (!summaryResult || !transcriptionResult) return
+
+    try {
+      setIsSaving(true)
+      setSaveMessage(null)
+      setError(null)
+
+      const summaryFolder = await window.electronAPI.getSummaryFolder()
+      if (!summaryFolder) {
+        setError('No summary folder configured. Please set a summary folder in Settings.')
+        return
+      }
+
+      // The summary is already saved automatically by the OpenAI service
+      // Just show confirmation message
+      setSaveMessage('Summary saved successfully!')
+    } catch (error) {
+      setError(error instanceof Error ? error.message : 'Failed to save summary')
+    } finally {
+      setIsSaving(false)
+      setTimeout(() => setSaveMessage(null), 5000)
+    }
+  }
+
   const handleGenerateSummary = async () => {
     if (!transcriptionResult) return
 
@@ -756,6 +781,16 @@ export const MeetingTranscription: React.FC<MeetingTranscriptionProps> = ({ onNa
         <div className="mb-4">
           <div className="flex items-center justify-between mb-2">
             <h4 className="text-sm font-medium text-primary">Meeting Summary</h4>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={handleSaveSummary}
+                disabled={isSaving}
+                className="flex items-center gap-1 px-3 py-1 bg-brand-600 hover:bg-brand-700 disabled:bg-gray-400 text-white text-xs font-medium rounded transition-colors"
+              >
+                <Save className="w-3 h-3" />
+                {isSaving ? 'Saving...' : 'Save Summary'}
+              </button>
+            </div>
           </div>
           <div className="p-3 bg-surface-hover border border-border rounded-lg text-sm text-primary max-h-60 overflow-y-auto">
             <div className="prose prose-sm max-w-none">
